@@ -1,0 +1,3 @@
+[submodule "radar"]
+	path = radar
+	url = https://github.com/Adrien-radr/radar.git
