@@ -1,5 +1,8 @@
 #include "src/device.h"
+#include "src/fluid.h"
 #include "imgui/imgui.h"
+
+    static vec3f translations[100];
 
 class Scene2D : public Scene
 {
@@ -8,7 +11,7 @@ public:
 	{
 		if ( !Scene::Init() )
 			return false;
-		const Device &device = GetDevice();
+		Device &device = GetDevice();
 		const Config &config = device.GetConfig();
 
 		camera.hasMoved = false;
@@ -32,6 +35,65 @@ public:
 
 		// initialize shader matrices
 		UpdateView();
+
+
+		// Create shader for instancing
+		using namespace Render;
+		Shader::Desc sd_inst;
+		sd_inst.vertex_file = "../data/shaders/2d_billboard_inst_vert.glsl";
+		sd_inst.fragment_file = "../data/shaders/2d_billboard_inst_frag.glsl";
+		sd_inst.projType = Shader::PROJECTION_2D;
+
+		sd_inst.AddAttrib("in_position", 0);
+		sd_inst.AddAttrib("in_color", 5);
+		sd_inst.AddAttrib("in_offset", 6);
+		sd_inst.AddUniform("ProjMatrix", Shader::UNIFORM_PROJMATRIX);
+
+		shader_inst = Shader::Build(sd_inst);
+		if(shader_inst < 0)
+		{
+		    LogErr("Error loading instancing shader.");
+		    return false;
+		}
+
+		// create quad mesh
+		f32 positions[] = {
+			-0.05f, 0.05f, 0.f, // topleft
+			-0.05f, -0.05f, 0.f, // botleft
+			0.05f, -0.05f, 0.f, // botright
+			0.05f, 0.05f, 0.f, // topright
+		};
+		f32 colors[] = {
+			1.f, 0.f, 0.f, 1.f,
+			1.f, 1.f, 0.f, 1.f,
+			0.f, 1.f, 1.f, 1.f,
+			0.f, 0.f, 1.f, 1.f
+		};
+		u32 indices[] = { 0, 1, 2, 0, 2, 3 };
+
+		int ww = config.windowSize.x;
+		int wh = config.windowSize.y;
+
+		// init translations array
+		{
+			int idx = 0;
+			f32 off = 0.05f;
+			for (int y = 0; y < 10; y += 1)
+			{
+				for (int x = 0; x < 10; x += 1)
+				{
+					vec3f translation;
+					translation.x = ww * (f32(x) / 10.f + off);
+					translation.y = wh * (f32(y) / 10.f + off);
+					translation.z = 0.f;
+					translations[idx++] = translation;
+				}
+			}
+		}
+
+		Mesh::Desc md("InstQuad", false, 6, indices, 4, positions, nullptr, nullptr, nullptr, nullptr, colors);
+		md.SetAdditionalData((f32 *)translations, GL_FLOAT, 3, 100);
+		mesh_inst = Mesh::Build(md);
 
 		return true;
 	}
@@ -94,8 +156,14 @@ public:
 
 	void Render() override
 	{
+		const Device &device = GetDevice();
+
 		Render::ClearBuffers();
 
+		// Draw instanced shit
+		Render::Shader::Bind(shader_inst);
+		Render::Mesh::RenderInstanced(mesh_inst);
+		
 		// Draw Skybox
 		glDisable( GL_CULL_FACE );
 		glDepthFunc( GL_LEQUAL );
@@ -103,6 +171,7 @@ public:
 		Render::Mesh::Render( skyboxMesh );
 		glDepthFunc( GL_LESS );
 		glEnable( GL_CULL_FACE );
+
 	}
 
 	void UpdateView() override
@@ -115,6 +184,8 @@ public:
 
 private:
 	Camera camera;
+	Render::Shader::Handle shader_inst;
+	Render::Mesh::Handle mesh_inst;
 };
 
 Scene2D scene;
