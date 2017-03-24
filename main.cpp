@@ -2,7 +2,7 @@
 #include "src/fluid.h"
 #include "imgui/imgui.h"
 
-    static vec3f translations[100];
+static vec3f translations[100];
 
 class Scene2D : public Scene
 {
