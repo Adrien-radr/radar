@@ -1,6 +1,10 @@
 #ifndef RADAR_H
 #define RADAR_H
 
+#define RADAR_MAJOR 0
+#define RADAR_MINOR 0
+#define RADAR_PATCH 1
+
 // Platform
 #if defined(_WIN32) || defined(_WIN64)
 #   define RADAR_WIN32

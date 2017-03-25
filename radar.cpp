@@ -1,8 +1,18 @@
-#include "sun.h"
 #include <stdio.h>
 #include <windows.h>
 #include <string.h>
 
+#include "GLFW/glfw3.h"
+
+#include "radar.h"
+#include "sun.h"
+
+struct game_context
+{
+    GLFWwindow *Window;
+
+    bool IsValid;
+};
 
 struct game_code
 {
@@ -12,7 +22,6 @@ struct game_code
 
     // DLL Dynamic Entry Points
     game_func *func1;
-
 };
 
 // Note() : expect a MAX_PATH string as Path
@@ -86,6 +95,46 @@ bool CheckNewDllVersion(game_code Game, char *DllPath)
     return false;
 }
 
+game_context InitContext()
+{
+    game_context Context = {};
+
+    if(glfwInit())
+    {
+        char WindowName[64];
+        snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
+
+        Context.Window = glfwCreateWindow(960, 540, WindowName, NULL, NULL);
+        if(Context.Window)
+        {
+            glfwMakeContextCurrent(Context.Window);
+
+
+            Context.IsValid = true;
+        }
+        else
+        {
+            printf("Couldn't create GLFW Window.\n");
+        }
+    }
+    else
+    {
+        printf("Couldn't init GLFW3.\n");
+    }
+
+    return Context;
+}
+
+void DestroyContext(game_context *Context)
+{
+    if(Context->Window)
+    {
+        glfwDestroyWindow(Context->Window);
+    }
+    glfwTerminate();
+}
+
+
 int main()
 {
     const char DllName[] = "sun.dll";
@@ -102,21 +151,26 @@ int main()
     strcat(DllDstPath, DllDynamicCopyName);
 
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
+    game_context Context = InitContext();
 
-    while(true)
+    if(Context.IsValid)
     {
-        if(CheckNewDllVersion(Game, DllSrcPath))
+        while(true)
         {
-            UnloadGameCode(&Game);
-            game = LoadGameCode(DllSrcPath, DllDstPath);
+            if(CheckNewDllVersion(Game, DllSrcPath))
+            {
+                UnloadGameCode(&Game);
+                Game = LoadGameCode(DllSrcPath, DllDstPath);
+            }
+
+            int r = Game.func1(12, 22);
+            printf("%d\n", r);
+
+            Sleep(1000);
         }
-
-        int r = Game.func1(12, 22);
-        printf("%d\n", r);
-
-        Sleep(1000);
     }
 
+    DestroyContext(&Context);
     UnloadGameCode(&Game);
 
     return 0;

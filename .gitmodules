@@ -1,3 +1,6 @@
 [submodule "radar"]
 	path = radar
 	url = https://github.com/Adrien-radr/radar.git
+[submodule "ext/glfw"]
+	path = ext/glfw
+	url = https://github.com/glfw/glfw.git

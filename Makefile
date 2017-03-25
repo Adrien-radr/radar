@@ -1,3 +1,6 @@
+GLFW_INCLUDE=ext/glfw/include
+GLFW_LIB=ext/glfw/build/src/
+
 CC = g++
 CFLAGS = -g -Wall -Wextra -D_DEBUG -Wno-unused-variable -Wno-unused-parameter
 TARGET = bin/radar
@@ -13,4 +16,4 @@ lib:
 	$(CC) -shared sun.cpp $(CFLAGS) -o bin/sun.dll
 
 radar:
-	$(CC) $(CFLAGS) $(SRCS) -Lbin -lsun -o $(TARGET)
+	$(CC) $(CFLAGS) $(SRCS) -I$(GLFW_INCLUDE) -L$(GLFW_LIB) -lglfw3 -lgdi32 -o $(TARGET)
