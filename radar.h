@@ -19,4 +19,14 @@ typedef double real64;
 typedef unsigned int uint32;
 typedef int int32;
 
+// NOTE - struct passed to the Game
+// Contains all frame input each frame needed by game
+struct game_input
+{
+    real64 dTime;
+
+    bool KeyReleased;
+    bool KeyPressed;
+    bool KeyDown;
+};
 #endif

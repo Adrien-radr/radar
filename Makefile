@@ -1,4 +1,4 @@
-.PHONY: lib radar clean
+.PHONY: tags lib radar clean
 
 all: lib radar
 
@@ -25,6 +25,9 @@ $(GLEW_TARGET):
 LIB_TARGET=bin/sun.dll
 LIB_SRCS=\
 		 sun.cpp
+LIB_INCLUDES=\
+			 sun.h
+
 lib:
 	$(CC) -shared $(LIB_SRCS) $(CFLAGS) -o $(LIB_TARGET)
 
@@ -33,6 +36,8 @@ lib:
 TARGET=bin/radar
 SRCS=\
 	 radar.cpp
+INCLUDES=\
+		 radar.h
 
 radar: $(GLEW_TARGET)
 	$(CC) $(CFLAGS) $(SRCS) $(GLEW_TARGET) -I$(GLFW_INCLUDE) -L$(GLFW_LIB) -lglfw3 -lopengl32 -lgdi32 -o $(TARGET)
@@ -42,3 +47,6 @@ radar: $(GLEW_TARGET)
 clean:
 	rm $(TARGET)
 	rm $(LIB_TARGET)
+
+tags:
+	ctags --c++-kinds=+p --fields=+iaS --extra=+q $(SRCS) $(LIB_SRCS) $(INCLUDES) $(LIB_INCLUDES)

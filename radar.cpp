@@ -26,12 +26,7 @@ struct game_code
     game_update_function *GameUpdate;
 };
 
-struct game_input
-{
-    real64 dTime;
-};
-
-// Note() : expect a MAX_PATH string as Path
+// NOTE : expect a MAX_PATH string as Path
 void GetExecutablePath(char *Path)
 {
     HMODULE ExecHandle = GetModuleHandleW(NULL);
@@ -107,12 +102,40 @@ bool CheckNewDllVersion(game_code Game, char *DllPath)
     return false;
 }
 
+bool FramePressedKeys[350] = {};
+bool FrameReleasedKeys[350] = {};
+bool FrameDownKeys[350] = {};
+
 void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
 {
-    if(Key == GLFW_KEY_ESCAPE)
+    if(Action == GLFW_PRESS)
     {
-        printf("Escape\n");
+        FramePressedKeys[Key] = true;
+        FrameDownKeys[Key] = true;
+        FrameReleasedKeys[Key] = false;
     }
+    if(Action == GLFW_RELEASE)
+    {
+        FramePressedKeys[Key] = false;
+        FrameDownKeys[Key] = false;
+        FrameReleasedKeys[Key] = true;
+    }
+}
+
+void GetFrameInput(game_context *Context, game_input *Input)
+{
+    memset(FrameReleasedKeys, 0, sizeof(FrameReleasedKeys));
+    memset(FramePressedKeys, 0, sizeof(FramePressedKeys));
+
+    glfwPollEvents();
+
+    if(FrameReleasedKeys[GLFW_KEY_ESCAPE] == true)
+        Context->IsRunning = false;
+
+    // NOTE - Temp Test
+    Input->KeyPressed = FramePressedKeys[GLFW_KEY_ESCAPE];
+    Input->KeyDown = FrameDownKeys[GLFW_KEY_ESCAPE];
+    Input->KeyReleased = FrameReleasedKeys[GLFW_KEY_ESCAPE];
 }
 
 game_context InitContext()
@@ -127,9 +150,12 @@ game_context InitContext()
         Context.Window = glfwCreateWindow(960, 540, WindowName, NULL, NULL);
         if(Context.Window)
         {
+            // TODO - Only in windowed mode for debug
+		    glfwSetWindowPos( Context.Window, 800, 400 );
+            // TODO - configurable VSYNC
+            glfwSwapInterval(0);
             glfwMakeContextCurrent(Context.Window);
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
-
 
             // NOTE - IsRunning might be better elsewhere ?
             Context.IsRunning = true;
@@ -157,8 +183,6 @@ void DestroyContext(game_context *Context)
     glfwTerminate();
 }
 
-
-
 int main()
 {
     const char DllName[] = "sun.dll";
@@ -184,10 +208,9 @@ int main()
         int GameRefreshHz = 60;
         real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
 
-        real32 www;
         while(Context.IsRunning)
         {
-            glfwPollEvents();
+            GetFrameInput(&Context, &Input);        
 
             // NOTE - Fixed Timestep ?
 #if 0
@@ -204,7 +227,7 @@ int main()
                 printf("Missed frame rate, dt=%g\n", Input.dTime);
             }
 #else
-            Sleep(300);
+            //Sleep(16);
 #endif
 
             CurrentTime = glfwGetTime();
@@ -219,13 +242,13 @@ int main()
                 Game = LoadGameCode(DllSrcPath, DllDstPath);
             }
 
-            int r = Game.GameUpdate(12, 22);
-            printf("%d\n", r);
 
             if(glfwWindowShouldClose(Context.Window))
             {
                 Context.IsRunning = false;
             }
+
+            Game.GameUpdate(&Input);
 
             glfwSwapBuffers(Context.Window);
         }
