@@ -14,18 +14,9 @@
 #   error "Unknown OS. Only Windows & Linux supported for now."
 #endif
 
-
-#ifdef RADAR_WIN32
-// library loading
-#define dll_export __declspec(dllexport)
-#endif
-
-#ifdef RADAR_UNIX
-#define dll_export 
-#endif
-
-
-dll_export
-int TestAdd(int a, int b);
+typedef float real32;
+typedef double real64;
+typedef unsigned int uint32;
+typedef int int32;
 
 #endif

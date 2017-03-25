@@ -1,9 +1,9 @@
 #ifndef SUN_H
 #define SUN_H
 
-#define FUNC1(name) int name(int a, int b)
-typedef FUNC1(game_func);
-FUNC1(Func1Stub)
+#define GAMEUPDATE(name) int name(int a, int b)
+typedef GAMEUPDATE(game_update_function);
+GAMEUPDATE(GameUpdateStub)
 {
     return 0;
 }

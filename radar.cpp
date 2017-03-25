@@ -10,7 +10,9 @@
 struct game_context
 {
     GLFWwindow *Window;
+    real64 EngineTime;
 
+    bool IsRunning;
     bool IsValid;
 };
 
@@ -21,7 +23,12 @@ struct game_code
     bool IsValid;
 
     // DLL Dynamic Entry Points
-    game_func *func1;
+    game_update_function *GameUpdate;
+};
+
+struct game_input
+{
+    real64 dTime;
 };
 
 // Note() : expect a MAX_PATH string as Path
@@ -56,7 +63,7 @@ game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
 {
     game_code result = {};
 
-    result.func1 = Func1Stub;
+    result.GameUpdate = GameUpdateStub;
 
     CopyFileA(DllSrcPath, DllDstPath, FALSE);
 
@@ -66,22 +73,27 @@ game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
     {
         result.GameDLLLastWriteTime = FindLastWriteTime(DllSrcPath);
 
-        result.func1 = (game_func*)GetProcAddress(result.GameDLL, "GameFunc");
-        result.IsValid = (result.func1 != NULL);
+        result.GameUpdate = (game_update_function*)GetProcAddress(result.GameDLL, "GameUpdate");
+        result.IsValid = (result.GameUpdate != NULL);
     }
 
     return result;
 }
 
-void UnloadGameCode(game_code *code)
+void UnloadGameCode(game_code *Code, char *DuplicateDLL)
 {
-    if(code->GameDLL)
+    if(Code->GameDLL)
     {
-        FreeLibrary(code->GameDLL); 
+        FreeLibrary(Code->GameDLL); 
+
+        if(DuplicateDLL)
+        {
+            DeleteFileA(DuplicateDLL);
+        }
     }
 
-    code->IsValid = false;
-    code->func1 = Func1Stub;
+    Code->IsValid = false;
+    Code->GameUpdate = GameUpdateStub;
 }
 
 bool CheckNewDllVersion(game_code Game, char *DllPath)
@@ -93,6 +105,14 @@ bool CheckNewDllVersion(game_code Game, char *DllPath)
     }
 
     return false;
+}
+
+void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
+{
+    if(Key == GLFW_KEY_ESCAPE)
+    {
+        printf("Escape\n");
+    }
 }
 
 game_context InitContext()
@@ -108,8 +128,11 @@ game_context InitContext()
         if(Context.Window)
         {
             glfwMakeContextCurrent(Context.Window);
+            glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
 
 
+            // NOTE - IsRunning might be better elsewhere ?
+            Context.IsRunning = true;
             Context.IsValid = true;
         }
         else
@@ -135,6 +158,7 @@ void DestroyContext(game_context *Context)
 }
 
 
+
 int main()
 {
     const char DllName[] = "sun.dll";
@@ -152,26 +176,63 @@ int main()
 
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
     game_context Context = InitContext();
+    game_input Input = {};
 
     if(Context.IsValid)
     {
-        while(true)
+        real64 CurrentTime, LastTime = glfwGetTime();
+        int GameRefreshHz = 60;
+        real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
+
+        real32 www;
+        while(Context.IsRunning)
         {
+            glfwPollEvents();
+
+            // NOTE - Fixed Timestep ?
+#if 0
+            if(Input.dTime < TargetSecondsPerFrame)
+            {
+                uint32 TimeToSleep = 1000 * (uint32)(TargetSecondsPerFrame - Input.dTime);
+                Sleep(TimeToSleep);
+                
+                CurrentTime = glfwGetTime();
+                Input.dTime = TargetSecondsPerFrame;
+            }
+            else
+            {
+                printf("Missed frame rate, dt=%g\n", Input.dTime);
+            }
+#else
+            Sleep(300);
+#endif
+
+            CurrentTime = glfwGetTime();
+            Input.dTime = CurrentTime - LastTime;
+
+            LastTime = CurrentTime;
+            Context.EngineTime += Input.dTime;
+
             if(CheckNewDllVersion(Game, DllSrcPath))
             {
-                UnloadGameCode(&Game);
+                UnloadGameCode(&Game, NULL);
                 Game = LoadGameCode(DllSrcPath, DllDstPath);
             }
 
-            int r = Game.func1(12, 22);
+            int r = Game.GameUpdate(12, 22);
             printf("%d\n", r);
 
-            Sleep(1000);
+            if(glfwWindowShouldClose(Context.Window))
+            {
+                Context.IsRunning = false;
+            }
+
+            glfwSwapBuffers(Context.Window);
         }
     }
 
     DestroyContext(&Context);
-    UnloadGameCode(&Game);
+    UnloadGameCode(&Game, DllDstPath);
 
     return 0;
 }

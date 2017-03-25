@@ -1,6 +1,6 @@
 #include "sun.h"
 
-extern "C" FUNC1(GameFunc)
+extern "C" GAMEUPDATE(GameUpdate)
 {
     return a + b;
 }
