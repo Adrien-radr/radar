@@ -106,6 +106,14 @@ bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
 bool FrameDownKeys[350] = {};
 
+int  FrameModKeys = 0;
+
+bool FramePressedMouseButton[8] = {};
+bool FrameDownMouseButton[8] = {};
+bool FrameReleasedMouseButton[8] = {};
+
+int  FrameMouseWheel = 0;
+
 void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
 {
     if(Action == GLFW_PRESS)
@@ -120,22 +128,46 @@ void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action,
         FrameDownKeys[Key] = false;
         FrameReleasedKeys[Key] = true;
     }
+
+    FrameModKeys = Mods;
+}
+
+void ProcessMouseButtonEvent(GLFWwindow* Window, int Button, int Action, int Mods)
+{
+    if(Action == GLFW_PRESS)
+    {
+        FramePressedMouseButton[Button] = true;
+        FrameDownMouseButton[Button] = true;
+        FrameReleasedMouseButton[Button] = false;
+    }
+    if(Action == GLFW_RELEASE)
+    {
+        FramePressedMouseButton[Button] = false;
+        FrameDownMouseButton[Button] = false;
+        FrameReleasedMouseButton[Button] = true;
+    }
+
+    FrameModKeys = Mods;
+}
+
+void ProcessMouseWheel(GLFWwindow *Window, double XOffset, double YOffset)
+{
+    FrameMouseWheel = (int) YOffset;
 }
 
 void GetFrameInput(game_context *Context, game_input *Input)
 {
     memset(FrameReleasedKeys, 0, sizeof(FrameReleasedKeys));
     memset(FramePressedKeys, 0, sizeof(FramePressedKeys));
+    memset(FrameReleasedMouseButton, 0, sizeof(FrameReleasedMouseButton));
+    memset(FramePressedMouseButton, 0, sizeof(FramePressedMouseButton));
+
+    FrameMouseWheel = 0;
 
     glfwPollEvents();
 
     if(FrameReleasedKeys[GLFW_KEY_ESCAPE] == true)
         Context->IsRunning = false;
-
-    // NOTE - Temp Test
-    Input->KeyPressed = FramePressedKeys[GLFW_KEY_ESCAPE];
-    Input->KeyDown = FrameDownKeys[GLFW_KEY_ESCAPE];
-    Input->KeyReleased = FrameReleasedKeys[GLFW_KEY_ESCAPE];
 }
 
 game_context InitContext()
@@ -156,6 +188,8 @@ game_context InitContext()
             glfwSwapInterval(0);
             glfwMakeContextCurrent(Context.Window);
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
+            glfwSetMouseButtonCallback(Context.Window, ProcessMouseButtonEvent);
+            glfwSetScrollCallback(Context.Window, ProcessMouseWheel);
 
             // NOTE - IsRunning might be better elsewhere ?
             Context.IsRunning = true;
@@ -212,7 +246,7 @@ int main()
         {
             GetFrameInput(&Context, &Input);        
 
-            // NOTE - Fixed Timestep ?
+            // TODO - Fixed Timestep ?
 #if 0
             if(Input.dTime < TargetSecondsPerFrame)
             {
@@ -227,7 +261,8 @@ int main()
                 printf("Missed frame rate, dt=%g\n", Input.dTime);
             }
 #else
-            //Sleep(16);
+            // NOTE - 60FPS HACK. Change that asap
+            Sleep(16);
 #endif
 
             CurrentTime = glfwGetTime();

@@ -24,9 +24,5 @@ typedef int int32;
 struct game_input
 {
     real64 dTime;
-
-    bool KeyReleased;
-    bool KeyPressed;
-    bool KeyDown;
 };
 #endif

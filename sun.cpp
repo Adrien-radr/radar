@@ -13,8 +13,4 @@ extern "C" GAMEUPDATE(GameUpdate)
         Counter = 0.0;
     }
 
-    if(Input->KeyPressed)
-        printf("Key Pressed\n");
-    if(Input->KeyReleased)
-        printf("Key Released\n");
 }
