@@ -24,5 +24,8 @@ typedef int int32;
 struct game_input
 {
     real64 dTime;
+
+    int32  MousePosX;
+    int32  MousePosY;
 };
 #endif

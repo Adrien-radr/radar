@@ -114,6 +114,9 @@ bool FrameReleasedMouseButton[8] = {};
 
 int  FrameMouseWheel = 0;
 
+int WindowWidth = 960;
+int WindowHeight = 540;
+
 void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
 {
     if(Action == GLFW_PRESS)
@@ -150,9 +153,15 @@ void ProcessMouseButtonEvent(GLFWwindow* Window, int Button, int Action, int Mod
     FrameModKeys = Mods;
 }
 
-void ProcessMouseWheel(GLFWwindow *Window, double XOffset, double YOffset)
+void ProcessMouseWheelEvent(GLFWwindow *Window, double XOffset, double YOffset)
 {
     FrameMouseWheel = (int) YOffset;
+}
+
+void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
+{
+    WindowWidth = Width;
+    WindowHeight = Height;
 }
 
 void GetFrameInput(game_context *Context, game_input *Input)
@@ -165,6 +174,13 @@ void GetFrameInput(game_context *Context, game_input *Input)
     FrameMouseWheel = 0;
 
     glfwPollEvents();
+
+    // NOTE - The mouse position can go outside the Window bounds in windowed mode
+    // See if this can cause problems in the future.
+    real64 MX, MY;
+    glfwGetCursorPos(Context->Window, &MX, &MY);
+    Input->MousePosX = (int)MX;
+    Input->MousePosY = (int)MY;
 
     if(FrameReleasedKeys[GLFW_KEY_ESCAPE] == true)
         Context->IsRunning = false;
@@ -179,7 +195,7 @@ game_context InitContext()
         char WindowName[64];
         snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
 
-        Context.Window = glfwCreateWindow(960, 540, WindowName, NULL, NULL);
+        Context.Window = glfwCreateWindow(WindowWidth, WindowHeight, WindowName, NULL, NULL);
         if(Context.Window)
         {
             // TODO - Only in windowed mode for debug
@@ -189,7 +205,8 @@ game_context InitContext()
             glfwMakeContextCurrent(Context.Window);
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
             glfwSetMouseButtonCallback(Context.Window, ProcessMouseButtonEvent);
-            glfwSetScrollCallback(Context.Window, ProcessMouseWheel);
+            glfwSetScrollCallback(Context.Window, ProcessMouseWheelEvent);
+            glfwSetWindowSizeCallback(Context.Window, ProcessWindowSizeEvent);
 
             // NOTE - IsRunning might be better elsewhere ?
             Context.IsRunning = true;
