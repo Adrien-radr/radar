@@ -1,6 +1,6 @@
 .PHONY: tags lib radar clean
 
-all: tags lib radar
+all: tags radar lib 
 
 ##################################################
 ##################################################
@@ -15,10 +15,15 @@ CFLAGS = -g -Wall -Wextra -D_DEBUG -Wno-unused-variable -Wno-unused-parameter
 ##################################################
 ##################################################
 # GLEW
-GLEW_TARGET=ext/glew/glew.o
+GLEW_OBJECT=ext/glew/glew.o
+GLEW_TARGET=ext/glew/libglew.a
+GLEW_LIB=ext/glew
+GLEW_INCLUDE=ext/glew/include
 
 $(GLEW_TARGET): 
-	$(CC) -O2 -DGLEW_STATIC -Iext/glew/include -c ext/glew/src/glew.c -o $(GLEW_TARGET)
+	$(CC) -O2 -DGLEW_STATIC -I$(GLEW_INCLUDE) -c ext/glew/src/glew.c -o $(GLEW_OBJECT)
+	$(AR) rcs $(GLEW_TARGET) $(GLEW_OBJECT)
+	rm $(GLEW_OBJECT)
 
 ##################################################
 # Game Lib
@@ -40,7 +45,7 @@ INCLUDES=\
 		 radar.h
 
 radar: $(GLEW_TARGET)
-	$(CC) $(CFLAGS) $(SRCS) $(GLEW_TARGET) -I$(GLFW_INCLUDE) -L$(GLFW_LIB) -lglfw3 -lopengl32 -lgdi32 -o $(TARGET)
+	$(CC) $(CFLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -L$(GLEW_LIB) -L$(GLFW_LIB) -lglfw3 -lglew -lopengl32 -lgdi32 -o $(TARGET)
 
 ##################################################
 

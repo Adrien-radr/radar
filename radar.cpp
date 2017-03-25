@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <string.h>
 
+#include "GL/glew.h"
 #include "GLFW/glfw3.h"
 
 #include "radar.h"
@@ -202,15 +203,29 @@ game_context InitContext()
 		    glfwSetWindowPos( Context.Window, 800, 400 );
             // TODO - configurable VSYNC
             glfwSwapInterval(0);
+
             glfwMakeContextCurrent(Context.Window);
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
             glfwSetMouseButtonCallback(Context.Window, ProcessMouseButtonEvent);
             glfwSetScrollCallback(Context.Window, ProcessMouseWheelEvent);
             glfwSetWindowSizeCallback(Context.Window, ProcessWindowSizeEvent);
 
-            // NOTE - IsRunning might be better elsewhere ?
-            Context.IsRunning = true;
-            Context.IsValid = true;
+            if(GLEW_OK == glewInit())
+            {
+                GLubyte const *GLRenderer = glGetString(GL_RENDERER);
+                GLubyte const *GLVersion = glGetString(GL_VERSION);
+                printf("GL Renderer %s, %s\n", GLRenderer, GLVersion);
+
+                glClearColor(1.f, 0.f, 1.f, 0.f);
+
+                // NOTE - IsRunning might be better elsewhere ?
+                Context.IsRunning = true;
+                Context.IsValid = true;
+            }
+            else
+            {
+                printf("Couldn't initialize GLEW.\n");
+            }
         }
         else
         {
@@ -299,6 +314,8 @@ int main()
             {
                 Context.IsRunning = false;
             }
+
+            glClear(GL_COLOR_BUFFER_BIT);
 
             Game.GameUpdate(&Input);
 
