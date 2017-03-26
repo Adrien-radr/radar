@@ -139,6 +139,9 @@ void GetFrameInput(game_context *Context, game_input *Input)
 
     if(FrameReleasedKeys[GLFW_KEY_ESCAPE] == true)
         Context->IsRunning = false;
+
+    if(FrameReleasedKeys[GLFW_KEY_R])
+        Input->KeyReleased = true;
 }
 
 game_context InitContext()
@@ -241,14 +244,37 @@ bool CheckALError()
     ALenum Error = alGetError();
     if(Error != AL_NO_ERROR)
     {
-        // TODO - AL Error Handling
-        //DisplayALError("alGenBuffers : ", Error);
+        char ErrorMsg[128];
+        switch(Error)
+        {
+        case AL_INVALID_NAME:
+        {
+            snprintf(ErrorMsg, 128, "Bad Name ID passed to AL."); 
+        }break;
+        case AL_INVALID_ENUM:
+        {
+            snprintf(ErrorMsg, 128, "Invalid Enum passed to AL."); 
+        }break;
+        case AL_INVALID_VALUE:
+        {
+            snprintf(ErrorMsg, 128, "Invalid Value passed to AL."); 
+        }break;
+        case AL_INVALID_OPERATION:
+        {
+            snprintf(ErrorMsg, 128, "Invalid Operation requested to AL."); 
+        }break;
+        case AL_OUT_OF_MEMORY:
+        {
+            snprintf(ErrorMsg, 128, "Out of Memory."); 
+        }break;
+        }
+
+        printf("OpenAL Error : %s\n", ErrorMsg);
         return false;
     }
     return true;
 }
 
-#include <math.h>
 bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
 {
     // Generate Buffers
@@ -265,15 +291,8 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
 #endif
 
     // Copy Sound into Buffer
-    uint32 Size = Kilobytes(128);
-    uint32 Period = 16;
-    uint8 AudioData[Size];
-    for(uint32 i = 0; i < Size; ++i)
-    {
-        AudioData[i] = 128 + 127 * sinf(2.f*M_PI*i/(real32)Period);
-    }
 
-    alBufferData(*Buffer, AL_FORMAT_MONO8, AudioData, Size, 24000);
+
     // Unload Sound
 
     // Generate Sources
@@ -281,8 +300,8 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     if(!CheckALError()) return false;
 
     // Attach Buffer to Source
-    alSourcei(*Source, AL_BUFFER, *Buffer);
-    if(!CheckALError()) return false;
+    alSourcei(*Source, AL_LOOPING, AL_TRUE);
+    //if(!CheckALError()) return false;
 
     return true;
 }
@@ -304,7 +323,6 @@ int main()
 
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
     game_context Context = InitContext();
-    game_input Input = {};
     game_memory Memory = InitMemory();
 
     bool ValidSound = false;
@@ -312,8 +330,8 @@ int main()
     ALuint AudioSource;
     if(TempPrepareSound(&AudioBuffer, &AudioSource))
     {
-        ValidSound = true;
         alSourcePlay(AudioSource);
+        ValidSound = true;
     }
 
     if(Context.IsValid && Memory.IsValid && ValidSound)
@@ -324,6 +342,7 @@ int main()
 
         while(Context.IsRunning)
         {
+            game_input Input = {};
             GetFrameInput(&Context, &Input);        
 
             // TODO - Fixed Timestep ?
@@ -366,6 +385,18 @@ int main()
             glClear(GL_COLOR_BUFFER_BIT);
 
             Game.GameUpdate(&Memory, &Input);
+
+            game_state *State = (game_state*)Memory.ScratchMemPool;
+            if(State->ReloadSoundBuffer)
+            {
+                State->ReloadSoundBuffer = false;
+                alSourceStop(AudioSource);
+                alSourcei(AudioSource, AL_BUFFER, 0);
+                alBufferData(AudioBuffer, AL_FORMAT_MONO16, State->SoundBuffer, State->SoundBufferSize, 48000);
+                alSourcei(AudioSource, AL_BUFFER, AudioBuffer);
+                alSourcePlay(AudioSource);
+                CheckALError();
+            }
 
             glfwSwapBuffers(Context.Window);
         }

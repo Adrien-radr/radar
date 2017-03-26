@@ -17,12 +17,14 @@
 typedef float real32;
 typedef double real64;
 
-typedef char int8;
-typedef unsigned char uint8;
-typedef int int32;
-typedef long long int64;
-typedef unsigned int uint32;
-typedef unsigned long long uint64;
+typedef char                int8;
+typedef unsigned char       uint8;
+typedef short int           int16;
+typedef unsigned short int  uint16;
+typedef int                 int32;
+typedef unsigned int        uint32;
+typedef long long           int64;
+typedef unsigned long long  uint64;
 
 #ifdef DEBUG
 #define Assert(expr) if(!(expr)) { *(int*)0 = 0; }
@@ -50,6 +52,13 @@ struct game_memory
     bool IsInitialized;
 };
 
+struct game_state
+{
+    bool ReloadSoundBuffer;
+    uint32 SoundBufferSize;
+    uint16 SoundBuffer[Megabytes(1)];
+};
+
 // NOTE - Struct passed to the Game
 // Contains all frame input each frame needed by game
 struct game_input
@@ -58,5 +67,7 @@ struct game_input
 
     int32  MousePosX;
     int32  MousePosY;
+
+    bool KeyReleased;
 };
 #endif
