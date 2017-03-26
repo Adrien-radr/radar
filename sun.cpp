@@ -3,8 +3,18 @@
 
 real64 Counter = 0.0;
 
+void GameInitialization(game_memory *Memory)
+{
+    Memory->IsInitialized = true;
+}
+
 extern "C" GAMEUPDATE(GameUpdate)
 {
+    if(!Memory->IsInitialized)
+    {
+        GameInitialization(Memory);
+    }
+
     Counter += Input->dTime;
 
     if(Counter > 1.0)

@@ -1,6 +1,9 @@
 #include <stdio.h>
-#include <windows.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include "AL/al.h"
+#include "AL/alc.h"
 
 #include "GL/glew.h"
 #include "GLFW/glfw3.h"
@@ -8,100 +11,13 @@
 #include "radar.h"
 #include "sun.h"
 
-struct game_context
-{
-    GLFWwindow *Window;
-    real64 EngineTime;
-
-    bool IsRunning;
-    bool IsValid;
-};
-
-struct game_code
-{
-    HMODULE GameDLL;
-    FILETIME GameDLLLastWriteTime;
-    bool IsValid;
-
-    // DLL Dynamic Entry Points
-    game_update_function *GameUpdate;
-};
-
-// NOTE : expect a MAX_PATH string as Path
-void GetExecutablePath(char *Path)
-{
-    HMODULE ExecHandle = GetModuleHandleW(NULL);
-    GetModuleFileNameA(ExecHandle, Path, MAX_PATH);
-
-    char *LastPos = strrchr(Path, '\\');
-    unsigned int NumChar = (unsigned int)(LastPos - Path) + 1;
-
-    // Null-terminate the string at that position before returning
-    Path[NumChar] = 0;
-}
-
-FILETIME FindLastWriteTime(char *Path)
-{
-    FILETIME LastWriteTime = {};
-
-    WIN32_FIND_DATA FindData;
-    HANDLE H = FindFirstFileA(Path, &FindData);
-    if(H != INVALID_HANDLE_VALUE)
-    {
-        LastWriteTime = FindData.ftLastWriteTime;
-        FindClose(H);
-    }
-
-    return LastWriteTime;
-}
-
-game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
-{
-    game_code result = {};
-
-    result.GameUpdate = GameUpdateStub;
-
-    CopyFileA(DllSrcPath, DllDstPath, FALSE);
-
-    result.GameDLL = LoadLibraryA(DllDstPath);
-
-    if(result.GameDLL)
-    {
-        result.GameDLLLastWriteTime = FindLastWriteTime(DllSrcPath);
-
-        result.GameUpdate = (game_update_function*)GetProcAddress(result.GameDLL, "GameUpdate");
-        result.IsValid = (result.GameUpdate != NULL);
-    }
-
-    return result;
-}
-
-void UnloadGameCode(game_code *Code, char *DuplicateDLL)
-{
-    if(Code->GameDLL)
-    {
-        FreeLibrary(Code->GameDLL); 
-
-        if(DuplicateDLL)
-        {
-            DeleteFileA(DuplicateDLL);
-        }
-    }
-
-    Code->IsValid = false;
-    Code->GameUpdate = GameUpdateStub;
-}
-
-bool CheckNewDllVersion(game_code Game, char *DllPath)
-{
-    FILETIME WriteTime = FindLastWriteTime(DllPath);
-    if(CompareFileTime(&Game.GameDLLLastWriteTime, &WriteTime) != 0) {
-        Game.GameDLLLastWriteTime = WriteTime;
-        return true;
-    }
-
-    return false;
-}
+#ifdef RADAR_WIN32
+#include "radar_win32.cpp"
+#else
+#ifdef RADAR_UNIX
+#include "radar_unix.cpp"
+#endif
+#endif
 
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
@@ -117,6 +33,44 @@ int  FrameMouseWheel = 0;
 
 int WindowWidth = 960;
 int WindowHeight = 540;
+
+struct game_context
+{
+    GLFWwindow *Window;
+    real64 EngineTime;
+
+    bool IsRunning;
+    bool IsValid;
+};
+
+game_memory InitMemory()
+{
+    game_memory Memory = {};
+
+    Memory.PermanentMemPoolSize = Megabytes(64);
+    Memory.ScratchMemPoolSize = Megabytes(512);
+
+    Memory.PermanentMemPool = calloc(1, Memory.PermanentMemPoolSize);
+    Memory.ScratchMemPool = calloc(1, Memory.ScratchMemPoolSize);
+
+    Memory.IsValid = Memory.PermanentMemPool && Memory.ScratchMemPool;
+    Memory.IsInitialized = false;
+    
+    return Memory;
+}
+
+void DestroyMemory(game_memory *Memory)
+{
+    if(Memory->IsValid)
+    {
+        free(Memory->PermanentMemPool);
+        free(Memory->ScratchMemPool);
+        Memory->PermanentMemPoolSize = 0;
+        Memory->ScratchMemPoolSize = 0;
+        Memory->IsValid = false;
+        Memory->IsInitialized = false;
+    }
+}
 
 void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
 {
@@ -191,7 +145,10 @@ game_context InitContext()
 {
     game_context Context = {};
 
-    if(glfwInit())
+    bool GLFWValid = false, GLEWValid = false, ALValid = false;
+
+    GLFWValid = glfwInit();
+    if(GLFWValid)
     {
         char WindowName[64];
         snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
@@ -210,7 +167,8 @@ game_context InitContext()
             glfwSetScrollCallback(Context.Window, ProcessMouseWheelEvent);
             glfwSetWindowSizeCallback(Context.Window, ProcessWindowSizeEvent);
 
-            if(GLEW_OK == glewInit())
+            GLEWValid = (GLEW_OK == glewInit());
+            if(GLEWValid)
             {
                 GLubyte const *GLRenderer = glGetString(GL_RENDERER);
                 GLubyte const *GLVersion = glGetString(GL_VERSION);
@@ -218,9 +176,6 @@ game_context InitContext()
 
                 glClearColor(1.f, 0.f, 1.f, 0.f);
 
-                // NOTE - IsRunning might be better elsewhere ?
-                Context.IsRunning = true;
-                Context.IsValid = true;
             }
             else
             {
@@ -234,7 +189,30 @@ game_context InitContext()
     }
     else
     {
-        printf("Couldn't init GLFW3.\n");
+        printf("Couldn't init GLFW.\n");
+    }
+
+    ALCdevice *ALDevice = alcOpenDevice(NULL);
+
+    ALValid = (NULL != ALDevice);
+    if(ALValid)
+    {
+        ALCcontext *ALContext = alcCreateContext(ALDevice, NULL);
+        alcMakeContextCurrent(ALContext);
+
+        // Clear Error Stack
+        alGetError();
+    }
+    else
+    {
+        printf("Couldn't init OpenAL.\n");
+    }
+
+    if(GLFWValid && GLEWValid && ALValid)
+    {
+        // NOTE - IsRunning might be better elsewhere ?
+        Context.IsRunning = true;
+        Context.IsValid = true;
     }
 
     return Context;
@@ -242,11 +220,71 @@ game_context InitContext()
 
 void DestroyContext(game_context *Context)
 {
+    ALCcontext *ALContext = alcGetCurrentContext();
+    if(ALContext)
+    {
+        ALCdevice *ALDevice = alcGetContextsDevice(ALContext);
+        alcMakeContextCurrent(NULL);
+        alcDestroyContext(ALContext);
+        alcCloseDevice(ALDevice);
+    }
+
     if(Context->Window)
     {
         glfwDestroyWindow(Context->Window);
     }
     glfwTerminate();
+}
+
+bool CheckALError()
+{
+    ALenum Error = alGetError();
+    if(Error != AL_NO_ERROR)
+    {
+        // TODO - AL Error Handling
+        //DisplayALError("alGenBuffers : ", Error);
+        return false;
+    }
+    return true;
+}
+
+#include <math.h>
+bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
+{
+    // Generate Buffers
+    alGenBuffers(1, Buffer);
+    if(!CheckALError()) return false;
+
+    // Load Sound
+    // TODO - Audio File Loading
+#if 0
+    ALsizei Size, Freq;
+    ALenum Format;
+    ALvoid *Data;
+    loadWAVFile("test.wav", &Format, &Data, &Size, &Freq, &Loop);
+#endif
+
+    // Copy Sound into Buffer
+    uint32 Size = Kilobytes(128);
+    uint32 Period = 16;
+    uint8 AudioData[Size];
+    for(uint32 i = 0; i < Size; ++i)
+    {
+        AudioData[i] = 128 + 127 * sinf(2.f*M_PI*i/(real32)Period);
+    }
+
+    alBufferData(*Buffer, AL_FORMAT_MONO8, AudioData, Size, 24000);
+    // Unload Sound
+
+    // Generate Sources
+    alGenSources(1, Source);
+    if(!CheckALError()) return false;
+
+    // Attach Buffer to Source
+    alSourcei(*Source, AL_BUFFER, *Buffer);
+    if(!CheckALError()) return false;
+
+    return true;
 }
 
 int main()
@@ -267,8 +305,18 @@ int main()
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
     game_context Context = InitContext();
     game_input Input = {};
+    game_memory Memory = InitMemory();
 
-    if(Context.IsValid)
+    bool ValidSound = false;
+    ALuint AudioBuffer;
+    ALuint AudioSource;
+    if(TempPrepareSound(&AudioBuffer, &AudioSource))
+    {
+        ValidSound = true;
+        alSourcePlay(AudioSource);
+    }
+
+    if(Context.IsValid && Memory.IsValid && ValidSound)
     {
         real64 CurrentTime, LastTime = glfwGetTime();
         int GameRefreshHz = 60;
@@ -294,7 +342,7 @@ int main()
             }
 #else
             // NOTE - 60FPS HACK. Change that asap
-            Sleep(16);
+            PlatformSleep(16);
 #endif
 
             CurrentTime = glfwGetTime();
@@ -317,12 +365,13 @@ int main()
 
             glClear(GL_COLOR_BUFFER_BIT);
 
-            Game.GameUpdate(&Input);
+            Game.GameUpdate(&Memory, &Input);
 
             glfwSwapBuffers(Context.Window);
         }
     }
 
+    DestroyMemory(&Memory);
     DestroyContext(&Context);
     UnloadGameCode(&Game, DllDstPath);
 

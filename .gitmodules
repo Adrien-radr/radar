@@ -1,9 +1,9 @@
-[submodule "radar"]
-	path = radar
-	url = https://github.com/Adrien-radr/radar.git
 [submodule "ext/glfw"]
 	path = ext/glfw
 	url = https://github.com/glfw/glfw.git
 [submodule "ext/glew"]
 	path = ext/glew
 	url = https://github.com/nigels-com/glew
+[submodule "ext/openal-soft"]
+	path = ext/openal-soft
+	url = https://github.com/kcat/openal-soft
