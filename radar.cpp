@@ -8,6 +8,8 @@
 #include "GL/glew.h"
 #include "GLFW/glfw3.h"
 
+#include "cJSON.h"
+
 #include "radar.h"
 #include "sun.h"
 
@@ -72,6 +74,95 @@ void DestroyMemory(game_memory *Memory)
     }
 }
 
+void MakeRelativePath(char *Dst, char *Path, char* Filename)
+{
+    strncpy(Dst, Path, MAX_PATH);
+    strncat(Dst, Filename, MAX_PATH);
+}
+
+void *ReadFileContents(char *Filename)
+{
+    char *Contents = NULL;
+    FILE *fp = fopen(Filename, "rb");
+
+    if(fp)
+    {
+        if(0 == fseek(fp, 0, SEEK_END))
+        {
+            int32 Size = ftell(fp);
+            rewind(fp);
+            Contents = (char*)malloc(Size+1);
+            fread(Contents, Size, 1, fp);
+            Contents[Size] = 0;
+        }
+        else
+        {
+            printf("File Open Error : fseek not 0.\n");
+        }
+        fclose(fp);
+    }
+    else
+    {
+        printf("Coudln't open file %s.\n", Filename);
+    }
+
+    return (void*)Contents;
+}
+
+void FreeFile(void *File)
+{
+    free(File);
+}
+
+struct game_config
+{
+    int32  WindowWidth;
+    int32  WindowHeight;
+    int32  MSAA;
+    bool   FullScreen;
+    bool   VSync;
+    real32 FOV;
+    int32  AnisotropicFiltering;
+
+    // TODO - In time add those
+#if 0
+    int32 fCameraSpeedBase;
+    int32 fCameraSpeedMult;
+	int32 fCameraRotationSpeed;
+    int32 vCameraPosition;
+    int32 vCameraTarget;
+#endif
+};
+
+game_config ParseConfig(char *ConfigPath)
+{
+    game_config Config = {};
+
+    void *Content = ReadFileContents(ConfigPath);
+    // TODO - Failure case : default config
+    if(Content)
+    {
+        cJSON *root = cJSON_Parse((char*)Content);
+        if(root)
+        {
+            Config.WindowWidth = cJSON_GetObjectItem(root, "iWindowWidth")->valueint;
+            Config.WindowHeight = cJSON_GetObjectItem(root, "iWindowHeight")->valueint;
+            Config.MSAA = cJSON_GetObjectItem(root, "iMSAA")->valueint;
+            Config.FullScreen = cJSON_GetObjectItem(root, "bFullScreen")->valueint != 0;
+            Config.VSync = cJSON_GetObjectItem(root, "bVSync")->valueint != 0;
+            Config.FOV = (real32)cJSON_GetObjectItem(root, "fFOV")->valuedouble;
+            Config.AnisotropicFiltering = cJSON_GetObjectItem(root, "iAnisotropicFiltering")->valueint;
+        }
+        else
+        {
+            printf("Error parsing Config File as JSON.\n");
+        }
+        FreeFile(Content);
+    }
+
+    return Config;
+}
+
 void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
 {
     if(Action == GLFW_PRESS)
@@ -117,6 +208,7 @@ void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
 {
     WindowWidth = Width;
     WindowHeight = Height;
+    glViewport(0, 0, Width, Height);
 }
 
 void GetFrameInput(game_context *Context, game_input *Input)
@@ -144,7 +236,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
         Input->KeyReleased = true;
 }
 
-game_context InitContext()
+game_context InitContext(game_config *Config)
 {
     game_context Context = {};
 
@@ -156,13 +248,12 @@ game_context InitContext()
         char WindowName[64];
         snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
 
-        Context.Window = glfwCreateWindow(WindowWidth, WindowHeight, WindowName, NULL, NULL);
+        Context.Window = glfwCreateWindow(Config->WindowWidth, Config->WindowHeight, WindowName, NULL, NULL);
         if(Context.Window)
         {
             // TODO - Only in windowed mode for debug
-		    glfwSetWindowPos( Context.Window, 800, 400 );
-            // TODO - configurable VSYNC
-            glfwSwapInterval(0);
+		    glfwSetWindowPos(Context.Window, 800, 400);
+            glfwSwapInterval(Config->VSync);
 
             glfwMakeContextCurrent(Context.Window);
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
@@ -281,48 +372,36 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     alGenBuffers(1, Buffer);
     if(!CheckALError()) return false;
 
-    // Load Sound
-    // TODO - Audio File Loading
-#if 0
-    ALsizei Size, Freq;
-    ALenum Format;
-    ALvoid *Data;
-    loadWAVFile("test.wav", &Format, &Data, &Size, &Freq, &Loop);
-#endif
-
-    // Copy Sound into Buffer
-
-
-    // Unload Sound
-
     // Generate Sources
     alGenSources(1, Source);
     if(!CheckALError()) return false;
 
     // Attach Buffer to Source
     alSourcei(*Source, AL_LOOPING, AL_TRUE);
-    //if(!CheckALError()) return false;
+    if(!CheckALError()) return false;
 
     return true;
 }
 
 int main()
 {
-    const char DllName[] = "sun.dll";
-    const char DllDynamicCopyName[] = "sun_temp.dll";
+    char DllName[] = "sun.dll";
+    char DllDynamicCopyName[] = "sun_temp.dll";
 
     char ExecFullPath[MAX_PATH];
     char DllSrcPath[MAX_PATH];
     char DllDstPath[MAX_PATH];
 
     GetExecutablePath(ExecFullPath);
-    strcpy(DllSrcPath, ExecFullPath);
-    strcat(DllSrcPath, DllName);
-    strcpy(DllDstPath, ExecFullPath);
-    strcat(DllDstPath, DllDynamicCopyName);
+    MakeRelativePath(DllSrcPath, ExecFullPath, DllName);
+    MakeRelativePath(DllDstPath, ExecFullPath, DllDynamicCopyName);
 
+    char ConfigPath[MAX_PATH];
+    MakeRelativePath(ConfigPath, ExecFullPath, (char*)"config.json");
+
+    game_config Config = ParseConfig(ConfigPath);
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
-    game_context Context = InitContext();
+    game_context Context = InitContext(&Config);
     game_memory Memory = InitMemory();
 
     bool ValidSound = false;

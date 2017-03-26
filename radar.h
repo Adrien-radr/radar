@@ -28,8 +28,10 @@ typedef unsigned long long  uint64;
 
 #ifdef DEBUG
 #define Assert(expr) if(!(expr)) { *(int*)0 = 0; }
+#define DebugPrint(str, ...) printf(str, ##__VA_ARGS__);
 #else
 #define Assert(expr) 
+#define DebugPrint(str, ...)
 #endif
 
 #define Kilobytes(num) (1024*(uint64)(num))

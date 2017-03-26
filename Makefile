@@ -32,6 +32,18 @@ $(GLEW_TARGET):
 	rm $(GLEW_OBJECT)
 
 ##################################################
+# CJSON
+CJSON_OBJECT=ext/cjson/cjson.o
+CJSON_TARGET=ext/cjson/libcjson.a
+CJSON_LIB=ext/cjson
+CJSON_INCLUDE=ext/cjson
+
+$(CJSON_TARGET):
+	$(CC) $(RELEASE_FLAGS) -I$(CJSON_INCLUDE) -c ext/cjson/cjson.c -o $(CJSON_OBJECT)
+	$(AR) rcs $(CJSON_TARGET) $(CJSON_OBJECT)
+	rm $(CJSON_OBJECT)
+
+##################################################
 # Game Lib
 LIB_TARGET=bin/sun.dll
 LIB_SRCS=\
@@ -50,8 +62,8 @@ SRCS=\
 INCLUDES=\
 		 radar.h
 
-radar: $(GLEW_TARGET)
-	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -lglfw3 -lglew -lOpenAL32 -lopengl32 -lgdi32 -o $(TARGET)
+radar: $(GLEW_TARGET) $(CJSON_TARGET)
+	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -lglfw3 -lglew -lcjson -lOpenAL32 -lopengl32 -lgdi32 -o $(TARGET)
 
 ##################################################
 
