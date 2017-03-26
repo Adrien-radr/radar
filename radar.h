@@ -27,16 +27,27 @@ typedef long long           int64;
 typedef unsigned long long  uint64;
 
 #ifdef DEBUG
+#ifndef Assert
 #define Assert(expr) if(!(expr)) { *(int*)0 = 0; }
+#endif
 #define DebugPrint(str, ...) printf(str, ##__VA_ARGS__);
 #else
+#ifndef Assert
 #define Assert(expr) 
+#endif
 #define DebugPrint(str, ...)
 #endif
 
 #define Kilobytes(num) (1024*(uint64)(num))
 #define Megabytes(num) (1024*Kilobytes(num))
 #define Gigabytes(num) (1024*Megabytes(num))
+
+struct memory_arena
+{
+    uint8   *BasePtr;   // Start of Arena, in bytes
+    uint64  Size;       // Used amount of memory
+    uint64  Capacity;   // Total size of arena
+};
 
 // NOTE - This memory is allocated at startup
 // Each pool is then mapped according to the needed layout
@@ -49,16 +60,22 @@ struct game_memory
     // NOTE - For Transient/Reconstructable stuff
     void *ScratchMemPool;
     uint64 ScratchMemPoolSize;
+    memory_arena ScratchArena;
 
     bool IsValid;
     bool IsInitialized;
 };
 
-struct game_state
+struct tmp_sound_data
 {
     bool ReloadSoundBuffer;
     uint32 SoundBufferSize;
     uint16 SoundBuffer[Megabytes(1)];
+};
+
+struct game_state
+{
+    tmp_sound_data *SoundData;
 };
 
 // NOTE - Struct passed to the Game
@@ -70,6 +87,6 @@ struct game_input
     int32  MousePosX;
     int32  MousePosY;
 
-    bool KeyReleased;
+    bool KeyReleased; // NOTE - TMP for tests
 };
 #endif

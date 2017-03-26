@@ -4,13 +4,30 @@
 
 real64 Counter = 0.0;
 
-void FillAudioBuffer(game_state *State)
+void InitArena(memory_arena *Arena, uint64 Capacity, void *BasePtr)
+{
+    Arena->BasePtr = (uint8*)BasePtr;
+    Arena->Capacity = Capacity;
+    Arena->Size = 0;
+}
+
+#define PushArenaData(Arena, PODType) _PushArenaData((Arena), sizeof(PODType))
+void *_PushArenaData(memory_arena *Arena, uint64 Size)
+{
+    Assert(Arena->Size + Size <= Arena->Capacity);
+    void *MemoryPtr = Arena->BasePtr + Arena->Size;
+    Arena->Size += Size;
+
+    return (void*)MemoryPtr;
+}
+
+void FillAudioBuffer(tmp_sound_data *SoundData)
 {
     uint32 ToneHz = 440;
     uint32 ALen = 40 * ToneHz;
 
-    State->SoundBufferSize = ALen;
-    uint32 Size = State->SoundBufferSize;
+    SoundData->SoundBufferSize = ALen;
+    uint32 Size = SoundData->SoundBufferSize;
 
     for(uint32 i = 0; i < ALen; ++i)
     {
@@ -18,17 +35,23 @@ void FillAudioBuffer(game_state *State)
         uint16 Value = 10000 * sinf(Angle);
         // NOTE = Temp : no sound
         Value = 0;
-        State->SoundBuffer[i] = Value;
+        SoundData->SoundBuffer[i] = Value;
     }
 }
 
 void GameInitialization(game_memory *Memory)
 {
-    Assert(sizeof(game_state) <= Memory->ScratchMemPoolSize);
-    game_state *State = (game_state*)Memory->ScratchMemPool;
+    // Init Scratch Pool
+    InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
 
-    FillAudioBuffer(State);
-    State->ReloadSoundBuffer = true;
+    // Push sound buffer on it for use
+    tmp_sound_data *SoundBuffer = (tmp_sound_data*)PushArenaData(&Memory->ScratchArena, tmp_sound_data);
+
+    game_state *State = (game_state*)Memory->PermanentMemPool;
+    State->SoundData = SoundBuffer;
+
+    FillAudioBuffer(SoundBuffer);
+    SoundBuffer->ReloadSoundBuffer = true;
 
     Memory->IsInitialized = true;
 }
@@ -40,13 +63,13 @@ extern "C" GAMEUPDATE(GameUpdate)
         GameInitialization(Memory);
     }
 
-    game_state *State = (game_state*)Memory->ScratchMemPool;
+    game_state *State = (game_state*)Memory->PermanentMemPool;
     if(Input->KeyReleased)
     {
-        FillAudioBuffer(State);
-        State->ReloadSoundBuffer = true;
+        tmp_sound_data *SoundData = State->SoundData;
+        FillAudioBuffer(SoundData);
+        SoundData->ReloadSoundBuffer = true;
     }
-
 
     Counter += Input->dTime;
 

@@ -10,6 +10,7 @@
 
 #include "cJSON.h"
 
+#include "linmath.h"
 #include "radar.h"
 #include "sun.h"
 
@@ -139,7 +140,6 @@ game_config ParseConfig(char *ConfigPath)
     game_config Config = {};
 
     void *Content = ReadFileContents(ConfigPath);
-    // TODO - Failure case : default config
     if(Content)
     {
         cJSON *root = cJSON_Parse((char*)Content);
@@ -158,6 +158,16 @@ game_config ParseConfig(char *ConfigPath)
             printf("Error parsing Config File as JSON.\n");
         }
         FreeFile(Content);
+    }
+    else
+    {
+        Config.WindowWidth = 960;
+        Config.WindowHeight = 540;
+        Config.MSAA = 0;
+        Config.FullScreen = false;
+        Config.VSync = false;
+        Config.FOV = 75;
+        Config.AnisotropicFiltering = 1;
     }
 
     return Config;
@@ -293,9 +303,7 @@ game_context InitContext(game_config *Config)
     {
         ALCcontext *ALContext = alcCreateContext(ALDevice, NULL);
         alcMakeContextCurrent(ALContext);
-
-        // Clear Error Stack
-        alGetError();
+        alGetError(); // Clear Error Stack
     }
     else
     {
@@ -465,13 +473,14 @@ int main()
 
             Game.GameUpdate(&Memory, &Input);
 
-            game_state *State = (game_state*)Memory.ScratchMemPool;
-            if(State->ReloadSoundBuffer)
+            game_state *State = (game_state*)Memory.PermanentMemPool;
+            tmp_sound_data *SoundData = State->SoundData;
+            if(SoundData->ReloadSoundBuffer)
             {
-                State->ReloadSoundBuffer = false;
+                SoundData->ReloadSoundBuffer = false;
                 alSourceStop(AudioSource);
                 alSourcei(AudioSource, AL_BUFFER, 0);
-                alBufferData(AudioBuffer, AL_FORMAT_MONO16, State->SoundBuffer, State->SoundBufferSize, 48000);
+                alBufferData(AudioBuffer, AL_FORMAT_MONO16, SoundData->SoundBuffer, SoundData->SoundBufferSize, 48000);
                 alSourcei(AudioSource, AL_BUFFER, AudioBuffer);
                 alSourcePlay(AudioSource);
                 CheckALError();
