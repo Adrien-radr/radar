@@ -221,6 +221,11 @@ void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
     glViewport(0, 0, Width, Height);
 }
 
+void ProcessErrorEvent(int Error, const char* Description)
+{
+    printf("GLFW Error : %s\n", Description);
+}
+
 void GetFrameInput(game_context *Context, game_input *Input)
 {
     memset(FrameReleasedKeys, 0, sizeof(FrameReleasedKeys));
@@ -239,8 +244,15 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->MousePosX = (int)MX;
     Input->MousePosY = (int)MY;
 
-    if(FrameReleasedKeys[GLFW_KEY_ESCAPE] == true)
+    if(glfwWindowShouldClose(Context->Window))
+    {
         Context->IsRunning = false;
+    }
+
+    if(FrameReleasedKeys[GLFW_KEY_ESCAPE])
+    {
+        Context->IsRunning = false;
+    }
 
     if(FrameReleasedKeys[GLFW_KEY_R])
         Input->KeyReleased = true;
@@ -261,15 +273,17 @@ game_context InitContext(game_config *Config)
         Context.Window = glfwCreateWindow(Config->WindowWidth, Config->WindowHeight, WindowName, NULL, NULL);
         if(Context.Window)
         {
+            glfwMakeContextCurrent(Context.Window);
+
             // TODO - Only in windowed mode for debug
 		    glfwSetWindowPos(Context.Window, 800, 400);
             glfwSwapInterval(Config->VSync);
 
-            glfwMakeContextCurrent(Context.Window);
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
             glfwSetMouseButtonCallback(Context.Window, ProcessMouseButtonEvent);
             glfwSetScrollCallback(Context.Window, ProcessMouseWheelEvent);
             glfwSetWindowSizeCallback(Context.Window, ProcessWindowSizeEvent);
+            glfwSetErrorCallback(ProcessErrorEvent);
 
             GLEWValid = (GLEW_OK == glewInit());
             if(GLEWValid)
@@ -430,43 +444,36 @@ int main()
         while(Context.IsRunning)
         {
             game_input Input = {};
-            GetFrameInput(&Context, &Input);        
+
+            CurrentTime = glfwGetTime();
+            Input.dTime = CurrentTime - LastTime;
 
             // TODO - Fixed Timestep ?
 #if 0
             if(Input.dTime < TargetSecondsPerFrame)
             {
                 uint32 TimeToSleep = 1000 * (uint32)(TargetSecondsPerFrame - Input.dTime);
-                Sleep(TimeToSleep);
+                PlatformSleep(TimeToSleep);
                 
                 CurrentTime = glfwGetTime();
-                Input.dTime = TargetSecondsPerFrame;
+                Input.dTime = CurrentTime - LastTime;
             }
             else
             {
                 printf("Missed frame rate, dt=%g\n", Input.dTime);
             }
-#else
-            // NOTE - 60FPS HACK. Change that asap
-            PlatformSleep(16);
 #endif
-
-            CurrentTime = glfwGetTime();
-            Input.dTime = CurrentTime - LastTime;
 
             LastTime = CurrentTime;
             Context.EngineTime += Input.dTime;
+
+            GetFrameInput(&Context, &Input);        
+
 
             if(CheckNewDllVersion(Game, DllSrcPath))
             {
                 UnloadGameCode(&Game, NULL);
                 Game = LoadGameCode(DllSrcPath, DllDstPath);
-            }
-
-
-            if(glfwWindowShouldClose(Context.Window))
-            {
-                Context.IsRunning = false;
             }
 
             glClear(GL_COLOR_BUFFER_BIT);
