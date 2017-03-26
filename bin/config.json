@@ -9,7 +9,7 @@
 
     "fCameraSpeedBase" : 20.0,
     "fCameraSpeedMult" : 2.0,
-	"fCameraRotationSpeed" : 30.0,
+	"fCameraSpeedRotation" : 30.0,
     "vCameraPosition" : [1, 1, 1],
     "vCameraTarget" : [0, 0, 0]
 }

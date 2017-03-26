@@ -125,14 +125,11 @@ struct game_config
     real32 FOV;
     int32  AnisotropicFiltering;
 
-    // TODO - In time add those
-#if 0
-    int32 fCameraSpeedBase;
-    int32 fCameraSpeedMult;
-	int32 fCameraRotationSpeed;
-    int32 vCameraPosition;
-    int32 vCameraTarget;
-#endif
+    real32 CameraSpeedBase;
+    real32 CameraSpeedMult;
+	real32 CameraSpeedRotation;
+    vec3f  CameraPosition;
+    vec3f  CameraTarget;
 };
 
 game_config ParseConfig(char *ConfigPath)
@@ -152,6 +149,20 @@ game_config ParseConfig(char *ConfigPath)
             Config.VSync = cJSON_GetObjectItem(root, "bVSync")->valueint != 0;
             Config.FOV = (real32)cJSON_GetObjectItem(root, "fFOV")->valuedouble;
             Config.AnisotropicFiltering = cJSON_GetObjectItem(root, "iAnisotropicFiltering")->valueint;
+
+            Config.CameraSpeedBase = (real32)cJSON_GetObjectItem(root, "fCameraSpeedBase")->valuedouble;
+            Config.CameraSpeedMult = (real32)cJSON_GetObjectItem(root, "fCameraSpeedMult")->valuedouble;
+            Config.CameraSpeedRotation = (real32)cJSON_GetObjectItem(root, "fCameraSpeedRotation")->valuedouble;
+
+            cJSON *CameraPositionVector = cJSON_GetObjectItem(root, "vCameraPosition");
+            Config.CameraPosition.x = (real32)cJSON_GetArrayItem(CameraPositionVector, 0)->valuedouble;
+            Config.CameraPosition.y = (real32)cJSON_GetArrayItem(CameraPositionVector, 1)->valuedouble;
+            Config.CameraPosition.z = (real32)cJSON_GetArrayItem(CameraPositionVector, 2)->valuedouble;
+
+            cJSON *CameraTargetVector = cJSON_GetObjectItem(root, "vCameraTarget");
+            Config.CameraTarget.x = (real32)cJSON_GetArrayItem(CameraTargetVector, 0)->valuedouble;
+            Config.CameraTarget.y = (real32)cJSON_GetArrayItem(CameraTargetVector, 1)->valuedouble;
+            Config.CameraTarget.z = (real32)cJSON_GetArrayItem(CameraTargetVector, 2)->valuedouble;
         }
         else
         {
@@ -166,8 +177,14 @@ game_config ParseConfig(char *ConfigPath)
         Config.MSAA = 0;
         Config.FullScreen = false;
         Config.VSync = false;
-        Config.FOV = 75;
+        Config.FOV = 75.f;
         Config.AnisotropicFiltering = 1;
+
+        Config.CameraSpeedBase = 20.f;
+        Config.CameraSpeedMult = 2.f;
+        Config.CameraSpeedRotation = 30.f;
+        Config.CameraPosition = vec3f(1, 1, 1);
+        Config.CameraTarget = vec3f(0, 0, 0);
     }
 
     return Config;
