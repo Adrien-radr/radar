@@ -1,6 +1,8 @@
 #ifndef RADAR_H
 #define RADAR_H
 
+#include "linmath.h"
+
 #define RADAR_MAJOR 0
 #define RADAR_MINOR 0
 #define RADAR_PATCH 1
@@ -76,7 +78,13 @@ struct tmp_sound_data
 struct game_state
 {
     tmp_sound_data *SoundData;
+    vec3f PlayerPosition;
 };
+
+typedef uint8 key_state;
+#define KEY_HIT(KeyState) ((KeyState >> 0x1) & 1)
+#define KEY_UP(KeyState) ((KeyState >> 0x2) & 1)
+#define KEY_DOWN(KeyState) ((KeyState >> 0x3) & 1)
 
 // NOTE - Struct passed to the Game
 // Contains all frame input each frame needed by game
@@ -88,5 +96,13 @@ struct game_input
     int32  MousePosY;
 
     bool KeyReleased; // NOTE - TMP for tests
+
+    key_state KeyW;
+    key_state KeyA;
+    key_state KeyS;
+    key_state KeyD;
 };
+
+void *ReadFileContents(char *Filename);
+void FreeFileContents(void *Contents);
 #endif

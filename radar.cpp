@@ -10,9 +10,9 @@
 
 #include "cJSON.h"
 
-#include "linmath.h"
 #include "radar.h"
 #include "sun.h"
+#include "render.h"
 
 #ifdef RADAR_WIN32
 #include "radar_win32.cpp"
@@ -42,6 +42,8 @@ struct game_context
     GLFWwindow *Window;
     real64 EngineTime;
 
+    mat4f ProjectionMatrix3D;
+
     bool IsRunning;
     bool IsValid;
 };
@@ -58,7 +60,7 @@ game_memory InitMemory()
 
     Memory.IsValid = Memory.PermanentMemPool && Memory.ScratchMemPool;
     Memory.IsInitialized = false;
-    
+
     return Memory;
 }
 
@@ -110,9 +112,9 @@ void *ReadFileContents(char *Filename)
     return (void*)Contents;
 }
 
-void FreeFile(void *File)
+void FreeFileContents(void *Contents)
 {
-    free(File);
+    free(Contents);
 }
 
 struct game_config
@@ -168,7 +170,7 @@ game_config ParseConfig(char *ConfigPath)
         {
             printf("Error parsing Config File as JSON.\n");
         }
-        FreeFile(Content);
+        FreeFileContents(Content);
     }
     else
     {
@@ -243,6 +245,16 @@ void ProcessErrorEvent(int Error, const char* Description)
     printf("GLFW Error : %s\n", Description);
 }
 
+key_state BuildKeyState(int32 Key)
+{
+    key_state State = 0;
+    State |= (FrameReleasedKeys[Key] << 0x1);
+    State |= (FramePressedKeys[Key] << 0x2);
+    State |= (FrameDownKeys[Key] << 0x3);
+
+    return State;
+}
+
 void GetFrameInput(game_context *Context, game_input *Input)
 {
     memset(FrameReleasedKeys, 0, sizeof(FrameReleasedKeys));
@@ -273,6 +285,12 @@ void GetFrameInput(game_context *Context, game_input *Input)
 
     if(FrameReleasedKeys[GLFW_KEY_R])
         Input->KeyReleased = true;
+
+    // Get Player controls
+    Input->KeyW = BuildKeyState(GLFW_KEY_W);
+    Input->KeyA = BuildKeyState(GLFW_KEY_A);
+    Input->KeyS = BuildKeyState(GLFW_KEY_S);
+    Input->KeyD = BuildKeyState(GLFW_KEY_D);
 }
 
 game_context InitContext(game_config *Config)
@@ -309,8 +327,21 @@ game_context InitContext(game_config *Config)
                 GLubyte const *GLVersion = glGetString(GL_VERSION);
                 printf("GL Renderer %s, %s\n", GLRenderer, GLVersion);
 
+                //Context.ProjectionMatrix3D = mat4f::Perspective(Config->FOV, 
+                        //Config->WindowWidth / (real32)Config->WindowHeight, 0.1f, 1000.f);
+                Context.ProjectionMatrix3D = mat4f::Ortho(0, Config->WindowWidth, 0,Config->WindowHeight, 0.1f, 1000.f);
+
                 glClearColor(1.f, 0.f, 1.f, 0.f);
 
+                glEnable( GL_CULL_FACE );
+                glCullFace( GL_BACK );
+                glFrontFace( GL_CCW );
+
+                glEnable( GL_DEPTH_TEST );
+                glDepthFunc( GL_LESS );
+
+                glEnable( GL_BLEND );
+                glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
             }
             else
             {
@@ -422,6 +453,15 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     return true;
 }
 
+void CheckGLError(const char *Mark = "")
+{
+    uint32 Err = glGetError();
+    if(Err != GL_NO_ERROR)
+    {
+        printf("[%s] GL Error %u\n", Mark, Err);
+    }
+}
+
 int main()
 {
     char DllName[] = "sun.dll";
@@ -443,20 +483,56 @@ int main()
     game_context Context = InitContext(&Config);
     game_memory Memory = InitMemory();
 
-    bool ValidSound = false;
+    if(Context.IsValid && Memory.IsValid)
+    {
+        real64 CurrentTime, LastTime = glfwGetTime();
+        int GameRefreshHz = 60;
+        real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
+
+/////////////////////////
+    // TEMP
     ALuint AudioBuffer;
     ALuint AudioSource;
     if(TempPrepareSound(&AudioBuffer, &AudioSource))
     {
         alSourcePlay(AudioSource);
-        ValidSound = true;
     }
 
-    if(Context.IsValid && Memory.IsValid && ValidSound)
+    char VSPath[MAX_PATH];
+    char FSPath[MAX_PATH];
+    MakeRelativePath(VSPath, ExecFullPath, (char*)"data/shaders/2d_billboard_inst_vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, (char*)"data/shaders/2d_billboard_inst_frag.glsl");
+    uint32 Program1 = BuildShader(VSPath, FSPath);
+    glUseProgram(Program1);
+
     {
-        real64 CurrentTime, LastTime = glfwGetTime();
-        int GameRefreshHz = 60;
-        real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
+        uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
+        glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
+        CheckGLError();
+    }
+    
+
+    real32 positions[] = {
+        -10.f, 10.f, 0.5f, // topleft
+        -10.f, -10.f, 0.5f, // botleft
+        10.f, -10.f, 0.5f, // botright
+        10.f, 10.f, 0.5f, // topright
+    };
+    real32 colors[] = {
+        1.f, 1.f, 1.f, 1.f,
+        0.f, 1.f, 0.f, 1.f,
+        0.f, 1.f, 1.f, 1.f,
+        0.f, 0.f, 1.f, 1.f
+    };
+    uint32 indices[] = { 0, 1, 2, 0, 2, 3 };
+
+    uint32 VAO1 = MakeVertexArrayObject();
+    uint32 PosBuffer = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(positions), positions);
+    uint32 ColBuffer = AddVertexBufferObject(1, 4, GL_FLOAT, GL_STATIC_DRAW, sizeof(colors), colors);
+    uint32 IdxBuffer = AddIndexBufferObject(GL_STATIC_DRAW, sizeof(indices), indices);
+    glBindVertexArray(0);
+
+/////////////////////////
 
         while(Context.IsRunning)
         {
@@ -493,25 +569,42 @@ int main()
                 Game = LoadGameCode(DllSrcPath, DllDstPath);
             }
 
-            glClear(GL_COLOR_BUFFER_BIT);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             Game.GameUpdate(&Memory, &Input);
 
             game_state *State = (game_state*)Memory.PermanentMemPool;
-            tmp_sound_data *SoundData = State->SoundData;
-            if(SoundData->ReloadSoundBuffer)
             {
-                SoundData->ReloadSoundBuffer = false;
-                alSourceStop(AudioSource);
-                alSourcei(AudioSource, AL_BUFFER, 0);
-                alBufferData(AudioBuffer, AL_FORMAT_MONO16, SoundData->SoundBuffer, SoundData->SoundBufferSize, 48000);
-                alSourcei(AudioSource, AL_BUFFER, AudioBuffer);
-                alSourcePlay(AudioSource);
-                CheckALError();
+                tmp_sound_data *SoundData = State->SoundData;
+                if(SoundData->ReloadSoundBuffer)
+                {
+                    SoundData->ReloadSoundBuffer = false;
+                    alSourceStop(AudioSource);
+                    alSourcei(AudioSource, AL_BUFFER, 0);
+                    alBufferData(AudioBuffer, AL_FORMAT_MONO16, SoundData->SoundBuffer, SoundData->SoundBufferSize, 48000);
+                    alSourcei(AudioSource, AL_BUFFER, AudioBuffer);
+                    alSourcePlay(AudioSource);
+                    CheckALError();
+                }
+
+                mat4f ModelMatrix = mat4f::Translation(State->PlayerPosition);
+                uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
+                glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
+                CheckGLError();
             }
+
+            glUseProgram(Program1);
+            glBindVertexArray(VAO1);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
             glfwSwapBuffers(Context.Window);
         }
+
+        glDeleteBuffers(1, &PosBuffer);
+        glDeleteBuffers(1, &ColBuffer);
+        glDeleteBuffers(1, &IdxBuffer);
+        glDeleteVertexArrays(1, &VAO1);
+        glDeleteProgram(Program1);
     }
 
     DestroyMemory(&Memory);

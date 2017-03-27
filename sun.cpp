@@ -53,7 +53,44 @@ void GameInitialization(game_memory *Memory)
     FillAudioBuffer(SoundBuffer);
     SoundBuffer->ReloadSoundBuffer = true;
 
+    State->PlayerPosition = vec3f(300, 300, 0);
+
     Memory->IsInitialized = true;
+}
+
+void MovePlayer(game_state *State, game_input *Input)
+{
+    vec3f Move(0, 0, 0);
+    if(KEY_DOWN(Input->KeyW))
+    {
+        Move.y += 1;
+    }
+    if(KEY_DOWN(Input->KeyS))
+    {
+        Move.y -= 1;
+    }
+    if(KEY_DOWN(Input->KeyA))
+    {
+        Move.x -= 1;
+    }
+    if(KEY_DOWN(Input->KeyD))
+    {
+        Move.x += 1;
+    }
+
+
+    Normalize(Move);
+    Move *= Input->dTime * 100.f;
+
+    Move.x = Input->MousePosX;
+    Move.y = 540-Input->MousePosY;
+
+    if(Move.x < 0) Move.x = 0;
+    if(Move.y < 0) Move.y = 0;
+    if(Move.x >= 960) Move.x = 959;
+    if(Move.y >= 540) Move.y = 539;
+
+    State->PlayerPosition = Move;
 }
 
 extern "C" GAMEUPDATE(GameUpdate)
@@ -70,6 +107,8 @@ extern "C" GAMEUPDATE(GameUpdate)
         FillAudioBuffer(SoundData);
         SoundData->ReloadSoundBuffer = true;
     }
+
+    MovePlayer(State, Input);
 
     Counter += Input->dTime;
 

@@ -3,7 +3,7 @@
     "iWindowHeight" : 540,
     "iMSAA" : 0,
     "bFullScreen" : 0,
-    "bVSync" : 0,
+    "bVSync" : 1,
     "fFOV" : 75.0,
     "iAnisotropicFiltering" : 16,
 
