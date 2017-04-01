@@ -12,8 +12,8 @@
 
 #include "radar.h"
 #include "sun.h"
-#include "render.h"
 
+// //////// IMPLEMENTATION
 #ifdef RADAR_WIN32
 #include "radar_win32.cpp"
 #else
@@ -21,6 +21,8 @@
 #include "radar_unix.cpp"
 #endif
 #endif
+#include "render.cpp"
+// ///////////////////////
 
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};

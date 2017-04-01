@@ -58,11 +58,9 @@ lib:
 # Platform Application
 TARGET=bin/radar
 SRCS=\
-	 radar.cpp\
-	 render.cpp
+	 radar.cpp
 INCLUDES=\
-		 radar.h\
-		 render.h
+		 radar.h
 
 radar: $(GLEW_TARGET) $(CJSON_TARGET)
 	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -lglfw3 -lglew -lcjson -lOpenAL32 -lopengl32 -lgdi32 -o $(TARGET)

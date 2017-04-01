@@ -1,9 +1,13 @@
-#include "render.h"
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "ext/stb_image.h"
 
-#include "GL/glew.h"
+struct image
+{
+    uint8 *Buffer;
+    int32 Width;
+    int32 Height;
+    int32 Channels;
+};
 
 image LoadImage(char *Filename, int32 ForceNumChannel = 0)
 {
