@@ -2,6 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "sun.h"
+#include "radar.h"
+
+// PLATFORM
+int main(char **argv, int argc);
+#if RADAR_WIN32
+#include "radar_win32.cpp"
+#elif RADAR_UNIX
+#include "radar_unix.cpp"
+#endif
+
+// EXTERNAL
 #include "AL/al.h"
 #include "AL/alc.h"
 
@@ -10,17 +22,8 @@
 
 #include "cJSON.h"
 
-#include "radar.h"
-#include "sun.h"
 
 // //////// IMPLEMENTATION
-#ifdef RADAR_WIN32
-#include "radar_win32.cpp"
-#else
-#ifdef RADAR_UNIX
-#include "radar_unix.cpp"
-#endif
-#endif
 #include "render.cpp"
 // ///////////////////////
 
@@ -464,7 +467,7 @@ void CheckGLError(const char *Mark = "")
     }
 }
 
-int main()
+int main(char **argv, int argc)
 {
     char DllName[] = "sun.dll";
     char DllDynamicCopyName[] = "sun_temp.dll";

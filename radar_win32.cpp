@@ -90,3 +90,10 @@ void PlatformSleep(DWORD MillisecondsToSleep)
 {
     Sleep(MillisecondsToSleep);
 }
+
+
+// NOTE - We just call the platform-agnostic main function here
+int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+{
+    return main(__argv, __argc);
+}

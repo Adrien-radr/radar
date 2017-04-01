@@ -9,9 +9,9 @@
 
 // Platform
 #if defined(_WIN32) || defined(_WIN64)
-#   define RADAR_WIN32
+#   define RADAR_WIN32 1
 #elif defined(__unix__) || defined (__unix) || defined(unix)
-#   define RADAR_UNIX
+#   define RADAR_UNIX 1
 #else
 #   error "Unknown OS. Only Windows & Linux supported for now."
 #endif

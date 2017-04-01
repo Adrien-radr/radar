@@ -1,4 +1,6 @@
+#define STB_TRUETYPE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
+#include "ext/stb_truetype.h"
 #include "ext/stb_image.h"
 
 struct image
@@ -8,6 +10,53 @@ struct image
     int32 Height;
     int32 Channels;
 };
+
+struct font
+{
+    uint8 *Buffer;
+};
+
+// TODO - Load Unicode characters
+font LoadFont(char *Filename, real32 PixelHeight)
+{
+    font Font = {};
+
+    void *Contents = ReadFileContents(Filename);
+    if(Contents)
+    {
+        stbtt_fontinfo STBFont;
+        stbtt_InitFont(&STBFont, (uint8*)Contents, 0);
+
+        real32 PixelScale = stbtt_ScaleForPixelHeight(&STBFont, PixelHeight);
+
+        int Width, Height, XOffset, YOffset;
+        Font.Buffer = stbtt_GetCodepointBitmap(&STBFont, 0, stbtt_ScaleForPixelHeight(&STBFont, PixelHeight), 
+                'A', &Width, &Height, &XOffset, &YOffset);
+
+#if 0
+        // Load all ASCII characters
+        uint8 const AsciiCharCount = 127 - 33;
+        for(uint8 c = 33; c < 127; ++c)
+        {
+            
+        }
+#endif
+        FreeFileContents(Contents);
+    }
+
+
+    return Font;
+}
+
+void DestroyFont(font *Font)
+{
+    if(Font && Font->Buffer)
+    {
+        stbtt_FreeBitmap(Font->Buffer, 0);
+        // TODO - Glyph bitmap packing and 1 free for all characters
+        //free(Font->Buffer);
+    }
+}
 
 image LoadImage(char *Filename, int32 ForceNumChannel = 0)
 {

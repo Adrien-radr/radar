@@ -32,7 +32,7 @@ void FillAudioBuffer(tmp_sound_data *SoundData)
     for(uint32 i = 0; i < ALen; ++i)
     {
         real32 Angle = 2.f * M_PI * i / (real32)ToneHz;
-        uint16 Value = 10000 * sinf(Angle);
+        uint16 Value = (uint16)(10000 * sinf(Angle));
         // NOTE = Temp : no sound
         Value = 0;
         SoundData->SoundBuffer[i] = Value;
@@ -80,10 +80,10 @@ void MovePlayer(game_state *State, game_input *Input)
 
 
     Normalize(Move);
-    Move *= Input->dTime * 100.f;
+    Move *= (real32)(Input->dTime * 100.0);
 
-    Move.x = Input->MousePosX;
-    Move.y = 540-Input->MousePosY;
+    Move.x = (real32)Input->MousePosX;
+    Move.y = (real32)(540-Input->MousePosY);
 
     if(Move.x < 0) Move.x = 0;
     if(Move.y < 0) Move.y = 0;
@@ -93,7 +93,7 @@ void MovePlayer(game_state *State, game_input *Input)
     State->PlayerPosition = Move;
 }
 
-extern "C" GAMEUPDATE(GameUpdate)
+extern "C" __declspec(dllexport) GAMEUPDATE(GameUpdate)
 {
     if(!Memory->IsInitialized)
     {
@@ -114,7 +114,7 @@ extern "C" GAMEUPDATE(GameUpdate)
 
     if(Counter > 1.0)
     {
-        DebugPrint("%g, Mouse: %d,%d\n", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+        DebugPrint("%g, c Mouse: %d,%d\n", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
         Counter = 0.0;
     }
 
