@@ -44,15 +44,18 @@ void GameInitialization(game_memory *Memory)
     // Init Scratch Pool
     InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
 
-    // Push sound buffer on it for use
+    // Push GameSystem Data
     tmp_sound_data *SoundBuffer = (tmp_sound_data*)PushArenaData(&Memory->ScratchArena, tmp_sound_data);
+    console_log *ConsoleLog = (console_log*)PushArenaData(&Memory->ScratchArena, console_log);
 
-    game_state *State = (game_state*)Memory->PermanentMemPool;
-    State->SoundData = SoundBuffer;
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+    System->ConsoleLog = ConsoleLog;
+    System->SoundData = SoundBuffer;
 
     FillAudioBuffer(SoundBuffer);
     SoundBuffer->ReloadSoundBuffer = true;
 
+    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
     State->PlayerPosition = vec3f(300, 300, 0);
 
     Memory->IsInitialized = true;
@@ -93,6 +96,24 @@ void MovePlayer(game_state *State, game_input *Input)
     State->PlayerPosition = Move;
 }
 
+void LogString(console_log *Log, char const *String)
+{
+    // NOTE - Have an exposed Queue of Console String on Platform
+    // The Game sends Console Log strings to that queue
+    // The platform process the queue in order each frame and draws them in console
+    memcpy(Log->MsgStack[Log->WriteIdx], String, ConsoleLogStringLen);
+    Log->WriteIdx = (Log->WriteIdx + 1) % ConsoleLogCapacity;
+
+    if(Log->StringCount >= ConsoleLogCapacity)
+    {
+        Log->ReadIdx = (Log->ReadIdx + 1) % ConsoleLogCapacity;
+    }
+    else
+    {
+        Log->StringCount++;
+    }
+}
+
 extern "C" __declspec(dllexport) GAMEUPDATE(GameUpdate)
 {
     if(!Memory->IsInitialized)
@@ -100,10 +121,12 @@ extern "C" __declspec(dllexport) GAMEUPDATE(GameUpdate)
         GameInitialization(Memory);
     }
 
-    game_state *State = (game_state*)Memory->PermanentMemPool;
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
+
     if(Input->KeyReleased)
     {
-        tmp_sound_data *SoundData = State->SoundData;
+        tmp_sound_data *SoundData = System->SoundData;
         FillAudioBuffer(SoundData);
         SoundData->ReloadSoundBuffer = true;
     }
@@ -114,7 +137,9 @@ extern "C" __declspec(dllexport) GAMEUPDATE(GameUpdate)
 
     if(Counter > 1.0)
     {
-        DebugPrint("%g, c Mouse: %d,%d\n", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+        console_log_string Msg;
+        snprintf(Msg, ConsoleLogStringLen, "%g, c Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+        LogString(System->ConsoleLog, Msg);
         Counter = 0.0;
     }
 

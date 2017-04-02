@@ -515,16 +515,16 @@ int main(char **argv, int argc)
 
 
         real32 positions[] = {
-            -50.f, 50.f, 0.5f, // topleft
-            -50.f, -50.f, 0.5f, // botleft
-            50.f, -50.f, 0.5f, // botright
-            50.f, 50.f, 0.5f, // topright
+            -100.f, 100.f, 0.5f, // topleft
+            -100.f, -100.f, 0.5f, // botleft
+            100.f, -100.f, 0.5f, // botright
+            100.f, 100.f, 0.5f, // topright
         };
         real32 colors[] = {
             1.f, 1.f, 1.f, 1.f,
             0.f, 1.f, 0.f, 1.f,
             0.f, 1.f, 1.f, 1.f,
-            0.f, 0.f, 1.f, 1.f
+            1.f, 0.f, 0.f, 1.f
         };
         real32 texcoords[] = { // NOTE - inverted Y coordinate ! Streamline this somewhere
             0.f, 0.f,
@@ -597,9 +597,10 @@ int main(char **argv, int argc)
 
             Game.GameUpdate(&Memory, &Input);
 
-            game_state *State = (game_state*)Memory.PermanentMemPool;
+            game_system *System = (game_system*)Memory.PermanentMemPool;
+            game_state *State = (game_state*)POOL_OFFSET(Memory.PermanentMemPool, game_system);
             {
-                tmp_sound_data *SoundData = State->SoundData;
+                tmp_sound_data *SoundData = System->SoundData;
                 if(SoundData->ReloadSoundBuffer)
                 {
                     SoundData->ReloadSoundBuffer = false;
@@ -615,6 +616,13 @@ int main(char **argv, int argc)
                 uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
                 glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
                 CheckGLError("ModelMatrix");
+
+                console_log *Log = System->ConsoleLog;
+                for(int i = 0; i < Log->StringCount; ++i)
+                {
+                    //printf("%s\n", Log->MsgStack[(Log->ReadIdx+i)%Log->StringCount]);
+                }
+                //printf("\n");
             }
 
             glUseProgram(Program1);

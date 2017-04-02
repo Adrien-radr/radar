@@ -54,13 +54,56 @@ font LoadFont(char *Filename, real32 PixelHeight)
     void *Contents = ReadFileContents(Filename);
     if(Contents)
     {
+        Font.Width = 1024;
+        Font.Height = 1024;
+        Font.Buffer = (uint8*)calloc(1, Font.Width*Font.Height);
+
         stbtt_fontinfo STBFont;
         stbtt_InitFont(&STBFont, (uint8*)Contents, 0);
 
         real32 PixelScale = stbtt_ScaleForPixelHeight(&STBFont, PixelHeight);
+        int Ascent, Descent, LineGap;
+        stbtt_GetFontVMetrics(&STBFont, &Ascent, &Descent, &LineGap);
+        Ascent *= PixelScale;
+        Descent *= PixelScale;
 
-        Font.Buffer = stbtt_GetCodepointBitmap(&STBFont, 0, stbtt_ScaleForPixelHeight(&STBFont, PixelHeight), 
-                'A', &Font.Width, &Font.Height, &Font.XOffset, &Font.YOffset);
+        printf("Font Ascent %d, Descent %d, LineGap %d\n", Ascent, Descent, LineGap);
+
+        int X = 0, Y = 0;
+
+        for(int Codepoint = 33; Codepoint < 127; ++Codepoint)
+        {
+            int Glyph = stbtt_FindGlyphIndex(&STBFont, Codepoint);
+
+            int X0, X1, Y0, Y1;
+            stbtt_GetGlyphBitmapBox(&STBFont, Glyph, PixelScale, PixelScale, &X0, &Y0, &X1, &Y1);
+            int CW = X1 - X0;
+            int CH = Y1 - Y0;
+            printf("Letter dim : %d %d (%d %d, %d %d)\n", CW, CH, X0, Y0, X1, Y1);
+
+            if(X+CW >= Font.Width)
+            {
+                X = 0;
+                Y += LineGap + Ascent + Descent;
+                Assert((Y+Ascent-Descent) < Font.Height);
+            }
+
+            int CharY = Y + Ascent + Y0;
+
+            uint8 *BitmapPtr = Font.Buffer + (CharY * Font.Width + X);
+            stbtt_MakeGlyphBitmap(&STBFont, BitmapPtr, CW, CH, Font.Width, PixelScale, PixelScale, Glyph);
+
+            int AdvX, AdvY;
+            stbtt_GetGlyphHMetrics(&STBFont, Glyph, &AdvX, 0);
+            printf("Letter adv : %g\n", AdvX*PixelScale);
+
+            int AdvKern = stbtt_GetGlyphKernAdvance(&STBFont, Glyph, Glyph+1);
+            printf("Letter kern : %g\n", AdvKern*PixelScale);
+
+            X += (AdvX + AdvKern) * PixelScale;
+            printf("X = %d\n", X);
+        }
+
 
 #if 0
         // Load all ASCII characters
@@ -81,9 +124,9 @@ void DestroyFont(font *Font)
 {
     if(Font && Font->Buffer)
     {
-        stbtt_FreeBitmap(Font->Buffer, 0);
+        //stbtt_FreeBitmap(Font->Buffer, 0);
         // TODO - Glyph bitmap packing and 1 free for all characters
-        //free(Font->Buffer);
+        free(Font->Buffer);
     }
 }
 

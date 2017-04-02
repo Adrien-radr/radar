@@ -44,6 +44,9 @@ typedef unsigned long long  uint64;
 #define Megabytes(num) (1024*Kilobytes(num))
 #define Gigabytes(num) (1024*Megabytes(num))
 
+#define ConsoleLogStringLen 256
+#define ConsoleLogCapacity 8
+
 struct memory_arena
 {
     uint8   *BasePtr;   // Start of Arena, in bytes
@@ -51,6 +54,7 @@ struct memory_arena
     uint64  Capacity;   // Total size of arena
 };
 
+#define POOL_OFFSET(Pool, Structure) ((uint8*)(Pool) + sizeof(Structure))
 // NOTE - This memory is allocated at startup
 // Each pool is then mapped according to the needed layout
 struct game_memory
@@ -75,9 +79,24 @@ struct tmp_sound_data
     uint16 SoundBuffer[Megabytes(1)];
 };
 
+typedef char console_log_string[ConsoleLogStringLen];
+struct console_log
+{
+    // TODO - Make the length a parameter ? Make the buffer a ring buffer.
+    console_log_string MsgStack[ConsoleLogCapacity];
+    uint32 WriteIdx;
+    uint32 ReadIdx;
+    uint32 StringCount;
+};
+
+struct game_system
+{
+    console_log *ConsoleLog;
+    tmp_sound_data *SoundData;
+};
+
 struct game_state
 {
-    tmp_sound_data *SoundData;
     vec3f PlayerPosition;
 };
 
