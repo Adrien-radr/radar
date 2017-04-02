@@ -336,11 +336,11 @@ game_context InitContext(game_config *Config)
                         //Config->WindowWidth / (real32)Config->WindowHeight, 0.1f, 1000.f);
                 Context.ProjectionMatrix3D = mat4f::Ortho(0, Config->WindowWidth, 0,Config->WindowHeight, 0.1f, 1000.f);
 
-                glClearColor(1.f, 0.f, 1.f, 0.f);
+                glClearColor(0.2f, 0.3f, 0.7f, 0.f);
 
-                glEnable( GL_CULL_FACE );
-                glCullFace( GL_BACK );
-                glFrontFace( GL_CCW );
+                //glEnable( GL_CULL_FACE );
+                //glCullFace( GL_BACK );
+                //glFrontFace( GL_CCW );
 
                 glEnable( GL_DEPTH_TEST );
                 glDepthFunc( GL_LESS );
@@ -496,23 +496,29 @@ int main(char **argv, int argc)
 
         char VSPath[MAX_PATH];
         char FSPath[MAX_PATH];
-        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/2d_billboard_inst_vert.glsl");
-        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/2d_billboard_inst_frag.glsl");
+        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
+        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
         uint32 Program1 = BuildShader(VSPath, FSPath);
         glUseProgram(Program1);
 
         {
             uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
             glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
-            CheckGLError();
+            CheckGLError("ProjMatrix");
+
+            //mat4f ViewMatrix = mat4f::LookAt(vec3f(0,0,5), vec3f(0,0,0), vec3f(0,0,1));
+            mat4f ViewMatrix;
+            Loc = glGetUniformLocation(Program1, "ViewMatrix");
+            glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
+            CheckGLError("ViewMatrix");
         }
 
 
         real32 positions[] = {
-            -10.f, 10.f, 0.5f, // topleft
-            -10.f, -10.f, 0.5f, // botleft
-            10.f, -10.f, 0.5f, // botright
-            10.f, 10.f, 0.5f, // topright
+            -50.f, 50.f, 0.5f, // topleft
+            -50.f, -50.f, 0.5f, // botleft
+            50.f, -50.f, 0.5f, // botright
+            50.f, 50.f, 0.5f, // topright
         };
         real32 colors[] = {
             1.f, 1.f, 1.f, 1.f,
@@ -542,6 +548,12 @@ int main(char **argv, int argc)
         uint32 Texture1 = Make2DTexture(&Image, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
+        // Load Font Char
+        font Font = LoadFont("C:/Windows/Fonts/arial.ttf", 128);
+        printf("%d %d %d %d\n", Font.Width, Font.Height, Font.XOffset, Font.YOffset);
+        uint32 Texture2 = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, 1.0f);
+        DestroyFont(&Font);
+
         glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 
 /////////////////////////
@@ -560,7 +572,7 @@ int main(char **argv, int argc)
                 uint32 TimeToSleep = 1000 * (uint32)(TargetSecondsPerFrame - Input.dTime);
                 PlatformSleep(TimeToSleep);
                 
-                CurrentTime = glfwGetTime();
+                CurrentTime = glfwGetTime()n;
                 Input.dTime = CurrentTime - LastTime;
             }
             else
@@ -602,18 +614,19 @@ int main(char **argv, int argc)
                 mat4f ModelMatrix = mat4f::Translation(State->PlayerPosition);
                 uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
                 glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
-                CheckGLError();
+                CheckGLError("ModelMatrix");
             }
 
             glUseProgram(Program1);
             glBindVertexArray(VAO1);
-            glBindTexture(GL_TEXTURE_2D, Texture1);
+            glBindTexture(GL_TEXTURE_2D, Texture2);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
             glfwSwapBuffers(Context.Window);
         }
 
         glDeleteTextures(1, &Texture1);
+        glDeleteTextures(1, &Texture2);
         glDeleteBuffers(1, &PosBuffer);
         glDeleteBuffers(1, &ColBuffer);
         glDeleteBuffers(1, &IdxBuffer);

@@ -14,6 +14,10 @@ struct image
 struct font
 {
     uint8 *Buffer;
+    int Width;
+    int Height;
+    int XOffset;
+    int YOffset;
 };
 
 
@@ -22,7 +26,23 @@ void CheckGLError(const char *Mark = "")
     uint32 Err = glGetError();
     if(Err != GL_NO_ERROR)
     {
-        printf("[%s] GL Error %u\n", Mark, Err);
+        char ErrName[32];
+        switch(Err)
+        {
+            case GL_INVALID_ENUM:
+                snprintf(ErrName, 32, "GL_INVALID_ENUM");
+                break;
+            case GL_INVALID_VALUE:
+                snprintf(ErrName, 32, "GL_INVALID_VALUE");
+                break;
+            case GL_INVALID_OPERATION:
+                snprintf(ErrName, 32, "GL_INVALID_OPERATION");
+                break;
+            default:
+                snprintf(ErrName, 32, "UNKNOWN [%lu]", Err);
+                break;
+        }
+        printf("[%s] GL Error %s\n", Mark, ErrName);
     }
 }
 
@@ -39,9 +59,8 @@ font LoadFont(char *Filename, real32 PixelHeight)
 
         real32 PixelScale = stbtt_ScaleForPixelHeight(&STBFont, PixelHeight);
 
-        int Width, Height, XOffset, YOffset;
         Font.Buffer = stbtt_GetCodepointBitmap(&STBFont, 0, stbtt_ScaleForPixelHeight(&STBFont, PixelHeight), 
-                'A', &Width, &Height, &XOffset, &YOffset);
+                'A', &Font.Width, &Font.Height, &Font.XOffset, &Font.YOffset);
 
 #if 0
         // Load all ASCII characters
@@ -97,12 +116,14 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     glGetIntegerv(GL_UNPACK_ALIGNMENT, &CurrentAlignment);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+    CheckGLError("1");
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
 
+    CheckGLError("2");
     GLint BaseFormat, Format;
     switch(Channels)
     {
@@ -117,8 +138,10 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     }
 
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, GL_UNSIGNED_BYTE, Bitmap);
+    CheckGLError("3");
     glGenerateMipmap(GL_TEXTURE_2D);
 
+    CheckGLError("4");
     glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
 
     glBindTexture(GL_TEXTURE_2D, 0);
