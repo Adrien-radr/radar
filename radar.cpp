@@ -82,7 +82,7 @@ void DestroyMemory(game_memory *Memory)
     }
 }
 
-void MakeRelativePath(char *Dst, char *Path, char* Filename)
+void MakeRelativePath(char *Dst, char *Path, char const *Filename)
 {
     strncpy(Dst, Path, MAX_PATH);
     strncat(Dst, Filename, MAX_PATH);
@@ -458,15 +458,6 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     return true;
 }
 
-void CheckGLError(const char *Mark = "")
-{
-    uint32 Err = glGetError();
-    if(Err != GL_NO_ERROR)
-    {
-        printf("[%s] GL Error %u\n", Mark, Err);
-    }
-}
-
 int main(char **argv, int argc)
 {
     char DllName[] = "sun.dll";
@@ -481,7 +472,7 @@ int main(char **argv, int argc)
     MakeRelativePath(DllDstPath, ExecFullPath, DllDynamicCopyName);
 
     char ConfigPath[MAX_PATH];
-    MakeRelativePath(ConfigPath, ExecFullPath, (char*)"config.json");
+    MakeRelativePath(ConfigPath, ExecFullPath, "config.json");
 
     game_config Config = ParseConfig(ConfigPath);
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
@@ -496,46 +487,62 @@ int main(char **argv, int argc)
 
 /////////////////////////
     // TEMP
-    ALuint AudioBuffer;
-    ALuint AudioSource;
-    if(TempPrepareSound(&AudioBuffer, &AudioSource))
-    {
-        alSourcePlay(AudioSource);
-    }
+        ALuint AudioBuffer;
+        ALuint AudioSource;
+        if(TempPrepareSound(&AudioBuffer, &AudioSource))
+        {
+            alSourcePlay(AudioSource);
+        }
 
-    char VSPath[MAX_PATH];
-    char FSPath[MAX_PATH];
-    MakeRelativePath(VSPath, ExecFullPath, (char*)"data/shaders/2d_billboard_inst_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, (char*)"data/shaders/2d_billboard_inst_frag.glsl");
-    uint32 Program1 = BuildShader(VSPath, FSPath);
-    glUseProgram(Program1);
+        char VSPath[MAX_PATH];
+        char FSPath[MAX_PATH];
+        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/2d_billboard_inst_vert.glsl");
+        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/2d_billboard_inst_frag.glsl");
+        uint32 Program1 = BuildShader(VSPath, FSPath);
+        glUseProgram(Program1);
 
-    {
-        uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
-        glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
-        CheckGLError();
-    }
-    
+        {
+            uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
+            glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
+            CheckGLError();
+        }
 
-    real32 positions[] = {
-        -10.f, 10.f, 0.5f, // topleft
-        -10.f, -10.f, 0.5f, // botleft
-        10.f, -10.f, 0.5f, // botright
-        10.f, 10.f, 0.5f, // topright
-    };
-    real32 colors[] = {
-        1.f, 1.f, 1.f, 1.f,
-        0.f, 1.f, 0.f, 1.f,
-        0.f, 1.f, 1.f, 1.f,
-        0.f, 0.f, 1.f, 1.f
-    };
-    uint32 indices[] = { 0, 1, 2, 0, 2, 3 };
 
-    uint32 VAO1 = MakeVertexArrayObject();
-    uint32 PosBuffer = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(positions), positions);
-    uint32 ColBuffer = AddVertexBufferObject(1, 4, GL_FLOAT, GL_STATIC_DRAW, sizeof(colors), colors);
-    uint32 IdxBuffer = AddIndexBufferObject(GL_STATIC_DRAW, sizeof(indices), indices);
-    glBindVertexArray(0);
+        real32 positions[] = {
+            -10.f, 10.f, 0.5f, // topleft
+            -10.f, -10.f, 0.5f, // botleft
+            10.f, -10.f, 0.5f, // botright
+            10.f, 10.f, 0.5f, // topright
+        };
+        real32 colors[] = {
+            1.f, 1.f, 1.f, 1.f,
+            0.f, 1.f, 0.f, 1.f,
+            0.f, 1.f, 1.f, 1.f,
+            0.f, 0.f, 1.f, 1.f
+        };
+        real32 texcoords[] = { // NOTE - inverted Y coordinate ! Streamline this somewhere
+            0.f, 0.f,
+            0.f, 1.f,
+            1.f, 1.f,
+            1.f, 0.f
+        };
+        uint32 indices[] = { 0, 1, 2, 0, 2, 3 };
+
+        uint32 VAO1 = MakeVertexArrayObject();
+        uint32 PosBuffer = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(positions), positions);
+        uint32 TexBuffer = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, sizeof(texcoords), texcoords);
+        uint32 ColBuffer = AddVertexBufferObject(2, 4, GL_FLOAT, GL_STATIC_DRAW, sizeof(colors), colors);
+        uint32 IdxBuffer = AddIndexBufferObject(GL_STATIC_DRAW, sizeof(indices), indices);
+        glBindVertexArray(0);
+
+        // Texture creation
+        char TexPath[MAX_PATH];
+        MakeRelativePath(TexPath, ExecFullPath, "data/test_png.png");
+        image Image = LoadImage(TexPath);
+        uint32 Texture1 = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        DestroyImage(&Image);
+
+        glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 
 /////////////////////////
 
@@ -600,11 +607,13 @@ int main(char **argv, int argc)
 
             glUseProgram(Program1);
             glBindVertexArray(VAO1);
+            glBindTexture(GL_TEXTURE_2D, Texture1);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
             glfwSwapBuffers(Context.Window);
         }
 
+        glDeleteTextures(1, &Texture1);
         glDeleteBuffers(1, &PosBuffer);
         glDeleteBuffers(1, &ColBuffer);
         glDeleteBuffers(1, &IdxBuffer);

@@ -16,6 +16,16 @@ struct font
     uint8 *Buffer;
 };
 
+
+void CheckGLError(const char *Mark = "")
+{
+    uint32 Err = glGetError();
+    if(Err != GL_NO_ERROR)
+    {
+        printf("[%s] GL Error %u\n", Mark, Err);
+    }
+}
+
 // TODO - Load Unicode characters
 font LoadFont(char *Filename, real32 PixelHeight)
 {
@@ -63,6 +73,11 @@ image LoadImage(char *Filename, int32 ForceNumChannel = 0)
     image Image = {};
     Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
 
+    if(!Image.Buffer)
+    {
+        printf("Error loading Image from %s.\n", Filename);
+    }
+
     return Image;
 }
 
@@ -70,6 +85,50 @@ void DestroyImage(image *Image)
 {
     stbi_image_free(Image->Buffer);
     Image->Width = Image->Height = Image->Channels = 0;
+}
+
+uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels, real32 AnisotropicLevel)
+{
+    uint32 Texture;
+    glGenTextures(1, &Texture);
+    glBindTexture(GL_TEXTURE_2D, Texture);
+
+    GLint CurrentAlignment;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &CurrentAlignment);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
+
+    GLint BaseFormat, Format;
+    switch(Channels)
+    {
+    case 1:
+        BaseFormat = Format = GL_RED; break;
+    case 2:
+        BaseFormat = Format = GL_RG; break;
+    case 3:
+        BaseFormat = Format = GL_RGB; break;
+    case 4:
+        BaseFormat = Format = GL_RGBA; break;
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, GL_UNSIGNED_BYTE, Bitmap);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    return Texture;
+}
+
+uint32 Make2DTexture(image *Image, uint32 AnisotropicLevel)
+{
+    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, AnisotropicLevel);
 }
 
 uint32 _CompileShader(char *Src, int Type)

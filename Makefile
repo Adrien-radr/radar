@@ -69,7 +69,7 @@ LIB_INCLUDES=\
 			 sun.h
 
 lib:
-	$(CC) $(DLL_CFLAGS) $(VERSION_FLAGS) /LD $(LIB_SRCS) $(LINK) /OUT:$(LIB_TARGET)
+	@$(CC) $(DLL_CFLAGS) $(VERSION_FLAGS) /LD $(LIB_SRCS) $(LINK) /OUT:$(LIB_TARGET)
 	@#GCC : $(CC) $(CFLAGS) $(VERSION_FLAGS) -shared $(LIB_SRCS) -o $(LIB_TARGET)
 
 ##################################################
@@ -80,13 +80,13 @@ INCLUDES=\
 		 radar.h
 
 radar: $(GLEW_TARGET) $(CJSON_TARGET)
-	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LINK) /LIBPATH:$(OPENAL_LIB) /LIBPATH:$(GLEW_LIB) /LIBPATH:$(GLFW_LIB) /LIBPATH:$(CJSON_LIB) cjson.lib OpenAL32.lib libglfw3.lib glew.lib opengl32.lib user32.lib shell32.lib gdi32.lib /OUT:$(TARGET) /PDB:$(PDB_TARGET)
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LINK) /LIBPATH:$(OPENAL_LIB) /LIBPATH:$(GLEW_LIB) /LIBPATH:$(GLFW_LIB) /LIBPATH:$(CJSON_LIB) cjson.lib OpenAL32.lib libglfw3.lib glew.lib opengl32.lib user32.lib shell32.lib gdi32.lib /OUT:$(TARGET) /PDB:$(PDB_TARGET)
 
 ##################################################
 
 post_build:
-	mv *.pdb *.lib *.exp bin/
-	rm *.obj
+	@mv *.pdb *.lib *.exp bin/
+	@rm *.obj
 
 clean:
 	rm $(TARGET)
