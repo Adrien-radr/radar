@@ -458,6 +458,97 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     return true;
 }
 
+struct display_text
+{
+    uint32 VAO;
+    uint32 VBO[3]; // 0 : position, 1 : texcoord, 2 : indices
+    uint32 IndexCount;
+    uint32 Texture;
+    vec4f  Color;
+};
+
+void DestroyDisplayText(display_text *Text)
+{
+    glDeleteBuffers(3, Text->VBO);
+    glDeleteVertexArrays(1, &Text->VAO);
+}
+
+display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
+{
+    display_text Text = {};
+
+    uint32 MsgLength = strlen(Msg);
+    uint32 VertexCount = MsgLength * 4;
+    uint32 IndexCount = MsgLength * 6;
+
+    uint32 PS = 4 * 3;
+    uint32 TS = 4 * 2;
+
+    real32 *Positions = (real32*)alloca(3 * VertexCount * sizeof(real32));
+    real32 *Texcoords = (real32*)alloca(2 * VertexCount * sizeof(real32));
+    uint32 *Indices = (uint32*)alloca(IndexCount * sizeof(uint32));
+
+    int X = 0, Y = 0;
+    for(uint32 i = 0; i < MsgLength; ++i)
+    {
+        uint8 AsciiIdx = Msg[i] - 32; // 32 is the 1st Ascii idx
+        glyph &Glyph = Font->Glyphs[AsciiIdx];
+
+        // Modify DisplayWidth to always be at least the length of each character
+        if(MaxPixelWidth < Glyph.CW)
+        {
+            MaxPixelWidth = Glyph.CW;
+        }
+
+        if(Msg[i] == '\n')
+        {
+            X = 0;
+            Y -= Font->LineGap;
+            AsciiIdx = Msg[++i] - 32;
+            Glyph = Font->Glyphs[AsciiIdx];
+            IndexCount--;
+        }
+
+        if((X + Glyph.CW) >= MaxPixelWidth)
+        {
+            X = 0;
+            Y -= Font->LineGap;
+        }
+
+        // position (TL, BL, BR, TR)
+        real32 BaseX = (real32)(X + Glyph.X);
+        real32 BaseY = (real32)(Y - Font->Ascent - Glyph.Y);
+        Positions[i*PS+0+0] = Scale*(BaseX);              Positions[i*PS+0+1] = Scale*(BaseY);            Positions[i*PS+0+2] = 0;
+        Positions[i*PS+3+0] = Scale*(BaseX);              Positions[i*PS+3+1] = Scale*(BaseY - Glyph.CH); Positions[i*PS+3+2] = 0;
+        Positions[i*PS+6+0] = Scale*(BaseX + Glyph.CW);   Positions[i*PS+6+1] = Scale*(BaseY - Glyph.CH); Positions[i*PS+6+2] = 0;
+        Positions[i*PS+9+0] = Scale*(BaseX + Glyph.CW);   Positions[i*PS+9+1] = Scale*(BaseY);            Positions[i*PS+9+2] = 0;
+
+        // texcoords
+        Texcoords[i*TS+0+0] = Glyph.TexX0; Texcoords[i*TS+0+1] = Glyph.TexY0;
+        Texcoords[i*TS+2+0] = Glyph.TexX0; Texcoords[i*TS+2+1] = Glyph.TexY1;
+        Texcoords[i*TS+4+0] = Glyph.TexX1; Texcoords[i*TS+4+1] = Glyph.TexY1;
+        Texcoords[i*TS+6+0] = Glyph.TexX1; Texcoords[i*TS+6+1] = Glyph.TexY0;
+
+        Indices[i*6+0] = i*4+0;Indices[i*6+1] = i*4+1;Indices[i*6+2] = i*4+2;
+        Indices[i*6+3] = i*4+0;Indices[i*6+4] = i*4+2;Indices[i*6+5] = i*4+3;
+
+        X += Glyph.AdvX;
+    }
+
+    // Make VAO/VBO
+    Text.VAO = MakeVertexArrayObject();
+    Text.VBO[0] = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, 3 * VertexCount * sizeof(real32), Positions);
+    Text.VBO[1] = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, 2 * VertexCount * sizeof(real32), Texcoords);
+    Text.VBO[2] = AddIndexBufferObject(GL_STATIC_DRAW, IndexCount * sizeof(uint32), Indices);
+    Text.IndexCount = IndexCount;
+    glBindVertexArray(0);
+
+    Text.Texture = Font->AtlasTextureID;
+    Text.Color = Color;
+
+    return Text;
+}
+
 int main(char **argv, int argc)
 {
     char DllName[] = "sun.dll";
@@ -496,21 +587,18 @@ int main(char **argv, int argc)
 
         char VSPath[MAX_PATH];
         char FSPath[MAX_PATH];
-        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
-        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
+        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
+        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
         uint32 Program1 = BuildShader(VSPath, FSPath);
         glUseProgram(Program1);
 
         {
-            uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
-            glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
-            CheckGLError("ProjMatrix");
 
             //mat4f ViewMatrix = mat4f::LookAt(vec3f(0,0,5), vec3f(0,0,0), vec3f(0,0,1));
-            mat4f ViewMatrix;
-            Loc = glGetUniformLocation(Program1, "ViewMatrix");
-            glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
-            CheckGLError("ViewMatrix");
+            //mat4f ViewMatrix;
+            //Loc = glGetUniformLocation(Program1, "ViewMatrix");
+            //glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
+            //CheckGLError("ViewMatrix");
         }
 
 
@@ -549,12 +637,14 @@ int main(char **argv, int argc)
         DestroyImage(&Image);
 
         // Load Font Char
-        font Font = LoadFont("C:/Windows/Fonts/arial.ttf", 128);
-        printf("%d %d %d %d\n", Font.Width, Font.Height, Font.XOffset, Font.YOffset);
-        uint32 Texture2 = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, 1.0f);
-        DestroyFont(&Font);
+        font Font = LoadFont("C:/Windows/Fonts/arial.ttf", 24);
+        //font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
 
         glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
+
+        display_text TestText = MakeDisplayText(&Font, "Hello, World!\nThis is a new line..", 960, vec4f(1.0f, 1.0f, 1.0f, 1.0f), 1.f);
+        glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)TestText.Color);
+        CheckGLError("TestText");
 
 /////////////////////////
 
@@ -612,10 +702,20 @@ int main(char **argv, int argc)
                     CheckALError();
                 }
 
-                mat4f ModelMatrix = mat4f::Translation(State->PlayerPosition);
-                uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
-                glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
-                CheckGLError("ModelMatrix");
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix");
+                }
+
+                // TODO - ModelMatrix updated per 'object'
+                {
+                    mat4f ModelMatrix = mat4f::Translation(State->PlayerPosition);
+                    uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
+                    CheckGLError("ModelMatrix");
+                }
 
                 console_log *Log = System->ConsoleLog;
                 for(int i = 0; i < Log->StringCount; ++i)
@@ -626,15 +726,22 @@ int main(char **argv, int argc)
             }
 
             glUseProgram(Program1);
+#if 0
             glBindVertexArray(VAO1);
-            glBindTexture(GL_TEXTURE_2D, Texture2);
+            glBindTexture(GL_TEXTURE_2D, Font.AtlasTextureID);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+#else
+            glBindVertexArray(TestText.VAO);
+            glBindTexture(GL_TEXTURE_2D, TestText.Texture);
+            glDrawElements(GL_TRIANGLES, TestText.IndexCount, GL_UNSIGNED_INT, 0);
+#endif
 
             glfwSwapBuffers(Context.Window);
         }
 
+        DestroyFont(&Font);
+        DestroyDisplayText(&TestText);
         glDeleteTextures(1, &Texture1);
-        glDeleteTextures(1, &Texture2);
         glDeleteBuffers(1, &PosBuffer);
         glDeleteBuffers(1, &ColBuffer);
         glDeleteBuffers(1, &IdxBuffer);

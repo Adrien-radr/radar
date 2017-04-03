@@ -4,3 +4,6 @@
 *.pdb
 *.exp
 *.obj
+bin/.vs
+radar/
+tags

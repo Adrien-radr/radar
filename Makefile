@@ -85,8 +85,8 @@ radar: $(GLEW_TARGET) $(CJSON_TARGET)
 ##################################################
 
 post_build:
-	@mv *.pdb *.lib *.exp bin/
-	@rm *.obj
+	@mv *.pdb bin/
+	@rm *.obj *.lib *.exp
 
 clean:
 	rm $(TARGET)

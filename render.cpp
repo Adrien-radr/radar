@@ -11,13 +11,34 @@ struct image
     int32 Channels;
 };
 
+struct glyph
+{
+    // NOTE - behavior
+    //   X,Y 0---------o   x    
+    //       |         |   |    
+    //       |         |   |    
+    //       |         |   | CH
+    //       |         |   |    
+    //       0---------o   v    
+    //       x---------> CW
+    //       x-----------> AdvX
+    int X, Y;
+    real32 TexX0, TexY0, TexX1, TexY1; // Absolute texcoords in Font Bitmap where the char is
+    int CW, CH;
+    real32 AdvX;
+};
+
+// NOTE - Ascii-only
+// TODO - UTF
 struct font
 {
     uint8 *Buffer;
     int Width;
     int Height;
-    int XOffset;
-    int YOffset;
+    int LineGap;
+    int Ascent;
+    glyph Glyphs[127-32]; // 126 is '~', 32 is ' '
+    uint32 AtlasTextureID;
 };
 
 
@@ -43,90 +64,6 @@ void CheckGLError(const char *Mark = "")
                 break;
         }
         printf("[%s] GL Error %s\n", Mark, ErrName);
-    }
-}
-
-// TODO - Load Unicode characters
-font LoadFont(char *Filename, real32 PixelHeight)
-{
-    font Font = {};
-
-    void *Contents = ReadFileContents(Filename);
-    if(Contents)
-    {
-        Font.Width = 1024;
-        Font.Height = 1024;
-        Font.Buffer = (uint8*)calloc(1, Font.Width*Font.Height);
-
-        stbtt_fontinfo STBFont;
-        stbtt_InitFont(&STBFont, (uint8*)Contents, 0);
-
-        real32 PixelScale = stbtt_ScaleForPixelHeight(&STBFont, PixelHeight);
-        int Ascent, Descent, LineGap;
-        stbtt_GetFontVMetrics(&STBFont, &Ascent, &Descent, &LineGap);
-        Ascent *= PixelScale;
-        Descent *= PixelScale;
-
-        printf("Font Ascent %d, Descent %d, LineGap %d\n", Ascent, Descent, LineGap);
-
-        int X = 0, Y = 0;
-
-        for(int Codepoint = 33; Codepoint < 127; ++Codepoint)
-        {
-            int Glyph = stbtt_FindGlyphIndex(&STBFont, Codepoint);
-
-            int X0, X1, Y0, Y1;
-            stbtt_GetGlyphBitmapBox(&STBFont, Glyph, PixelScale, PixelScale, &X0, &Y0, &X1, &Y1);
-            int CW = X1 - X0;
-            int CH = Y1 - Y0;
-            printf("Letter dim : %d %d (%d %d, %d %d)\n", CW, CH, X0, Y0, X1, Y1);
-
-            if(X+CW >= Font.Width)
-            {
-                X = 0;
-                Y += LineGap + Ascent + Descent;
-                Assert((Y+Ascent-Descent) < Font.Height);
-            }
-
-            int CharY = Y + Ascent + Y0;
-
-            uint8 *BitmapPtr = Font.Buffer + (CharY * Font.Width + X);
-            stbtt_MakeGlyphBitmap(&STBFont, BitmapPtr, CW, CH, Font.Width, PixelScale, PixelScale, Glyph);
-
-            int AdvX, AdvY;
-            stbtt_GetGlyphHMetrics(&STBFont, Glyph, &AdvX, 0);
-            printf("Letter adv : %g\n", AdvX*PixelScale);
-
-            int AdvKern = stbtt_GetGlyphKernAdvance(&STBFont, Glyph, Glyph+1);
-            printf("Letter kern : %g\n", AdvKern*PixelScale);
-
-            X += (AdvX + AdvKern) * PixelScale;
-            printf("X = %d\n", X);
-        }
-
-
-#if 0
-        // Load all ASCII characters
-        uint8 const AsciiCharCount = 127 - 33;
-        for(uint8 c = 33; c < 127; ++c)
-        {
-            
-        }
-#endif
-        FreeFileContents(Contents);
-    }
-
-
-    return Font;
-}
-
-void DestroyFont(font *Font)
-{
-    if(Font && Font->Buffer)
-    {
-        //stbtt_FreeBitmap(Font->Buffer, 0);
-        // TODO - Glyph bitmap packing and 1 free for all characters
-        free(Font->Buffer);
     }
 }
 
@@ -195,6 +132,92 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
 uint32 Make2DTexture(image *Image, uint32 AnisotropicLevel)
 {
     return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, AnisotropicLevel);
+}
+
+// TODO - Load Unicode characters
+// TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
+// This doesnt take it into account since we bake each letter separately for future use by texture lookup
+font LoadFont(char *Filename, real32 PixelHeight)
+{
+    font Font = {};
+
+    void *Contents = ReadFileContents(Filename);
+    if(Contents)
+    {
+        Font.Width = 1024;
+        Font.Height = 1024;
+        Font.Buffer = (uint8*)calloc(1, Font.Width*Font.Height);
+
+        stbtt_fontinfo STBFont;
+        stbtt_InitFont(&STBFont, (uint8*)Contents, 0);
+
+        real32 PixelScale = stbtt_ScaleForPixelHeight(&STBFont, PixelHeight);
+        int Ascent, Descent, LineGap;
+        stbtt_GetFontVMetrics(&STBFont, &Ascent, &Descent, &LineGap);
+        Ascent *= PixelScale;
+        Descent *= PixelScale;
+
+        Font.LineGap = Ascent - Descent;
+        Font.Ascent = Ascent;
+
+
+        int X = 0, Y = 0;
+
+        for(int Codepoint = 32; Codepoint < 127; ++Codepoint)
+        {
+            int Glyph = stbtt_FindGlyphIndex(&STBFont, Codepoint);
+
+            int AdvX;
+            int X0, X1, Y0, Y1;
+            stbtt_GetGlyphBitmapBox(&STBFont, Glyph, PixelScale, PixelScale, &X0, &Y0, &X1, &Y1);
+            stbtt_GetGlyphHMetrics(&STBFont, Glyph, &AdvX, 0);
+            //int AdvKern = stbtt_GetCodepointKernAdvance(&STBFont, Codepoint, Codepoint+1);
+
+            int CW = X1 - X0;
+            int CH = Y1 - Y0;
+            real32 AdvanceX = (AdvX /*+ AdvKern*/) * PixelScale;
+
+            if(X + CW >= Font.Width)
+            {
+                X = 0;
+                Y += LineGap + Ascent + Descent;
+                Assert((Y + Ascent - Descent) < Font.Height);
+            }
+
+            Font.Glyphs[Codepoint-32] = glyph { 
+                X0, Y0,
+                (X + X0)/(real32)Font.Width, (Y + Ascent + Y0)/(real32)Font.Height, 
+                (X + X1)/(real32)Font.Width, (Y + Ascent + Y1)/(real32)Font.Height, 
+                CW, CH, AdvanceX
+            };
+
+            int CharX = X + X0;
+            int CharY = Y + Ascent + Y0;
+
+            uint8 *BitmapPtr = Font.Buffer + (CharY * Font.Width + CharX);
+            stbtt_MakeGlyphBitmap(&STBFont, BitmapPtr, CW, CH, Font.Width, PixelScale, PixelScale, Glyph);
+
+            X += AdvanceX;
+        }
+
+        // Make Texture out of the Bitmap
+        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, 1.0f);
+
+        FreeFileContents(Contents);
+    }
+
+
+    return Font;
+}
+
+void DestroyFont(font *Font)
+{
+    if(Font && Font->Buffer)
+    {
+        //stbtt_FreeBitmap(Font->Buffer, 0);
+        // TODO - Glyph bitmap packing and 1 free for all characters
+        free(Font->Buffer);
+    }
 }
 
 uint32 _CompileShader(char *Src, int Type)
