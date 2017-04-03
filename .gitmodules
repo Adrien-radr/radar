@@ -2,9 +2,6 @@
 	path = ext/glfw
 	url = https://github.com/glfw/glfw.git
     ignore = dirty
-[submodule "ext/glew"]
-	path = ext/glew
-	url = https://github.com/nigels-com/glew
 [submodule "ext/openal-soft"]
 	path = ext/openal-soft
 	url = https://github.com/kcat/openal-soft

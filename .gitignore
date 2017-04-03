@@ -4,6 +4,10 @@
 *.pdb
 *.exp
 *.obj
+*.so
 bin/.vs
+bin/radar.exe
+bin/radar
 radar/
 tags
+ext/

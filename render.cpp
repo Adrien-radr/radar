@@ -60,7 +60,7 @@ void CheckGLError(const char *Mark = "")
                 snprintf(ErrName, 32, "GL_INVALID_OPERATION");
                 break;
             default:
-                snprintf(ErrName, 32, "UNKNOWN [%lu]", Err);
+                snprintf(ErrName, 32, "UNKNOWN [%u]", Err);
                 break;
         }
         printf("[%s] GL Error %s\n", Mark, ErrName);

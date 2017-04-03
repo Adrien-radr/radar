@@ -1,5 +1,6 @@
 #include "sun.h"
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 
 real64 Counter = 0.0;
@@ -114,7 +115,7 @@ void LogString(console_log *Log, char const *String)
     }
 }
 
-extern "C" __declspec(dllexport) GAMEUPDATE(GameUpdate)
+DLLEXPORT GAMEUPDATE(GameUpdate)
 {
     if(!Memory->IsInitialized)
     {

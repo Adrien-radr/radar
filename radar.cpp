@@ -6,7 +6,7 @@
 #include "radar.h"
 
 // PLATFORM
-int main(char **argv, int argc);
+int RadarMain(int argc, char **argv);
 #if RADAR_WIN32
 #include "radar_win32.cpp"
 #elif RADAR_UNIX
@@ -549,11 +549,8 @@ display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec
     return Text;
 }
 
-int main(char **argv, int argc)
+int RadarMain(int argc, char **argv)
 {
-    char DllName[] = "sun.dll";
-    char DllDynamicCopyName[] = "sun_temp.dll";
-
     char ExecFullPath[MAX_PATH];
     char DllSrcPath[MAX_PATH];
     char DllDstPath[MAX_PATH];
@@ -637,7 +634,8 @@ int main(char **argv, int argc)
         DestroyImage(&Image);
 
         // Load Font Char
-        font Font = LoadFont("C:/Windows/Fonts/arial.ttf", 24);
+        font Font = LoadFont((char*)"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+        //font Font = LoadFont((char*)"C:/Windows/Fonts/arial.ttf", 24);
         //font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
 
         glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
@@ -677,7 +675,7 @@ int main(char **argv, int argc)
             GetFrameInput(&Context, &Input);        
 
 
-            if(CheckNewDllVersion(Game, DllSrcPath))
+            if(CheckNewDllVersion(&Game, DllSrcPath))
             {
                 UnloadGameCode(&Game, NULL);
                 Game = LoadGameCode(DllSrcPath, DllDstPath);
@@ -718,7 +716,7 @@ int main(char **argv, int argc)
                 }
 
                 console_log *Log = System->ConsoleLog;
-                for(int i = 0; i < Log->StringCount; ++i)
+                for(uint32 i = 0; i < Log->StringCount; ++i)
                 {
                     //printf("%s\n", Log->MsgStack[(Log->ReadIdx+i)%Log->StringCount]);
                 }

@@ -1,5 +1,8 @@
 #include <windows.h>
 
+static char DllName[] = "sun.dll";
+static char DllDynamicCopyName[] = "sun_temp.dll";
+
 struct game_code
 {
     HMODULE GameDLL;
@@ -40,23 +43,22 @@ FILETIME FindLastWriteTime(char *Path)
 
 game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
 {
-    game_code result = {};
-
-    result.GameUpdate = GameUpdateStub;
+    game_code Result = {};
 
     CopyFileA(DllSrcPath, DllDstPath, FALSE);
 
-    result.GameDLL = LoadLibraryA(DllDstPath);
+    Result.GameUpdate = GameUpdateStub;
+    Result.GameDLL = LoadLibraryA(DllDstPath);
 
-    if(result.GameDLL)
+    if(Result.GameDLL)
     {
-        result.GameDLLLastWriteTime = FindLastWriteTime(DllSrcPath);
+        Result.GameDLLLastWriteTime = FindLastWriteTime(DllSrcPath);
 
-        result.GameUpdate = (game_update_function*)GetProcAddress(result.GameDLL, "GameUpdate");
-        result.IsValid = (result.GameUpdate != NULL);
+        Result.GameUpdate = (game_update_function*)GetProcAddress(Result.GameDLL, "GameUpdate");
+        Result.IsValid = (Result.GameUpdate != NULL);
     }
 
-    return result;
+    return Result;
 }
 
 void UnloadGameCode(game_code *Code, char *DuplicateDLL)
@@ -75,11 +77,11 @@ void UnloadGameCode(game_code *Code, char *DuplicateDLL)
     Code->GameUpdate = GameUpdateStub;
 }
 
-bool CheckNewDllVersion(game_code Game, char *DllPath)
+bool CheckNewDllVersion(game_code *Game, char *DllPath)
 {
     FILETIME WriteTime = FindLastWriteTime(DllPath);
-    if(CompareFileTime(&Game.GameDLLLastWriteTime, &WriteTime) != 0) {
-        Game.GameDLLLastWriteTime = WriteTime;
+    if(CompareFileTime(&Game->GameDLLLastWriteTime, &WriteTime) != 0) {
+        Game->GameDLLLastWriteTime = WriteTime;
         return true;
     }
 
@@ -95,5 +97,5 @@ void PlatformSleep(DWORD MillisecondsToSleep)
 // NOTE - We just call the platform-agnostic main function here
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    return main(__argv, __argc);
+    return main(__argc, __argv);
 }
