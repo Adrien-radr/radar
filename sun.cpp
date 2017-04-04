@@ -59,33 +59,48 @@ void GameInitialization(game_memory *Memory)
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
     State->PlayerPosition = vec3f(300, 300, 0);
 
+    game_camera &Camera = State->Camera;
+    Camera.Position = vec3f(10,10,10); // TODO - From Config
+    Camera.Target = vec3f(0,0,0); // TODO - From Config
+    Camera.Up = vec3f(0,0,1);
+    Camera.Forward = Normalize(Camera.Target - Camera.Position);
+    Camera.Right = Normalize(Cross(Camera.Forward, Camera.Up));
+    Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
+    Camera.LinearSpeed = 20; // TODO - From Config
+    Camera.AngularSpeed = 30; // TODO - From Config
+    Camera.SpeedMult = 2.0f; // TODO - From Config
+    Camera.SpeedMode = 0;
+    Camera.FreeflyMode = false;
+
+    vec2f Azimuth = Normalize(vec2f(Camera.Forward[0], Camera.Forward[1]));
+    Camera.Phi = atan2f(Azimuth.y, Azimuth.x);
+    Camera.Theta = atan2f(Camera.Forward.z, sqrtf(Dot(Azimuth, Azimuth)));
+
     Memory->IsInitialized = true;
 }
 
 void MovePlayer(game_state *State, game_input *Input)
 {
-    vec3f Move(0, 0, 0);
-    if(KEY_DOWN(Input->KeyW))
-    {
-        Move.y += 1;
-    }
-    if(KEY_DOWN(Input->KeyS))
-    {
-        Move.y -= 1;
-    }
-    if(KEY_DOWN(Input->KeyA))
-    {
-        Move.x -= 1;
-    }
-    if(KEY_DOWN(Input->KeyD))
-    {
-        Move.x += 1;
-    }
+    game_camera &Camera = State->Camera;
 
+    vec3f CameraMove(0, 0, 0);
+    if(KEY_DOWN(Input->KeyW)) CameraMove += Camera.Forward;
+    if(KEY_DOWN(Input->KeyS)) CameraMove -= Camera.Forward;
+    if(KEY_DOWN(Input->KeyA)) CameraMove -= Camera.Right;
+    if(KEY_DOWN(Input->KeyD)) CameraMove += Camera.Right;
 
-    Normalize(Move);
-    Move *= (real32)(Input->dTime * 100.0);
+    if(KEY_HIT(Input->KeyLShift))      Camera.SpeedMode += 1;
+    else if(KEY_UP(Input->KeyLShift))  Camera.SpeedMode -= 1;
+    if(KEY_HIT(Input->KeyLCtrl))       Camera.SpeedMode -= 1;
+    else if(KEY_UP(Input->KeyLCtrl))   Camera.SpeedMode += 1;
 
+    Normalize(CameraMove);
+    real32 SpeedMult = Camera.SpeedMode ? (Camera.SpeedMode > 0 ? Camera.SpeedMult : 1.0f / Camera.SpeedMult) : 1.0f;
+    CameraMove *= (real32)(Input->dTime * Camera.LinearSpeed * SpeedMult);
+    Camera.Position += CameraMove;
+    Camera.Target += CameraMove;
+
+    vec3f Move;
     Move.x = (real32)Input->MousePosX;
     Move.y = (real32)(540-Input->MousePosY);
 
@@ -125,12 +140,14 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
+#if 0
     if(Input->KeyReleased)
     {
         tmp_sound_data *SoundData = System->SoundData;
         FillAudioBuffer(SoundData);
         SoundData->ReloadSoundBuffer = true;
     }
+#endif
 
     MovePlayer(State, Input);
 

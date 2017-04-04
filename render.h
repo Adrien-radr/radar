@@ -13,7 +13,7 @@ struct image
 
 struct glyph
 {
-    // NOTE - behavior
+    // NOTE - Schema of behavior
     //   X,Y 0---------o   x    
     //       |         |   |    
     //       |         |   |    
@@ -48,6 +48,13 @@ struct display_text
     uint32 IndexCount;
     uint32 Texture;
     vec4f  Color;
+};
+
+struct mesh
+{
+    uint32 VAO;
+    uint32 VBO[3]; // 0: positions, 1: texcoords, 2: colors, 3: indices
+    uint32 IndexCount;
 };
 
 #endif

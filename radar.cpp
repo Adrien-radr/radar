@@ -254,8 +254,8 @@ void ProcessErrorEvent(int Error, const char* Description)
 key_state BuildKeyState(int32 Key)
 {
     key_state State = 0;
-    State |= (FrameReleasedKeys[Key] << 0x1);
-    State |= (FramePressedKeys[Key] << 0x2);
+    State |= (FramePressedKeys[Key] << 0x1);
+    State |= (FrameReleasedKeys[Key] << 0x2);
     State |= (FrameDownKeys[Key] << 0x3);
 
     return State;
@@ -289,14 +289,14 @@ void GetFrameInput(game_context *Context, game_input *Input)
         Context->IsRunning = false;
     }
 
-    if(FrameReleasedKeys[GLFW_KEY_R])
-        Input->KeyReleased = true;
-
     // Get Player controls
     Input->KeyW = BuildKeyState(GLFW_KEY_W);
     Input->KeyA = BuildKeyState(GLFW_KEY_A);
     Input->KeyS = BuildKeyState(GLFW_KEY_S);
     Input->KeyD = BuildKeyState(GLFW_KEY_D);
+    Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
+    Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
+    Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
 }
 
 game_context InitContext(game_config *Config)
@@ -332,6 +332,10 @@ game_context InitContext(game_config *Config)
                 GLubyte const *GLRenderer = glGetString(GL_RENDERER);
                 GLubyte const *GLVersion = glGetString(GL_VERSION);
                 printf("GL Renderer %s, %s\n", GLRenderer, GLVersion);
+
+                int MaxLayers;
+                glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
+                printf("GL Max Array Layers : %d\n", MaxLayers);
 
                 Context.ProjectionMatrix3D = mat4f::Perspective(Config->FOV, 
                         Config->WindowWidth / (real32)Config->WindowHeight, 0.1f, 1000.f);
@@ -699,44 +703,43 @@ int RadarMain(int argc, char **argv)
                     CheckALError();
                 }
 
-                glUseProgram(Program1);
+            }
+
+            { // NOTE - CUBE DRAWING
+                glUseProgram(Program3D);
                 // TODO - ProjMatrix updated only when resize happen
                 {
-                    uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix2D);
+                    uint32 Loc = glGetUniformLocation(Program3D, "ProjMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
                     CheckGLError("ProjMatrix");
+
+                    game_camera &Camera = State->Camera;
+                    mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
+                    Loc = glGetUniformLocation(Program3D, "ViewMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
+                    CheckGLError("ViewMatrix");
+
                 }
-
-
-                { // NOTE - Console Msg Rendering. Put this somewhere else, contained
-                    glUseProgram(Program1);
-                    uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
-                    mat4f ConsoleModelMatrix;
-                    console_log *Log = System->ConsoleLog;
-                    for(uint32 i = 0; i < Log->StringCount; ++i)
-                    {
-                        uint32 RIdx = (Log->ReadIdx + i) % ConsoleLogCapacity;
-                        if(Log->RenderIdx != Log->WriteIdx)
-                        {
-                            // NOTE - If already created in previous pass : delete it first to free GL resources
-                            if(Texts[Log->RenderIdx].IndexCount > 0)
-                            {
-                                DestroyDisplayText(&Texts[Log->RenderIdx]);
-                            }
-                            Texts[Log->RenderIdx] = MakeDisplayText(&ConsoleFont, Log->MsgStack[Log->RenderIdx], 
-                                    Config.WindowWidth - 20, vec4f(0.8f, 0.8f, 0.8f, 1.f), 1.f);
-                            Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
-                        }
-
-                        ConsoleModelMatrix.SetTranslation(vec3f(10, Config.WindowHeight - 10 - i * ConsoleFont.LineGap, 0));
-                        glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ConsoleModelMatrix);
-                        glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)Texts[RIdx].Color);
-
-                        glBindVertexArray(Texts[RIdx].VAO);
-                        glBindTexture(GL_TEXTURE_2D, Texts[RIdx].Texture);
-                        glDrawElements(GL_TRIANGLES, Texts[RIdx].IndexCount, GL_UNSIGNED_INT, 0);
-                    }
+                glBindVertexArray(Cube.VAO);
+                glBindTexture(GL_TEXTURE_2D, Texture1);
+                mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
+                uint32 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                for(uint32 i = 0; i < 5; ++i)
+                {
+                    ModelMatrix.FromTRS(CubePos[i], CubeRot[i], vec3f(1.f));
+                    //ModelMatrix.SetTranslation(CubePos[i]);
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
+                    CheckGLError("ModelMatrix");
+                    glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
                 }
+            }
+
+            glUseProgram(Program1);
+            // TODO - ProjMatrix updated only when resize happen
+            {
+                uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
+                glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix2D);
+                CheckGLError("ProjMatrix");
             }
 
             // TODO - ModelMatrix updated per 'object'
@@ -757,31 +760,33 @@ int RadarMain(int argc, char **argv)
             glDrawElements(GL_TRIANGLES, TestText.IndexCount, GL_UNSIGNED_INT, 0);
 #endif
 
-            { // NOTE - CUBE DRAWING
-                glUseProgram(Program3D);
-                // TODO - ProjMatrix updated only when resize happen
+            { // NOTE - Console Msg Rendering. Put this somewhere else, contained
+                glUseProgram(Program1);
+                uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
+                mat4f ConsoleModelMatrix;
+                console_log *Log = System->ConsoleLog;
+                for(uint32 i = 0; i < Log->StringCount; ++i)
                 {
-                    uint32 Loc = glGetUniformLocation(Program3D, "ProjMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix");
+                    uint32 RIdx = (Log->ReadIdx + i) % ConsoleLogCapacity;
+                    if(Log->RenderIdx != Log->WriteIdx)
+                    {
+                        // NOTE - If already created in previous pass : delete it first to free GL resources
+                        if(Texts[Log->RenderIdx].IndexCount > 0)
+                        {
+                            DestroyDisplayText(&Texts[Log->RenderIdx]);
+                        }
+                        Texts[Log->RenderIdx] = MakeDisplayText(&ConsoleFont, Log->MsgStack[Log->RenderIdx], 
+                                Config.WindowWidth - 20, vec4f(0.8f, 0.8f, 0.8f, 1.f), 1.f);
+                        Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
+                    }
 
-                    mat4f ViewMatrix = mat4f::LookAt(vec3f(20,20,20), vec3f(0,0,0), vec3f(0,0,1));
-                    Loc = glGetUniformLocation(Program3D, "ViewMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
-                    CheckGLError("ViewMatrix");
+                    ConsoleModelMatrix.SetTranslation(vec3f(10, Config.WindowHeight - 10 - i * ConsoleFont.LineGap, 0));
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ConsoleModelMatrix);
+                    glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)Texts[RIdx].Color);
 
-                }
-                glBindVertexArray(Cube.VAO);
-                glBindTexture(GL_TEXTURE_2D, Texture1);
-                mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
-                uint32 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                for(uint32 i = 0; i < 5; ++i)
-                {
-                    ModelMatrix.FromTRS(CubePos[i], CubeRot[i], vec3f(1.f));
-                    //ModelMatrix.SetTranslation(CubePos[i]);
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
-                    CheckGLError("ModelMatrix");
-                    glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
+                    glBindVertexArray(Texts[RIdx].VAO);
+                    glBindTexture(GL_TEXTURE_2D, Texts[RIdx].Texture);
+                    glDrawElements(GL_TRIANGLES, Texts[RIdx].IndexCount, GL_UNSIGNED_INT, 0);
                 }
             }
 

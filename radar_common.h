@@ -1,6 +1,12 @@
 #ifndef RADAR_COMMON
 #define RADAR_COMMON
 
+//////////////////////////////////////////////////////////////////////////
+// NOTE - This Header contains whatever both the Game DLL AND the Platform
+// should have access to. In general : very common things (typedefs, 
+// defines, macros, common headers, math, etc).
+//////////////////////////////////////////////////////////////////////////
+
 #include "linmath.h"
 
 #define RADAR_MAJOR 0
@@ -45,8 +51,8 @@ typedef char path[MAX_PATH];
 #define DebugPrint(str, ...)
 #endif
 
-#define Kilobytes(num) (1024*(uint64)(num))
-#define Megabytes(num) (1024*Kilobytes(num))
-#define Gigabytes(num) (1024*Megabytes(num))
+#define Kilobytes(num) (1024LL*(num))
+#define Megabytes(num) (1024LL*Kilobytes(num))
+#define Gigabytes(num) (1024LL*Megabytes(num))
 
 #endif

@@ -30,9 +30,10 @@ void CheckGLError(const char *Mark = "")
     }
 }
 
-image LoadImage(char *Filename, int32 ForceNumChannel = 0)
+image LoadImage(char *Filename, bool FlipY = true, int32 ForceNumChannel = 0)
 {
     image Image = {};
+    stbi_set_flip_vertically_on_load(FlipY ? 1 : 0); // NOTE - Flip Y so textures are Y-descending
     Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
 
     if(!Image.Buffer)
@@ -59,14 +60,12 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     glGetIntegerv(GL_UNPACK_ALIGNMENT, &CurrentAlignment);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    CheckGLError("1");
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
 
-    CheckGLError("2");
     GLint BaseFormat, Format;
     switch(Channels)
     {
@@ -81,10 +80,9 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     }
 
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, GL_UNSIGNED_BYTE, Bitmap);
-    CheckGLError("3");
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    CheckGLError("4");
+    CheckGLError("glTexImage2D");
     glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
 
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -310,13 +308,6 @@ uint32 AddIndexBufferObject(uint32 Usage, uint32 Size, void *Data)
 
     return Buffer;
 }
-
-struct mesh
-{
-    uint32 VAO;
-    uint32 VBO[3]; // 0: positions, 1: texcoords, 2: colors, 3: indices
-    uint32 IndexCount;
-};
 
 void DestroyMesh(mesh *Mesh)
 {

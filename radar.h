@@ -3,6 +3,11 @@
 
 #include "radar_common.h"
 
+/////////////////////////////////////////////////////////////////////////
+// NOTE - This Header must contain what the Radar Platform exposes to the
+// Game DLL. Anything that isn't useful for the Game should be elsewhere.
+/////////////////////////////////////////////////////////////////////////
+
 #define ConsoleLogStringLen 256
 #define ConsoleLogCapacity 8
 
@@ -41,7 +46,6 @@ struct tmp_sound_data
 typedef char console_log_string[ConsoleLogStringLen];
 struct console_log
 {
-    // TODO - Make the length a parameter ? Make the buffer a ring buffer.
     console_log_string MsgStack[ConsoleLogCapacity];
     uint32 WriteIdx;
     uint32 RenderIdx;
@@ -55,8 +59,28 @@ struct game_system
     tmp_sound_data *SoundData;
 };
 
+struct game_camera
+{
+    vec3f Position;
+    vec3f Target;
+    vec3f Up;
+    vec3f Forward;
+    vec3f Right;
+
+    real32 Phi, Theta;
+
+    real32 LinearSpeed;
+    real32 AngularSpeed;
+    real32 SpeedMult;
+
+    int    SpeedMode; // -1 : slower, 0 : normal, 1 : faster
+    bool   FreeflyMode;
+    vec2i  LastMousePos;
+};
+
 struct game_state
 {
+    game_camera Camera;
     vec3f PlayerPosition;
 };
 
@@ -74,14 +98,16 @@ struct game_input
     int32  MousePosX;
     int32  MousePosY;
 
-    bool KeyReleased; // NOTE - TMP for tests
-
     key_state KeyW;
     key_state KeyA;
     key_state KeyS;
     key_state KeyD;
+    key_state KeyLShift;
+    key_state KeyLCtrl;
+    key_state KeyLAlt;
 };
 
 void *ReadFileContents(char *Filename);
 void FreeFileContents(void *Contents);
+
 #endif
