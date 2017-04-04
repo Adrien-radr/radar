@@ -116,7 +116,7 @@ struct game_input
     mouse_state MouseRight;
 };
 
-void *ReadFileContents(char *Filename);
+void *ReadFileContents(char *Filename, int *FileSize);
 void FreeFileContents(void *Contents);
 
 #endif

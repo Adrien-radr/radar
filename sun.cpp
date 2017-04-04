@@ -63,7 +63,7 @@ void GameInitialization(game_memory *Memory)
     game_camera &Camera = State->Camera;
     Camera.Position = vec3f(10,10,10); // TODO - From Config
     Camera.Target = vec3f(0,0,0); // TODO - From Config
-    Camera.Up = vec3f(0,0,1);
+    Camera.Up = vec3f(0,1,0);
     Camera.Forward = Normalize(Camera.Target - Camera.Position);
     Camera.Right = Normalize(Cross(Camera.Forward, Camera.Up));
     Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
@@ -73,9 +73,9 @@ void GameInitialization(game_memory *Memory)
     Camera.SpeedMode = 0;
     Camera.FreeflyMode = false;
 
-    vec2f Azimuth = Normalize(vec2f(Camera.Forward[0], Camera.Forward[1]));
+    vec2f Azimuth = Normalize(vec2f(Camera.Forward[0], Camera.Forward[2]));
     Camera.Phi = atan2f(Azimuth.y, Azimuth.x);
-    Camera.Theta = atan2f(Camera.Forward.z, sqrtf(Dot(Azimuth, Azimuth)));
+    Camera.Theta = atan2f(Camera.Forward.y, sqrtf(Dot(Azimuth, Azimuth)));
 
     Memory->IsInitialized = true;
 }
@@ -120,7 +120,7 @@ void MovePlayer(game_state *State, game_input *Input)
 
         if(MouseOffset.x != 0 || MouseOffset.y != 0)
         {
-            Camera.Phi -= MouseOffset.x * Input->dTime * Camera.AngularSpeed;
+            Camera.Phi += MouseOffset.x * Input->dTime * Camera.AngularSpeed;
             Camera.Theta -= MouseOffset.y * Input->dTime * Camera.AngularSpeed;
 
             if(Camera.Phi > M_TWO_PI) Camera.Phi -= M_TWO_PI;
@@ -129,10 +129,10 @@ void MovePlayer(game_state *State, game_input *Input)
             Camera.Theta = max(-M_PI_OVER_TWO + 1e-5f, min(M_PI_OVER_TWO - 1e-5f, Camera.Theta));
             real32 CosTheta = cosf(Camera.Theta);
             Camera.Forward.x = CosTheta * cosf(Camera.Phi);
-            Camera.Forward.y = CosTheta * sinf(Camera.Phi);
-            Camera.Forward.z = sinf(Camera.Theta);
+            Camera.Forward.y = sinf(Camera.Theta);
+            Camera.Forward.z = CosTheta * sinf(Camera.Phi);
 
-            Camera.Right = Normalize(Cross(Camera.Forward, vec3f(0, 0, 1)));
+            Camera.Right = Normalize(Cross(Camera.Forward, vec3f(0, 1, 0)));
             Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
         }
     }

@@ -89,7 +89,7 @@ void MakeRelativePath(char *Dst, char *Path, char const *Filename)
     strncat(Dst, Filename, MAX_PATH);
 }
 
-void *ReadFileContents(char *Filename)
+void *ReadFileContents(char *Filename, int32 *FileSize)
 {
     char *Contents = NULL;
     FILE *fp = fopen(Filename, "rb");
@@ -103,6 +103,10 @@ void *ReadFileContents(char *Filename)
             Contents = (char*)malloc(Size+1);
             fread(Contents, Size, 1, fp);
             Contents[Size] = 0;
+            if(FileSize)
+            {
+                *FileSize = Size+1;
+            }
         }
         else
         {
@@ -144,7 +148,7 @@ game_config ParseConfig(char *ConfigPath)
 {
     game_config Config = {};
 
-    void *Content = ReadFileContents(ConfigPath);
+    void *Content = ReadFileContents(ConfigPath, 0);
     if(Content)
     {
         cJSON *root = cJSON_Parse((char*)Content);
@@ -607,7 +611,14 @@ int RadarMain(int argc, char **argv)
         glUseProgram(Program3D);
         glUniform1i(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
 
+        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
+        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
+        uint32 ProgramSkybox = BuildShader(VSPath, FSPath);
+        glUseProgram(ProgramSkybox);
+        glUniform1i(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
 
+
+        glUseProgram(0);
 
         real32 positions[] = {
             -100.f, 100.f, 0.5f, // topleft
@@ -671,6 +682,27 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
 
+        // Cubemaps
+        path CubemapPaths[6];
+        {
+            path CubemapNames[6] = {
+                "data/Skybox/Test/right.png",
+                "data/Skybox/Test/left.png",
+                "data/Skybox/Test/bottom.png",
+                "data/Skybox/Test/top.png",
+                "data/Skybox/Test/back.png",
+                "data/Skybox/Test/front.png",
+            };
+            for(uint32 i = 0; i < 6; ++i)
+            {
+                MakeRelativePath(CubemapPaths[i], ExecFullPath, CubemapNames[i]);
+            }
+        }
+        uint32 TestCubemap = MakeCubemap(CubemapPaths);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+        mesh SkyboxCube = MakeUnitCube(false);
+
+
 /////////////////////////
         bool LastDisableMouse = false;
 
@@ -727,7 +759,10 @@ int RadarMain(int argc, char **argv)
                 }
             }
 
-            { // NOTE - CUBE DRAWING
+            game_camera &Camera = State->Camera;
+            mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
+
+            { // NOTE - CUBE DRAWING Put somewhere else
                 glUseProgram(Program3D);
                 // TODO - ProjMatrix updated only when resize happen
                 {
@@ -735,8 +770,6 @@ int RadarMain(int argc, char **argv)
                     glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
                     CheckGLError("ProjMatrix");
 
-                    game_camera &Camera = State->Camera;
-                    mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
                     Loc = glGetUniformLocation(Program3D, "ViewMatrix");
                     glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
                     CheckGLError("ViewMatrix");
@@ -754,6 +787,31 @@ int RadarMain(int argc, char **argv)
                     CheckGLError("ModelMatrix");
                     glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
                 }
+            }
+
+            { // NOTE - Skybox Rendering, put somewhere else
+                glDisable(GL_CULL_FACE);
+                glDepthFunc(GL_LEQUAL);
+                CheckGLError("Skybox");
+
+                glUseProgram(ProgramSkybox);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ProjMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix Skybox");
+
+                    // NOTE - remove translation component from the ViewMatrix for the skybox
+                    ViewMatrix.SetTranslation(vec3f(0.f));
+                    Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
+                    CheckGLError("ViewMatrix Skybox");
+                }
+                glBindVertexArray(SkyboxCube.VAO);
+                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+
+                glDepthFunc(GL_LESS);
+                glEnable(GL_CULL_FACE);
             }
 
 
@@ -779,7 +837,7 @@ int RadarMain(int argc, char **argv)
                             DestroyDisplayText(&Texts[Log->RenderIdx]);
                         }
                         Texts[Log->RenderIdx] = MakeDisplayText(&ConsoleFont, Log->MsgStack[Log->RenderIdx], 
-                                Config.WindowWidth - 20, vec4f(0.8f, 0.8f, 0.8f, 1.f), 1.f);
+                                Config.WindowWidth - 20, vec4f(0.2f, 0.2f, 0.2f, 1.f), 1.f);
                         Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
                     }
 
@@ -798,6 +856,7 @@ int RadarMain(int argc, char **argv)
 
         // TODO - Destroy Console meshes
         DestroyMesh(&Cube);
+        DestroyMesh(&SkyboxCube);
         DestroyFont(&Font);
         DestroyFont(&ConsoleFont);
         glDeleteTextures(1, &Texture1);
@@ -806,6 +865,8 @@ int RadarMain(int argc, char **argv)
         glDeleteBuffers(1, &IdxBuffer);
         glDeleteVertexArrays(1, &VAO1);
         glDeleteProgram(Program1);
+        glDeleteProgram(Program3D);
+        glDeleteProgram(ProgramSkybox);
     }
 
     DestroyMemory(&Memory);

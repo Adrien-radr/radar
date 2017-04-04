@@ -50,6 +50,21 @@ void DestroyImage(image *Image)
     Image->Width = Image->Height = Image->Channels = 0;
 }
 
+void FormatFromChannels(uint32 Channels, GLint *BaseFormat, GLint *Format)
+{
+    switch(Channels)
+    {
+    case 1:
+        *BaseFormat = *Format = GL_RED; break;
+    case 2:
+        *BaseFormat = *Format = GL_RG; break;
+    case 3:
+        *BaseFormat = *Format = GL_RGB; break;
+    case 4:
+        *BaseFormat = *Format = GL_RGBA; break;
+    }
+}
+
 uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels, real32 AnisotropicLevel)
 {
     uint32 Texture;
@@ -67,17 +82,7 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
 
     GLint BaseFormat, Format;
-    switch(Channels)
-    {
-    case 1:
-        BaseFormat = Format = GL_RED; break;
-    case 2:
-        BaseFormat = Format = GL_RG; break;
-    case 3:
-        BaseFormat = Format = GL_RGB; break;
-    case 4:
-        BaseFormat = Format = GL_RGBA; break;
-    }
+    FormatFromChannels(Channels, &BaseFormat, &Format);
 
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, GL_UNSIGNED_BYTE, Bitmap);
     glGenerateMipmap(GL_TEXTURE_2D);
@@ -95,6 +100,40 @@ uint32 Make2DTexture(image *Image, uint32 AnisotropicLevel)
     return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, AnisotropicLevel);
 }
 
+uint32 MakeCubemap(path *Paths)
+{
+    uint32 Cubemap = 0;
+
+    glGenTextures(1, &Cubemap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, Cubemap);
+    CheckGLError("SkyboxGen");
+
+    // Load each face
+    for(int i = 0; i < 6; ++i)
+    {
+        image Face = LoadImage(Paths[i]);
+
+        GLint BaseFormat, Format;
+        FormatFromChannels(Face.Channels, &BaseFormat, &Format);
+
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face.Width, Face.Height,
+                0, Format, GL_UNSIGNED_BYTE, Face.Buffer);
+        CheckGLError("SkyboxFace");
+
+        DestroyImage(&Face);
+    }
+
+    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
+    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
+    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE );
+    glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+    CheckGLError("SkyboxParams");
+
+    return Cubemap;
+}
+
 // TODO - Load Unicode characters
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
@@ -102,7 +141,7 @@ font LoadFont(char *Filename, real32 PixelHeight)
 {
     font Font = {};
 
-    void *Contents = ReadFileContents(Filename);
+    void *Contents = ReadFileContents(Filename, 0);
     if(Contents)
     {
         Font.Width = 1024;
@@ -213,8 +252,8 @@ uint32 BuildShader(char *VSPath, char *FSPath)
 {
     char *VSrc = NULL, *FSrc = NULL;
 
-    VSrc = (char*)ReadFileContents(VSPath);
-    FSrc = (char*)ReadFileContents(FSPath);
+    VSrc = (char*)ReadFileContents(VSPath, 0);
+    FSrc = (char*)ReadFileContents(FSPath, 0);
 
     uint32 ProgramID = 0;
     bool IsValid = VSrc && FSrc;
@@ -319,7 +358,7 @@ void DestroyMesh(mesh *Mesh)
 ////////////////////////////////////////////////////////////////////////
 // NOTE - Primitive builders
 ////////////////////////////////////////////////////////////////////////
-mesh MakeUnitCube()
+mesh MakeUnitCube(bool MakeTexcoord = true)
 {
     mesh Cube = {};
 
@@ -402,7 +441,10 @@ mesh MakeUnitCube()
     Cube.IndexCount = 36;
     Cube.VAO = MakeVertexArrayObject();
     Cube.VBO[0] = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
-    Cube.VBO[1] = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, sizeof(Texcoord), Texcoord);
+    if(MakeTexcoord)
+    {
+        Cube.VBO[1] = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, sizeof(Texcoord), Texcoord);
+    }
     Cube.VBO[2] = AddIndexBufferObject(GL_STATIC_DRAW, sizeof(Indices), Indices);
     glBindVertexArray(0);
 
