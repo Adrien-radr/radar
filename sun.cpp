@@ -57,6 +57,7 @@ void GameInitialization(game_memory *Memory)
     SoundBuffer->ReloadSoundBuffer = true;
 
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
+    State->DisableMouse = false;
     State->PlayerPosition = vec3f(300, 300, 0);
 
     game_camera &Camera = State->Camera;
@@ -67,7 +68,7 @@ void GameInitialization(game_memory *Memory)
     Camera.Right = Normalize(Cross(Camera.Forward, Camera.Up));
     Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
     Camera.LinearSpeed = 20; // TODO - From Config
-    Camera.AngularSpeed = 30; // TODO - From Config
+    Camera.AngularSpeed = 0.3f; // TODO - From Config
     Camera.SpeedMult = 2.0f; // TODO - From Config
     Camera.SpeedMode = 0;
     Camera.FreeflyMode = false;
@@ -82,6 +83,7 @@ void GameInitialization(game_memory *Memory)
 void MovePlayer(game_state *State, game_input *Input)
 {
     game_camera &Camera = State->Camera;
+    vec2i MousePos = vec2i(Input->MousePosX, Input->MousePosY);
 
     vec3f CameraMove(0, 0, 0);
     if(KEY_DOWN(Input->KeyW)) CameraMove += Camera.Forward;
@@ -98,7 +100,44 @@ void MovePlayer(game_state *State, game_input *Input)
     real32 SpeedMult = Camera.SpeedMode ? (Camera.SpeedMode > 0 ? Camera.SpeedMult : 1.0f / Camera.SpeedMult) : 1.0f;
     CameraMove *= (real32)(Input->dTime * Camera.LinearSpeed * SpeedMult);
     Camera.Position += CameraMove;
-    Camera.Target += CameraMove;
+
+    if(MOUSE_HIT(Input->MouseRight))
+    {
+        Camera.FreeflyMode = true;
+        State->DisableMouse = true;
+        Camera.LastMousePos = MousePos;
+    }
+    if(MOUSE_UP(Input->MouseRight))
+    {
+        Camera.FreeflyMode = false;
+        State->DisableMouse = false;
+    }
+
+    if(Camera.FreeflyMode)
+    {
+        vec2i MouseOffset = MousePos - Camera.LastMousePos;
+        Camera.LastMousePos = MousePos;
+
+        if(MouseOffset.x != 0 || MouseOffset.y != 0)
+        {
+            Camera.Phi -= MouseOffset.x * Input->dTime * Camera.AngularSpeed;
+            Camera.Theta -= MouseOffset.y * Input->dTime * Camera.AngularSpeed;
+
+            if(Camera.Phi > M_TWO_PI) Camera.Phi -= M_TWO_PI;
+            if(Camera.Phi < 0.0f) Camera.Phi += M_TWO_PI;
+
+            Camera.Theta = max(-M_PI_OVER_TWO + 1e-5f, min(M_PI_OVER_TWO - 1e-5f, Camera.Theta));
+            real32 CosTheta = cosf(Camera.Theta);
+            Camera.Forward.x = CosTheta * cosf(Camera.Phi);
+            Camera.Forward.y = CosTheta * sinf(Camera.Phi);
+            Camera.Forward.z = sinf(Camera.Theta);
+
+            Camera.Right = Normalize(Cross(Camera.Forward, vec3f(0, 0, 1)));
+            Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
+        }
+    }
+
+    Camera.Target = Camera.Position + Camera.Forward;
 
     vec3f Move;
     Move.x = (real32)Input->MousePosX;

@@ -81,6 +81,7 @@ struct game_camera
 struct game_state
 {
     game_camera Camera;
+    bool DisableMouse;
     vec3f PlayerPosition;
 };
 
@@ -88,6 +89,11 @@ typedef uint8 key_state;
 #define KEY_HIT(KeyState) ((KeyState >> 0x1) & 1)
 #define KEY_UP(KeyState) ((KeyState >> 0x2) & 1)
 #define KEY_DOWN(KeyState) ((KeyState >> 0x3) & 1)
+
+typedef uint8 mouse_state;
+#define MOUSE_HIT(MouseState) KEY_HIT(MouseState)
+#define MOUSE_UP(MouseState) KEY_UP(MouseState)
+#define MOUSE_DOWN(MouseState) KEY_DOWN(MouseState)
 
 // NOTE - Struct passed to the Game
 // Contains all frame input each frame needed by game
@@ -105,6 +111,9 @@ struct game_input
     key_state KeyLShift;
     key_state KeyLCtrl;
     key_state KeyLAlt;
+
+    mouse_state MouseLeft;
+    mouse_state MouseRight;
 };
 
 void *ReadFileContents(char *Filename);

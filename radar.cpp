@@ -261,6 +261,16 @@ key_state BuildKeyState(int32 Key)
     return State;
 }
 
+mouse_state BuildMouseState(int32 MouseButton)
+{
+    mouse_state State = 0;
+    State |= (FramePressedMouseButton[MouseButton] << 0x1);
+    State |= (FrameReleasedMouseButton[MouseButton] << 0x2);
+    State |= (FrameDownMouseButton[MouseButton] << 0x3);
+
+    return State;
+}
+
 void GetFrameInput(game_context *Context, game_input *Input)
 {
     memset(FrameReleasedKeys, 0, sizeof(FrameReleasedKeys));
@@ -297,6 +307,9 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
     Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
     Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
+
+    Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
+    Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
 }
 
 game_context InitContext(game_config *Config)
@@ -625,7 +638,7 @@ int RadarMain(int argc, char **argv)
 
         // Texture creation
         path TexPath;
-        MakeRelativePath(TexPath, ExecFullPath, "data/test_png.png");
+        MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
         image Image = LoadImage(TexPath);
         uint32 Texture1 = Make2DTexture(&Image, Config.AnisotropicFiltering);
         DestroyImage(&Image);
@@ -639,11 +652,6 @@ int RadarMain(int argc, char **argv)
         font Font = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
         font ConsoleFont = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
-
-
-        display_text TestText = MakeDisplayText(&Font, "Hello, World!\nThis is a new line..", 
-                960, vec4f(1.0f, 1.0f, 1.0f, 1.0f), 1.f);
-        CheckGLError("TestText");
 
         mesh Cube = MakeUnitCube();
         real32 Dim = 20.0f;
@@ -664,6 +672,7 @@ int RadarMain(int argc, char **argv)
         };
 
 /////////////////////////
+        bool LastDisableMouse = false;
 
         while(Context.IsRunning)
         {
@@ -703,6 +712,19 @@ int RadarMain(int argc, char **argv)
                     CheckALError();
                 }
 
+                if(LastDisableMouse != State->DisableMouse)
+                {
+                    if(State->DisableMouse)
+                    {
+                        glfwSetInputMode(Context.Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                    }
+                    else
+                    {
+                        glfwSetInputMode(Context.Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                    }
+
+                    LastDisableMouse = State->DisableMouse;
+                }
             }
 
             { // NOTE - CUBE DRAWING
@@ -734,34 +756,15 @@ int RadarMain(int argc, char **argv)
                 }
             }
 
-            glUseProgram(Program1);
-            // TODO - ProjMatrix updated only when resize happen
-            {
-                uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
-                glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix2D);
-                CheckGLError("ProjMatrix");
-            }
-
-            // TODO - ModelMatrix updated per 'object'
-            {
-                mat4f ModelMatrix = mat4f::Translation(State->PlayerPosition);
-                uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
-                glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
-                CheckGLError("ModelMatrix");
-            }
-#if 0
-            glBindVertexArray(VAO1);
-            glBindTexture(GL_TEXTURE_2D, Font.AtlasTextureID);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-#else
-            glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)TestText.Color);
-            glBindVertexArray(TestText.VAO);
-            glBindTexture(GL_TEXTURE_2D, TestText.Texture);
-            glDrawElements(GL_TRIANGLES, TestText.IndexCount, GL_UNSIGNED_INT, 0);
-#endif
 
             { // NOTE - Console Msg Rendering. Put this somewhere else, contained
                 glUseProgram(Program1);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix2D);
+                    CheckGLError("ProjMatrix");
+                }
                 uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
                 mat4f ConsoleModelMatrix;
                 console_log *Log = System->ConsoleLog;
@@ -797,7 +800,6 @@ int RadarMain(int argc, char **argv)
         DestroyMesh(&Cube);
         DestroyFont(&Font);
         DestroyFont(&ConsoleFont);
-        DestroyDisplayText(&TestText);
         glDeleteTextures(1, &Texture1);
         glDeleteBuffers(1, &PosBuffer);
         glDeleteBuffers(1, &ColBuffer);
