@@ -628,10 +628,14 @@ int RadarMain(int argc, char **argv)
         DestroyImage(&Image);
 
         // Load Font Char
-        //font Font = LoadFont((char*)"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
-        //font Font = LoadFont((char*)"C:/Windows/Fonts/arial.ttf", 24);
+#if RADAR_WIN32
         font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
         font ConsoleFont = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 14);
+        //font Font = LoadFont((char*)"C:/Windows/Fonts/arial.ttf", 24);
+#else
+        font Font = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+        font ConsoleFont = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
+#endif
 
         glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 

@@ -147,12 +147,13 @@ font LoadFont(char *Filename, real32 PixelHeight)
                 Assert((Y + Ascent - Descent) < Font.Height);
             }
 
-            Font.Glyphs[Codepoint-32] = glyph { 
+             glyph TmpGlyph = { 
                 X0, Y0,
                 (X + X0)/(real32)Font.Width, (Y + Ascent + Y0)/(real32)Font.Height, 
                 (X + X1)/(real32)Font.Width, (Y + Ascent + Y1)/(real32)Font.Height, 
                 CW, CH, AdvanceX
             };
+            Font.Glyphs[Codepoint-32] = TmpGlyph;
 
             int CharX = X + X0;
             int CharY = Y + Ascent + Y0;

@@ -58,6 +58,7 @@ $(CJSON_TARGET):
 
 lib:
 	@$(CC) $(DLL_CFLAGS) $(VERSION_FLAGS) /LD $(LIB_SRCS) $(LINK) /OUT:$(LIB_TARGET)
+	@mv *.pdb bin/
 
 radar: $(GLEW_TARGET) $(CJSON_TARGET)
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LINK) $(LIB_FLAGS) /OUT:$(TARGET) /PDB:$(PDB_TARGET)
@@ -68,38 +69,42 @@ radar: $(GLEW_TARGET) $(CJSON_TARGET)
 else # GCC
 GLEW_OBJECT=ext/glew/glew.o
 GLEW_TARGET=ext/glew/libglew.lib
-CJSON_OBJECT=ext/cjson/cjson.o
+CJSON_OBJECT=ext/cjson/cJSON.o
 CJSON_TARGET=ext/cjson/libcJSON.lib
 OPENAL_LIB=ext/openal-soft/build
 GLFW_LIB=ext/glfw/build/src
 
 CC=g++
-CFLAGS=-g -Wno-unused-variable -Wno-unused-parameter -fno-exceptions -D_CRT_SECURE_NO_WARNINGS
+CFLAGS=-g -Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS
 DEBUG_FLAGS=-DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
-LIB_FLAGS=-L$(GCC_OPENAL_LIB) -L$(GLEW_LIB) -L$(GCC_GLFW_LIB) -L$(CJSON_LIB) -lcJSON -lglfw3 -lglew -lopenal \
+LIB_FLAGS=-L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -lcJSON -lglfw3 -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -ldl -lpthread
 
 TARGET=bin/radar
 LIB_TARGET=bin/sun.so
 
 $(GLEW_TARGET): 
-	$(CC) $(CFLAGS) $(RELEASE_FLAGS) -DGLEW_STATIC -I$(GLEW_INCLUDE) -c ext/glew/src/glew.c -o $(GLEW_OBJECT)
-	ar rcs $(GLEW_TARGET) $(GLEW_OBJECT)
-	rm $(GLEW_OBJECT)
+	@echo "AR $(GLEW_TARGET)"
+	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -DGLEW_STATIC -I$(GLEW_INCLUDE) -c ext/glew/src/glew.c -o $(GLEW_OBJECT)
+	@ar rcs $(GLEW_TARGET) $(GLEW_OBJECT)
+	@rm $(GLEW_OBJECT)
 
 $(CJSON_TARGET):
-	$(CC) $(CFLAGS) $(RELEASE_FLAGS) -I$(CJSON_INCLUDE) -c ext/cjson/cjson.c -o $(CJSON_OBJECT)
-	ar rcs $(CJSON_TARGET) $(CJSON_OBJECT) 
-	rm $(CJSON_OBJECT)
+	@echo "AR $(GLEW_TARGET)"
+	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -I$(CJSON_INCLUDE) -c ext/cjson/cJSON.c -o $(CJSON_OBJECT)
+	@ar rcs $(CJSON_TARGET) $(CJSON_OBJECT) 
+	@rm $(CJSON_OBJECT)
 
 lib:
-	$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -o $(LIB_TARGET)
+	@echo "LIB $(LIB_TARGET)"
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -o $(LIB_TARGET)
 
 radar: $(GLEW_TARGET) $(CJSON_TARGET)
-	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LIB_FLAGS) -o $(TARGET)
+	@echo "CC $(TARGET)"
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LIB_FLAGS) -o $(TARGET)
 
 endif
 #$(error OS not compatible. Only Win32 and Linux for now.)
@@ -108,8 +113,7 @@ endif
 ##################################################
 
 post_build:
-	@mv *.pdb bin/
-	@rm *.obj *.lib *.exp
+	@rm -f *.obj *.lib *.exp
 
 clean:
 	rm $(TARGET)
