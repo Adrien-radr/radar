@@ -938,7 +938,7 @@ public:
 		return r;
 	}
 
-    void MakeTranslation(vec3<T> xyz)
+    void SetTranslation(vec3<T> xyz)
     {
 		M[3] = vec4<T>(xyz.x, xyz.y, xyz.z, 1.f);
     }
@@ -950,7 +950,7 @@ public:
 		return r;
 	}
 
-    void MakeScale(vec3<T> xyz)
+    void SetScale(vec3<T> xyz)
     {
 		M[0].x = xyz.x;
 		M[1].y = xyz.y;
@@ -1009,12 +1009,12 @@ public:
 	{
 		float s = sinf(angle);
 		float c = cosf(angle);
-		mat4<T> R = {
-			{ 1, 0, 0, 0 },
-			{ 0, c, s, 0 },
-			{ 0, -s, c, 0 },
-			{ 0, 0, 0, 1 }
-		};
+        mat4<T> R(
+                1, 0, 0, 0,
+                0, c, -s, 0,
+                0, s, c, 0,
+                0, 0, 0, 1
+                );
 		return R * (*this);
 	}
 
@@ -1022,12 +1022,12 @@ public:
 	{
 		float s = sinf(angle);
 		float c = cosf(angle);
-		mat4 R = {
-			{ c, 0, -s, 0 },
-			{ 0, 1, 0, 0 },
-			{ s, 0, c, 0 },
-			{ 0, 0, 0, 1 }
-		};
+        mat4<T> R(
+                c, 0, s, 0,
+                0, 1, 0, 0,
+                -s, 0, c, 0,
+                0, 0, 0, 1
+                );
 		return R * (*this);
 	}
 
@@ -1035,12 +1035,12 @@ public:
 	{
 		float s = sinf(angle);
 		float c = cosf(angle);
-		mat4 R = {
-			{ c, s, 0, 0 },
-			{ -s, c, 0, 0 },
-			{ 0, 0, 1, 0 },
-			{ 0, 0, 0, 1 }
-		};
+        mat4<T> R(
+                c, -s, 0, 0,
+                s, c, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1
+                );
 		return R * (*this);
 	}
 

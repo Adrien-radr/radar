@@ -339,9 +339,9 @@ game_context InitContext(game_config *Config)
 
                 glClearColor(0.2f, 0.3f, 0.7f, 0.f);
 
-                //glEnable( GL_CULL_FACE );
-                //glCullFace( GL_BACK );
-                //glFrontFace( GL_CCW );
+                glEnable( GL_CULL_FACE );
+                glCullFace( GL_BACK );
+                glFrontFace( GL_CCW );
 
                 glEnable( GL_DEPTH_TEST );
                 glDepthFunc( GL_LESS );
@@ -499,7 +499,7 @@ display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec
             Y -= Font->LineGap;
             AsciiIdx = Msg[++i] - 32;
             Glyph = Font->Glyphs[AsciiIdx];
-            IndexCount--;
+            IndexCount -= 6;
         }
 
         if((X + Glyph.CW) >= MaxPixelWidth)
@@ -528,7 +528,6 @@ display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec
         X += Glyph.AdvX;
     }
 
-    // Make VAO/VBO
     Text.VAO = MakeVertexArrayObject();
     Text.VBO[0] = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, 3 * VertexCount * sizeof(real32), Positions);
     Text.VBO[1] = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, 2 * VertexCount * sizeof(real32), Texcoords);
@@ -643,6 +642,22 @@ int RadarMain(int argc, char **argv)
         CheckGLError("TestText");
 
         mesh Cube = MakeUnitCube();
+        real32 Dim = 20.0f;
+        vec3f LowDim = -Dim/2;
+        vec3f CubePos[] = {
+            LowDim + vec3f(Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX),
+            LowDim + vec3f(Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX),
+            LowDim + vec3f(Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX),
+            LowDim + vec3f(Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX),
+            LowDim + vec3f(Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX, Dim*rand()/(real32)RAND_MAX)
+        };
+        vec3f CubeRot[] = {
+            vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX),
+            vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX),
+            vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX),
+            vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX),
+            vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
+        };
 
 /////////////////////////
 
@@ -713,7 +728,7 @@ int RadarMain(int argc, char **argv)
                             Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
                         }
 
-                        ConsoleModelMatrix.MakeTranslation(vec3f(10, Config.WindowHeight - 10 - i * ConsoleFont.LineGap, 0));
+                        ConsoleModelMatrix.SetTranslation(vec3f(10, Config.WindowHeight - 10 - i * ConsoleFont.LineGap, 0));
                         glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ConsoleModelMatrix);
                         glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)Texts[RIdx].Color);
 
@@ -750,19 +765,24 @@ int RadarMain(int argc, char **argv)
                     glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
                     CheckGLError("ProjMatrix");
 
-                    mat4f ViewMatrix = mat4f::LookAt(vec3f(5,5,5), vec3f(0,0,0), vec3f(0,0,1));
+                    mat4f ViewMatrix = mat4f::LookAt(vec3f(20,20,20), vec3f(0,0,0), vec3f(0,0,1));
                     Loc = glGetUniformLocation(Program3D, "ViewMatrix");
                     glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
                     CheckGLError("ViewMatrix");
 
-                    mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
-                    Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
-                    CheckGLError("ModelMatrix");
                 }
                 glBindVertexArray(Cube.VAO);
                 glBindTexture(GL_TEXTURE_2D, Texture1);
-                glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
+                mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
+                uint32 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                for(uint32 i = 0; i < 5; ++i)
+                {
+                    ModelMatrix.FromTRS(CubePos[i], CubeRot[i], vec3f(1.f));
+                    //ModelMatrix.SetTranslation(CubePos[i]);
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
+                    CheckGLError("ModelMatrix");
+                    glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
+                }
             }
 
             glfwSwapBuffers(Context.Window);
