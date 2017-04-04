@@ -14,7 +14,6 @@
 #elif defined(__unix__) || defined (__unix) || defined(unix)
 #   define RADAR_UNIX 1
 #   define DLLEXPORT extern "C"
-#   define MAX_PATH 260
 #else
 #   error "Unknown OS. Only Windows & Linux supported for now."
 #endif
@@ -31,6 +30,7 @@ typedef unsigned int        uint32;
 typedef long long           int64;
 typedef unsigned long long  uint64;
 
+#define MAX_PATH 260
 typedef char path[MAX_PATH];
 
 #ifdef DEBUG

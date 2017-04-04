@@ -1,7 +1,7 @@
 #include <windows.h>
 
-static char DllName[] = "sun.dll";
-static char DllDynamicCopyName[] = "sun_temp.dll";
+static path DllName = "sun.dll";
+static path DllDynamicCopyName = "sun_temp.dll";
 
 struct game_code
 {
@@ -14,7 +14,7 @@ struct game_code
 };
 
 // NOTE : expect a MAX_PATH string as Path
-void GetExecutablePath(char *Path)
+void GetExecutablePath(path Path)
 {
     HMODULE ExecHandle = GetModuleHandleW(NULL);
     GetModuleFileNameA(ExecHandle, Path, MAX_PATH);
@@ -26,7 +26,7 @@ void GetExecutablePath(char *Path)
     Path[NumChar] = 0;
 }
 
-FILETIME FindLastWriteTime(char *Path)
+FILETIME FindLastWriteTime(path Path)
 {
     FILETIME LastWriteTime = {};
 
@@ -41,7 +41,7 @@ FILETIME FindLastWriteTime(char *Path)
     return LastWriteTime;
 }
 
-game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
+game_code LoadGameCode(path DllSrcPath, path DllDstPath)
 {
     game_code Result = {};
 
@@ -61,7 +61,7 @@ game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
     return Result;
 }
 
-void UnloadGameCode(game_code *Code, char *DuplicateDLL)
+void UnloadGameCode(game_code *Code, path DuplicateDLL)
 {
     if(Code->GameDLL)
     {
@@ -77,7 +77,7 @@ void UnloadGameCode(game_code *Code, char *DuplicateDLL)
     Code->GameUpdate = GameUpdateStub;
 }
 
-bool CheckNewDllVersion(game_code *Game, char *DllPath)
+bool CheckNewDllVersion(game_code *Game, path DllPath)
 {
     FILETIME WriteTime = FindLastWriteTime(DllPath);
     if(CompareFileTime(&Game->GameDLLLastWriteTime, &WriteTime) != 0) {
@@ -95,7 +95,7 @@ void PlatformSleep(DWORD MillisecondsToSleep)
 
 
 // NOTE - We just call the platform-agnostic main function here
-int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
+int main()
 {
-    return main(__argc, __argv);
+    return RadarMain(__argc, __argv);
 }

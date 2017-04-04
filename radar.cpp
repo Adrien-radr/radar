@@ -551,15 +551,15 @@ display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec
 
 int RadarMain(int argc, char **argv)
 {
-    char ExecFullPath[MAX_PATH];
-    char DllSrcPath[MAX_PATH];
-    char DllDstPath[MAX_PATH];
+    path ExecFullPath;
+    path DllSrcPath;
+    path DllDstPath;
 
     GetExecutablePath(ExecFullPath);
     MakeRelativePath(DllSrcPath, ExecFullPath, DllName);
     MakeRelativePath(DllDstPath, ExecFullPath, DllDynamicCopyName);
 
-    char ConfigPath[MAX_PATH];
+    path ConfigPath;
     MakeRelativePath(ConfigPath, ExecFullPath, "config.json");
 
     game_config Config = ParseConfig(ConfigPath);
@@ -582,8 +582,8 @@ int RadarMain(int argc, char **argv)
             alSourcePlay(AudioSource);
         }
 
-        char VSPath[MAX_PATH];
-        char FSPath[MAX_PATH];
+        path VSPath;
+        path FSPath;
         MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
         MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
         uint32 Program1 = BuildShader(VSPath, FSPath);
@@ -627,16 +627,16 @@ int RadarMain(int argc, char **argv)
         glBindVertexArray(0);
 
         // Texture creation
-        char TexPath[MAX_PATH];
+        path TexPath;
         MakeRelativePath(TexPath, ExecFullPath, "data/test_png.png");
         image Image = LoadImage(TexPath);
         uint32 Texture1 = Make2DTexture(&Image, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         // Load Font Char
-        font Font = LoadFont((char*)"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+        //font Font = LoadFont((char*)"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
         //font Font = LoadFont((char*)"C:/Windows/Fonts/arial.ttf", 24);
-        //font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
+        font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
 
         glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 

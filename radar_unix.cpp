@@ -6,8 +6,8 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 
-static char DllName[] = "sun.so";
-static char DllDynamicCopyName[] = "sun_temp.so";
+static path DllName = "sun.so";
+static path DllDynamicCopyName = "sun_temp.so";
 
 struct game_code
 {
@@ -20,7 +20,7 @@ struct game_code
 };
 
 // NOTE : expect a MAX_PATH string as Path
-bool GetExecutablePath(char *Path)
+bool GetExecutablePath(path Path)
 {
     struct stat Info;
     path StatProc;
@@ -42,14 +42,14 @@ bool GetExecutablePath(char *Path)
     return true;
 }
 
-time_t FindLastWriteTime(char *Path)
+time_t FindLastWriteTime(path Path)
 {
     struct stat Info;
     stat(Path, &Info);
     return Info.st_mtime;
 }
 
-static void CopyFile(char *Src, char *Dst)
+static void CopyFile(path Src, path Dst)
 {
     // NOTE - No CopyFile on Linux : open Src, read it and copy it in Dst
     int SFD = open(Src, O_RDONLY);
@@ -71,7 +71,7 @@ static void CopyFile(char *Src, char *Dst)
     close(DFD);
 }
 
-game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
+game_code LoadGameCode(path DllSrcPath, path DllDstPath)
 {
     game_code Result = {};
 
@@ -91,7 +91,7 @@ game_code LoadGameCode(char *DllSrcPath, char *DllDstPath)
 
 }
 
-void UnloadGameCode(game_code *Code, char *DuplicateDLL)
+void UnloadGameCode(game_code *Code, path DuplicateDLL)
 {
     if(Code->GameDLL)
     {
@@ -108,7 +108,7 @@ void UnloadGameCode(game_code *Code, char *DuplicateDLL)
     Code->GameUpdate = GameUpdateStub;
 }
 
-bool CheckNewDllVersion(game_code *Game, char *DllPath)
+bool CheckNewDllVersion(game_code *Game, path DllPath)
 {
     time_t WriteTime = FindLastWriteTime(DllPath);
     if(WriteTime != Game->GameDLLLastWriteTime)
