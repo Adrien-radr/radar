@@ -938,18 +938,28 @@ public:
 		return r;
 	}
 
+    void MakeTranslation(vec3<T> xyz)
+    {
+		M[3] = vec4<T>(xyz.x, xyz.y, xyz.z, 1.f);
+    }
+
 	static mat4<T> Translation(vec3<T> xyz)
 	{
 		mat4<T> r;
-		r.Identity();
 		r[3] = vec4<T>(xyz.x, xyz.y, xyz.z, 1.f);
 		return r;
 	}
 
+    void MakeScale(vec3<T> xyz)
+    {
+		M[0].x = xyz.x;
+		M[1].y = xyz.y;
+		M[2].z = xyz.z;
+    }
+
 	static mat4<T> Scale(vec3<T> xyz)
 	{
 		mat4<T> s;
-		s.Identity();
 		s[0].x = xyz.x;
 		s[1].y = xyz.y;
 		s[2].z = xyz.z;
@@ -987,7 +997,6 @@ public:
 		S *= s;
 
 		mat4<T> C;
-		C.Identity();
 		C -= r;
 		C *= c;
 		r += C;
@@ -1152,7 +1161,6 @@ public:
 
 		// rotation
 		mat4<T> R;
-		R.Identity();
 		R[0][0] = r[0];    R[1][0] = r[1];    R[2][0] = r[2];
 		R[0][1] = u[0];    R[1][1] = u[1];    R[2][1] = u[2];
 		R[0][2] = -f[0];   R[1][2] = -f[1];   R[2][2] = -f[2];

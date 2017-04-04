@@ -458,17 +458,9 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     return true;
 }
 
-struct display_text
-{
-    uint32 VAO;
-    uint32 VBO[3]; // 0 : position, 1 : texcoord, 2 : indices
-    uint32 IndexCount;
-    uint32 Texture;
-    vec4f  Color;
-};
-
 void DestroyDisplayText(display_text *Text)
 {
+    Text->IndexCount = 0;
     glDeleteBuffers(3, Text->VBO);
     glDeleteVertexArrays(1, &Text->VAO);
 }
@@ -575,6 +567,8 @@ int RadarMain(int argc, char **argv)
 
 /////////////////////////
     // TEMP
+        display_text Texts[ConsoleLogCapacity] = {};
+
         ALuint AudioBuffer;
         ALuint AudioSource;
         if(TempPrepareSound(&AudioBuffer, &AudioSource))
@@ -637,11 +631,12 @@ int RadarMain(int argc, char **argv)
         //font Font = LoadFont((char*)"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
         //font Font = LoadFont((char*)"C:/Windows/Fonts/arial.ttf", 24);
         font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
+        font ConsoleFont = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 14);
 
         glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 
-        display_text TestText = MakeDisplayText(&Font, "Hello, World!\nThis is a new line..", 960, vec4f(1.0f, 1.0f, 1.0f, 1.0f), 1.f);
-        glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)TestText.Color);
+        display_text TestText = MakeDisplayText(&Font, "Hello, World!\nThis is a new line..", 
+                960, vec4f(1.0f, 1.0f, 1.0f, 1.0f), 1.f);
         CheckGLError("TestText");
 
 /////////////////////////
@@ -652,22 +647,6 @@ int RadarMain(int argc, char **argv)
 
             CurrentTime = glfwGetTime();
             Input.dTime = CurrentTime - LastTime;
-
-            // TODO - Fixed Timestep ?
-#if 0
-            if(Input.dTime < TargetSecondsPerFrame)
-            {
-                uint32 TimeToSleep = 1000 * (uint32)(TargetSecondsPerFrame - Input.dTime);
-                PlatformSleep(TimeToSleep);
-                
-                CurrentTime = glfwGetTime()n;
-                Input.dTime = CurrentTime - LastTime;
-            }
-            else
-            {
-                printf("Missed frame rate, dt=%g\n", Input.dTime);
-            }
-#endif
 
             LastTime = CurrentTime;
             Context.EngineTime += Input.dTime;
@@ -707,28 +686,51 @@ int RadarMain(int argc, char **argv)
                     CheckGLError("ProjMatrix");
                 }
 
-                // TODO - ModelMatrix updated per 'object'
-                {
-                    mat4f ModelMatrix = mat4f::Translation(State->PlayerPosition);
-                    uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
-                    CheckGLError("ModelMatrix");
-                }
 
-                console_log *Log = System->ConsoleLog;
-                for(uint32 i = 0; i < Log->StringCount; ++i)
-                {
-                    //printf("%s\n", Log->MsgStack[(Log->ReadIdx+i)%Log->StringCount]);
+                { // NOTE - Console Msg Rendering. Put this somewhere else, contained
+                    glUseProgram(Program1);
+                    uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
+                    mat4f ConsoleModelMatrix;
+                    console_log *Log = System->ConsoleLog;
+                    for(uint32 i = 0; i < Log->StringCount; ++i)
+                    {
+                        uint32 RIdx = (Log->ReadIdx + i) % ConsoleLogCapacity;
+                        if(Log->RenderIdx != Log->WriteIdx)
+                        {
+                            // NOTE - If already created in previous pass : delete it first to free GL resources
+                            if(Texts[Log->RenderIdx].IndexCount > 0)
+                            {
+                                DestroyDisplayText(&Texts[Log->RenderIdx]);
+                            }
+                            Texts[Log->RenderIdx] = MakeDisplayText(&ConsoleFont, Log->MsgStack[Log->RenderIdx], 
+                                    Config.WindowWidth - 20, vec4f(0.8f, 0.8f, 0.8f, 1.f), 1.f);
+                            Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
+                        }
+
+                        ConsoleModelMatrix.MakeTranslation(vec3f(10, Config.WindowHeight - 10 - i * ConsoleFont.LineGap, 0));
+                        glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ConsoleModelMatrix);
+                        glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)Texts[RIdx].Color);
+
+                        glBindVertexArray(Texts[RIdx].VAO);
+                        glBindTexture(GL_TEXTURE_2D, Texts[RIdx].Texture);
+                        glDrawElements(GL_TRIANGLES, Texts[RIdx].IndexCount, GL_UNSIGNED_INT, 0);
+                    }
                 }
-                //printf("\n");
             }
 
-            glUseProgram(Program1);
+            // TODO - ModelMatrix updated per 'object'
+            {
+                mat4f ModelMatrix = mat4f::Translation(State->PlayerPosition);
+                uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
+                glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
+                CheckGLError("ModelMatrix");
+            }
 #if 0
             glBindVertexArray(VAO1);
             glBindTexture(GL_TEXTURE_2D, Font.AtlasTextureID);
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 #else
+            glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)TestText.Color);
             glBindVertexArray(TestText.VAO);
             glBindTexture(GL_TEXTURE_2D, TestText.Texture);
             glDrawElements(GL_TRIANGLES, TestText.IndexCount, GL_UNSIGNED_INT, 0);
@@ -738,6 +740,7 @@ int RadarMain(int argc, char **argv)
         }
 
         DestroyFont(&Font);
+        DestroyFont(&ConsoleFont);
         DestroyDisplayText(&TestText);
         glDeleteTextures(1, &Texture1);
         glDeleteBuffers(1, &PosBuffer);

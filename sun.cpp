@@ -136,10 +136,10 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     Counter += Input->dTime;
 
-    if(Counter > 1.0)
+    if(Counter > 0.75)
     {
         console_log_string Msg;
-        snprintf(Msg, ConsoleLogStringLen, "%g, c Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+        snprintf(Msg, ConsoleLogStringLen, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
         LogString(System->ConsoleLog, Msg);
         Counter = 0.0;
     }

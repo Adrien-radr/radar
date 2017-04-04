@@ -90,6 +90,7 @@ struct console_log
     // TODO - Make the length a parameter ? Make the buffer a ring buffer.
     console_log_string MsgStack[ConsoleLogCapacity];
     uint32 WriteIdx;
+    uint32 RenderIdx;
     uint32 ReadIdx;
     uint32 StringCount;
 };
