@@ -311,3 +311,113 @@ uint32 AddIndexBufferObject(uint32 Usage, uint32 Size, void *Data)
     return Buffer;
 }
 
+struct mesh
+{
+    uint32 VAO;
+    uint32 VBO[3]; // 0: positions, 1: texcoords, 2: colors, 3: indices
+    uint32 IndexCount;
+};
+
+void DestroyMesh(mesh *Mesh)
+{
+    glDeleteBuffers(3, Mesh->VBO);
+    glDeleteVertexArrays(1, &Mesh->VAO);
+    Mesh->IndexCount = 0;
+}
+
+////////////////////////////////////////////////////////////////////////
+// NOTE - Primitive builders
+////////////////////////////////////////////////////////////////////////
+mesh MakeUnitCube()
+{
+    mesh Cube = {};
+
+    static vec3f Position[24] = {
+        vec3f(-1, -1, -1),
+        vec3f(-1, -1, 1),
+        vec3f(-1, 1, 1),
+        vec3f(-1, 1, -1),
+
+        vec3f(1, -1, 1),
+        vec3f(1, -1, -1),
+        vec3f(1, 1, -1),
+        vec3f(1, 1, 1),
+
+        vec3f(-1, -1, 1),
+        vec3f(-1, -1, -1),
+        vec3f(1, -1, -1),
+        vec3f(1, -1, 1),
+
+        vec3f(-1, 1, -1),
+        vec3f(-1, 1, 1),
+        vec3f(1, 1, 1),
+        vec3f(1, 1, -1),
+
+        vec3f(1, 1, -1),
+        vec3f(1, -1, -1),
+        vec3f(-1, -1, -1),
+        vec3f(-1, 1, -1),
+
+        vec3f(-1, 1, 1),
+        vec3f(-1, -1, 1),
+        vec3f(1, -1, 1),
+        vec3f(1, 1, 1)
+    };
+
+    static vec2f Texcoord[24] = {
+        vec2f(0, 1),
+        vec2f(0, 0),
+        vec2f(1, 0),
+        vec2f(1, 1),
+
+        vec2f(0, 1),
+        vec2f(0, 0),
+        vec2f(1, 0),
+        vec2f(1, 1),
+
+        vec2f(0, 1),
+        vec2f(0, 0),
+        vec2f(1, 0),
+        vec2f(1, 1),
+
+        vec2f(0, 1),
+        vec2f(0, 0),
+        vec2f(1, 0),
+        vec2f(1, 1),
+
+        vec2f(0, 1),
+        vec2f(0, 0),
+        vec2f(1, 0),
+        vec2f(1, 1),
+
+        vec2f(0, 1),
+        vec2f(0, 0),
+        vec2f(1, 0),
+        vec2f(1, 1),
+    };
+
+    uint32 Indices[36];
+    for (uint32 i = 0; i < 6; ++i)
+    {
+        Indices[i * 6 + 0] = i * 4 + 0;
+        Indices[i * 6 + 1] = i * 4 + 1;
+        Indices[i * 6 + 2] = i * 4 + 2;
+
+        Indices[i * 6 + 3] = i * 4 + 0;
+        Indices[i * 6 + 4] = i * 4 + 2;
+        Indices[i * 6 + 5] = i * 4 + 3;
+    }
+
+    Cube.IndexCount = 36;
+    Cube.VAO = MakeVertexArrayObject();
+    Cube.VBO[0] = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
+    Cube.VBO[1] = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, sizeof(Texcoord), Texcoord);
+    Cube.VBO[2] = AddIndexBufferObject(GL_STATIC_DRAW, sizeof(Indices), Indices);
+    glBindVertexArray(0);
+
+    return Cube;
+}
+
+
+
+

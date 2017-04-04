@@ -1,6 +1,8 @@
 #ifndef RENDER_H
 #define RENDER_H
 
+#include "radar_common.h"
+
 struct image
 {
     uint8 *Buffer;

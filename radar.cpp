@@ -48,6 +48,7 @@ struct game_context
     real64 EngineTime;
 
     mat4f ProjectionMatrix3D;
+    mat4f ProjectionMatrix2D;
 
     bool IsRunning;
     bool IsValid;
@@ -332,9 +333,9 @@ game_context InitContext(game_config *Config)
                 GLubyte const *GLVersion = glGetString(GL_VERSION);
                 printf("GL Renderer %s, %s\n", GLRenderer, GLVersion);
 
-                //Context.ProjectionMatrix3D = mat4f::Perspective(Config->FOV, 
-                        //Config->WindowWidth / (real32)Config->WindowHeight, 0.1f, 1000.f);
-                Context.ProjectionMatrix3D = mat4f::Ortho(0, Config->WindowWidth, 0,Config->WindowHeight, 0.1f, 1000.f);
+                Context.ProjectionMatrix3D = mat4f::Perspective(Config->FOV, 
+                        Config->WindowWidth / (real32)Config->WindowHeight, 0.1f, 1000.f);
+                Context.ProjectionMatrix2D = mat4f::Ortho(0, Config->WindowWidth, 0,Config->WindowHeight, 0.1f, 1000.f);
 
                 glClearColor(0.2f, 0.3f, 0.7f, 0.f);
 
@@ -582,15 +583,14 @@ int RadarMain(int argc, char **argv)
         MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
         uint32 Program1 = BuildShader(VSPath, FSPath);
         glUseProgram(Program1);
+        glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 
-        {
+        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
+        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
+        uint32 Program3D = BuildShader(VSPath, FSPath);
+        glUseProgram(Program3D);
+        glUniform1i(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
 
-            //mat4f ViewMatrix = mat4f::LookAt(vec3f(0,0,5), vec3f(0,0,0), vec3f(0,0,1));
-            //mat4f ViewMatrix;
-            //Loc = glGetUniformLocation(Program1, "ViewMatrix");
-            //glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
-            //CheckGLError("ViewMatrix");
-        }
 
 
         real32 positions[] = {
@@ -637,11 +637,12 @@ int RadarMain(int argc, char **argv)
         font ConsoleFont = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
 
-        glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 
         display_text TestText = MakeDisplayText(&Font, "Hello, World!\nThis is a new line..", 
                 960, vec4f(1.0f, 1.0f, 1.0f, 1.0f), 1.f);
         CheckGLError("TestText");
+
+        mesh Cube = MakeUnitCube();
 
 /////////////////////////
 
@@ -683,10 +684,11 @@ int RadarMain(int argc, char **argv)
                     CheckALError();
                 }
 
+                glUseProgram(Program1);
                 // TODO - ProjMatrix updated only when resize happen
                 {
                     uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix2D);
                     CheckGLError("ProjMatrix");
                 }
 
@@ -740,9 +742,34 @@ int RadarMain(int argc, char **argv)
             glDrawElements(GL_TRIANGLES, TestText.IndexCount, GL_UNSIGNED_INT, 0);
 #endif
 
+            { // NOTE - CUBE DRAWING
+                glUseProgram(Program3D);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(Program3D, "ProjMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix");
+
+                    mat4f ViewMatrix = mat4f::LookAt(vec3f(5,5,5), vec3f(0,0,0), vec3f(0,0,1));
+                    Loc = glGetUniformLocation(Program3D, "ViewMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
+                    CheckGLError("ViewMatrix");
+
+                    mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
+                    Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
+                    CheckGLError("ModelMatrix");
+                }
+                glBindVertexArray(Cube.VAO);
+                glBindTexture(GL_TEXTURE_2D, Texture1);
+                glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
+            }
+
             glfwSwapBuffers(Context.Window);
         }
 
+        // TODO - Destroy Console meshes
+        DestroyMesh(&Cube);
         DestroyFont(&Font);
         DestroyFont(&ConsoleFont);
         DestroyDisplayText(&TestText);
