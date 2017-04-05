@@ -343,15 +343,18 @@ game_context InitContext(game_memory *Memory)
 
                 glClearColor(0.2f, 0.3f, 0.7f, 0.f);
 
-                glEnable( GL_CULL_FACE );
-                glCullFace( GL_BACK );
-                glFrontFace( GL_CCW );
+                glEnable(GL_CULL_FACE);
+                glCullFace(GL_BACK);
+                glFrontFace(GL_CCW);
 
-                glEnable( GL_DEPTH_TEST );
-                glDepthFunc( GL_LESS );
+                glEnable(GL_DEPTH_TEST);
+                glDepthFunc(GL_LESS);
 
-                glEnable( GL_BLEND );
-                glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+                glEnable(GL_POINT_SPRITE);
+                glEnable(GL_PROGRAM_POINT_SIZE);
             }
             else
             {
@@ -493,6 +496,8 @@ void ReloadShaders(path ExecFullPath)
     ProgramPointSprite = BuildShader(VSPath, FSPath);
     glUseProgram(ProgramPointSprite);
     //SendInt(glGetUniformLocation(ProgramPointSprite, "Skybox"), 0);
+
+    glUseProgram(0);
 }
 
 int RadarMain(int argc, char **argv)
@@ -521,7 +526,7 @@ int RadarMain(int argc, char **argv)
         real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
 
 /////////////////////////
-    // TEMP
+    // TEMP TESTS
         display_text Texts[ConsoleLogCapacity] = {};
 
         ALuint AudioBuffer;
@@ -533,17 +538,14 @@ int RadarMain(int argc, char **argv)
 
         ReloadShaders(ExecFullPath);
 
-        glUseProgram(0);
-
-
-        // Texture creation
+        // Texture Test
         path TexPath;
         MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
         image Image = LoadImage(TexPath);
         uint32 Texture1 = Make2DTexture(&Image, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        // Load Font Char
+        // Font Test
 #if RADAR_WIN32
         font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
         font ConsoleFont = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 14);
@@ -553,6 +555,7 @@ int RadarMain(int argc, char **argv)
         font ConsoleFont = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
 
+        // Cube Meshes Test
         mesh Cube = MakeUnitCube();
         real32 Dim = 20.0f;
         vec3f LowDim = -Dim/2;
@@ -571,7 +574,7 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
 
-        // Cubemaps
+        // Cubemaps Test
         path CubemapPaths[6];
         {
             path CubemapNames[6] = {
@@ -590,6 +593,17 @@ int RadarMain(int argc, char **argv)
         uint32 TestCubemap = MakeCubemap(CubemapPaths);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         mesh SkyboxCube = MakeUnitCube(false);
+
+        // Point Sprites
+        real32 PSSize = 750.0;
+        int PSWidth = 50;
+        vec2i PSStartPos(-PSWidth/2, -PSWidth/2);
+        vec4f PSPosition[PSWidth*PSWidth];
+
+        uint32 PSVAO = MakeVertexArrayObject();
+        uint32 PSVBO = AddVBO(0, 4, GL_FLOAT, GL_DYNAMIC_DRAW, sizeof(PSPosition), NULL);
+        glBindVertexArray(0);
+        real64 WaveTimer = 0.0;
 
 
 /////////////////////////
@@ -656,7 +670,7 @@ int RadarMain(int argc, char **argv)
             game_camera &Camera = State->Camera;
             mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
-            { // NOTE - CUBE DRAWING Put somewhere else
+            { // NOTE - CUBE DRAWING Test Put somewhere else
                 glUseProgram(Program3D);
                 // TODO - ProjMatrix updated only when resize happen
                 {
@@ -685,7 +699,37 @@ int RadarMain(int argc, char **argv)
                 }
             }
 
-            { // NOTE - Skybox Rendering, put somewhere else
+            { // NOTE - Point Sprite Rendering Test
+
+                glUseProgram(ProgramPointSprite);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(ProgramPointSprite, "ProjMatrix");
+                    SendMat4(Loc, Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix Cube");
+
+                    Loc = glGetUniformLocation(ProgramPointSprite, "ViewMatrix");
+                    SendMat4(Loc, ViewMatrix);
+                    CheckGLError("ViewMatrix");
+                }
+
+                for(int j = 0; j < PSWidth; ++j)
+                {
+                    for(int i = 0; i < PSWidth; ++i)
+                    {
+                        PSPosition[j*PSWidth+i] = vec4f(PSStartPos.x + i, 
+                                sinf(0.25f*j + 0.25f * 2.0f*M_PI * WaveTimer) * 
+                                sinf(0.15f*i + 0.15f * 2.0f*M_PI * WaveTimer),
+                                PSStartPos.y + j, PSSize);
+                    }
+                }
+                WaveTimer += Input.dTime;
+                glBindVertexArray(PSVAO);
+                UpdateVBO(PSVBO, 0, sizeof(PSPosition), PSPosition);
+                glDrawArrays(GL_POINTS, 0, sizeof(PSPosition) / sizeof(PSPosition[0]));
+            }
+
+            { // NOTE - Skybox Rendering Test, put somewhere else
                 glDisable(GL_CULL_FACE);
                 glDepthFunc(GL_LEQUAL);
                 CheckGLError("Skybox");
@@ -762,6 +806,9 @@ int RadarMain(int argc, char **argv)
         glDeleteProgram(Program1);
         glDeleteProgram(Program3D);
         glDeleteProgram(ProgramSkybox);
+        glDeleteProgram(ProgramPointSprite);
+        glDeleteBuffers(1, &PSVBO);
+        glDeleteVertexArrays(1, &PSVAO);
     }
 
     DestroyMemory(&Memory);
