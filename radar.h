@@ -11,6 +11,23 @@
 #define ConsoleLogStringLen 256
 #define ConsoleLogCapacity 8
 
+struct game_config
+{
+    int32  WindowWidth;
+    int32  WindowHeight;
+    int32  MSAA;
+    bool   FullScreen;
+    bool   VSync;
+    real32 FOV;
+    int32  AnisotropicFiltering;
+
+    real32 CameraSpeedBase;
+    real32 CameraSpeedMult;
+	real32 CameraSpeedAngular;
+    vec3f  CameraPosition;
+    vec3f  CameraTarget;
+};
+
 struct memory_arena
 {
     uint8   *BasePtr;   // Start of Arena, in bytes
@@ -23,6 +40,8 @@ struct memory_arena
 // Each pool is then mapped according to the needed layout
 struct game_memory
 {
+    game_config Config;
+
     // NOTE - For Game State.
     void *PermanentMemPool;
     uint64 PermanentMemPoolSize;

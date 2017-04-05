@@ -40,6 +40,27 @@ void FillAudioBuffer(tmp_sound_data *SoundData)
     }
 }
 
+void InitCamera(game_camera *Camera, game_memory *Memory)
+{
+    game_config const &Config = Memory->Config;
+
+    Camera->Position = Config.CameraPosition;
+    Camera->Target = Config.CameraTarget;
+    Camera->Up = vec3f(0,1,0);
+    Camera->Forward = Normalize(Camera->Target - Camera->Position);
+    Camera->Right = Normalize(Cross(Camera->Forward, Camera->Up));
+    Camera->Up = Normalize(Cross(Camera->Right, Camera->Forward));
+    Camera->LinearSpeed = Config.CameraSpeedBase;
+    Camera->AngularSpeed = Config.CameraSpeedAngular;
+    Camera->SpeedMult = Config.CameraSpeedMult;
+    Camera->SpeedMode = 0;
+    Camera->FreeflyMode = false;
+
+    vec2f Azimuth = Normalize(vec2f(Camera->Forward[0], Camera->Forward[2]));
+    Camera->Phi = atan2f(Azimuth.y, Azimuth.x);
+    Camera->Theta = atan2f(Camera->Forward.y, sqrtf(Dot(Azimuth, Azimuth)));
+}
+
 void GameInitialization(game_memory *Memory)
 {
     // Init Scratch Pool
@@ -60,22 +81,7 @@ void GameInitialization(game_memory *Memory)
     State->DisableMouse = false;
     State->PlayerPosition = vec3f(300, 300, 0);
 
-    game_camera &Camera = State->Camera;
-    Camera.Position = vec3f(10,10,10); // TODO - From Config
-    Camera.Target = vec3f(0,0,0); // TODO - From Config
-    Camera.Up = vec3f(0,1,0);
-    Camera.Forward = Normalize(Camera.Target - Camera.Position);
-    Camera.Right = Normalize(Cross(Camera.Forward, Camera.Up));
-    Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
-    Camera.LinearSpeed = 20; // TODO - From Config
-    Camera.AngularSpeed = 0.3f; // TODO - From Config
-    Camera.SpeedMult = 2.0f; // TODO - From Config
-    Camera.SpeedMode = 0;
-    Camera.FreeflyMode = false;
-
-    vec2f Azimuth = Normalize(vec2f(Camera.Forward[0], Camera.Forward[2]));
-    Camera.Phi = atan2f(Azimuth.y, Azimuth.x);
-    Camera.Theta = atan2f(Camera.Forward.y, sqrtf(Dot(Azimuth, Azimuth)));
+    InitCamera(&State->Camera, Memory);
 
     Memory->IsInitialized = true;
 }

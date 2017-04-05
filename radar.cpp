@@ -127,26 +127,9 @@ void FreeFileContents(void *Contents)
     free(Contents);
 }
 
-struct game_config
+void ParseConfig(game_memory *Memory, char *ConfigPath)
 {
-    int32  WindowWidth;
-    int32  WindowHeight;
-    int32  MSAA;
-    bool   FullScreen;
-    bool   VSync;
-    real32 FOV;
-    int32  AnisotropicFiltering;
-
-    real32 CameraSpeedBase;
-    real32 CameraSpeedMult;
-	real32 CameraSpeedRotation;
-    vec3f  CameraPosition;
-    vec3f  CameraTarget;
-};
-
-game_config ParseConfig(char *ConfigPath)
-{
-    game_config Config = {};
+    game_config &Config = Memory->Config;
 
     void *Content = ReadFileContents(ConfigPath, 0);
     if(Content)
@@ -164,7 +147,7 @@ game_config ParseConfig(char *ConfigPath)
 
             Config.CameraSpeedBase = (real32)cJSON_GetObjectItem(root, "fCameraSpeedBase")->valuedouble;
             Config.CameraSpeedMult = (real32)cJSON_GetObjectItem(root, "fCameraSpeedMult")->valuedouble;
-            Config.CameraSpeedRotation = (real32)cJSON_GetObjectItem(root, "fCameraSpeedRotation")->valuedouble;
+            Config.CameraSpeedAngular = (real32)cJSON_GetObjectItem(root, "fCameraSpeedAngular")->valuedouble;
 
             cJSON *CameraPositionVector = cJSON_GetObjectItem(root, "vCameraPosition");
             Config.CameraPosition.x = (real32)cJSON_GetArrayItem(CameraPositionVector, 0)->valuedouble;
@@ -194,12 +177,10 @@ game_config ParseConfig(char *ConfigPath)
 
         Config.CameraSpeedBase = 20.f;
         Config.CameraSpeedMult = 2.f;
-        Config.CameraSpeedRotation = 30.f;
+        Config.CameraSpeedAngular = 30.f;
         Config.CameraPosition = vec3f(1, 1, 1);
         Config.CameraTarget = vec3f(0, 0, 0);
     }
-
-    return Config;
 }
 
 void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
@@ -316,9 +297,10 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
 }
 
-game_context InitContext(game_config *Config)
+game_context InitContext(game_memory *Memory)
 {
     game_context Context = {};
+    game_config const &Config = Memory->Config;
 
     bool GLFWValid = false, GLEWValid = false, ALValid = false;
 
@@ -328,14 +310,14 @@ game_context InitContext(game_config *Config)
         char WindowName[64];
         snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
 
-        Context.Window = glfwCreateWindow(Config->WindowWidth, Config->WindowHeight, WindowName, NULL, NULL);
+        Context.Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
         if(Context.Window)
         {
             glfwMakeContextCurrent(Context.Window);
 
             // TODO - Only in windowed mode for debug
 		    glfwSetWindowPos(Context.Window, 800, 400);
-            glfwSwapInterval(Config->VSync);
+            glfwSwapInterval(Config.VSync);
 
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
             glfwSetMouseButtonCallback(Context.Window, ProcessMouseButtonEvent);
@@ -354,9 +336,9 @@ game_context InitContext(game_config *Config)
                 glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
                 printf("GL Max Array Layers : %d\n", MaxLayers);
 
-                Context.ProjectionMatrix3D = mat4f::Perspective(Config->FOV, 
-                        Config->WindowWidth / (real32)Config->WindowHeight, 0.1f, 1000.f);
-                Context.ProjectionMatrix2D = mat4f::Ortho(0, Config->WindowWidth, 0,Config->WindowHeight, 0.1f, 1000.f);
+                Context.ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
+                        Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 1000.f);
+                Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
                 glClearColor(0.2f, 0.3f, 0.7f, 0.f);
 
@@ -398,6 +380,7 @@ game_context InitContext(game_config *Config)
     {
         printf("Couldn't init OpenAL.\n");
     }
+
 
     if(GLFWValid && GLEWValid && ALValid)
     {
@@ -493,10 +476,11 @@ int RadarMain(int argc, char **argv)
     path ConfigPath;
     MakeRelativePath(ConfigPath, ExecFullPath, "config.json");
 
-    game_config Config = ParseConfig(ConfigPath);
-    game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
-    game_context Context = InitContext(&Config);
     game_memory Memory = InitMemory();
+    ParseConfig(&Memory, ConfigPath);
+    game_context Context = InitContext(&Memory);
+    game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
+    game_config const &Config = Memory.Config;
 
     if(Context.IsValid && Memory.IsValid)
     {
