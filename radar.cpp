@@ -505,19 +505,19 @@ int RadarMain(int argc, char **argv)
         MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
         uint32 Program1 = BuildShader(VSPath, FSPath);
         glUseProgram(Program1);
-        glUniform1i(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
+        SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 
         MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
         MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
         uint32 Program3D = BuildShader(VSPath, FSPath);
         glUseProgram(Program3D);
-        glUniform1i(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
+        SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
 
         MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
         MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
         uint32 ProgramSkybox = BuildShader(VSPath, FSPath);
         glUseProgram(ProgramSkybox);
-        glUniform1i(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+        SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
 
         glUseProgram(0);
 
@@ -642,23 +642,25 @@ int RadarMain(int argc, char **argv)
                 // TODO - ProjMatrix updated only when resize happen
                 {
                     uint32 Loc = glGetUniformLocation(Program3D, "ProjMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix");
+                    SendMat4(Loc, Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix Cube");
 
                     Loc = glGetUniformLocation(Program3D, "ViewMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
+                    SendMat4(Loc, ViewMatrix);
                     CheckGLError("ViewMatrix");
-
                 }
+
+                uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
+                SendVec4(Loc, State->LightColor);
+                CheckGLError("LightColor Cube");
                 glBindVertexArray(Cube.VAO);
                 glBindTexture(GL_TEXTURE_2D, Texture1);
                 mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
-                uint32 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                Loc = glGetUniformLocation(Program3D, "ModelMatrix");
                 for(uint32 i = 0; i < 5; ++i)
                 {
                     ModelMatrix.FromTRS(CubePos[i], CubeRot[i], vec3f(1.f));
-                    //ModelMatrix.SetTranslation(CubePos[i]);
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ModelMatrix);
+                    SendMat4(Loc, ModelMatrix);
                     CheckGLError("ModelMatrix");
                     glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
                 }
@@ -673,13 +675,13 @@ int RadarMain(int argc, char **argv)
                 // TODO - ProjMatrix updated only when resize happen
                 {
                     uint32 Loc = glGetUniformLocation(ProgramSkybox, "ProjMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix3D);
+                    SendMat4(Loc, Context.ProjectionMatrix3D);
                     CheckGLError("ProjMatrix Skybox");
 
                     // NOTE - remove translation component from the ViewMatrix for the skybox
                     ViewMatrix.SetTranslation(vec3f(0.f));
                     Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ViewMatrix);
+                    SendMat4(Loc, ViewMatrix);
                     CheckGLError("ViewMatrix Skybox");
                 }
                 glBindVertexArray(SkyboxCube.VAO);
@@ -695,9 +697,10 @@ int RadarMain(int argc, char **argv)
                 // TODO - ProjMatrix updated only when resize happen
                 {
                     uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) Context.ProjectionMatrix2D);
-                    CheckGLError("ProjMatrix");
+                    SendMat4(Loc, Context.ProjectionMatrix2D);
+                    CheckGLError("ProjMatrix Console");
                 }
+
                 uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
                 mat4f ConsoleModelMatrix;
                 console_log *Log = System->ConsoleLog;
@@ -717,8 +720,10 @@ int RadarMain(int argc, char **argv)
                     }
 
                     ConsoleModelMatrix.SetTranslation(vec3f(10, Config.WindowHeight - 10 - i * ConsoleFont.LineGap, 0));
-                    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) ConsoleModelMatrix);
-                    glUniform4fv(glGetUniformLocation(Program1, "TextColor"), 1, (GLfloat*)Texts[RIdx].Color);
+                    SendMat4(Loc, ConsoleModelMatrix);
+                    CheckGLError("ModelMatrix Console");
+                    SendVec4(glGetUniformLocation(Program1, "TextColor"), Texts[RIdx].Color);
+                    CheckGLError("Color Console");
 
                     glBindVertexArray(Texts[RIdx].VAO);
                     glBindTexture(GL_TEXTURE_2D, Texts[RIdx].Texture);

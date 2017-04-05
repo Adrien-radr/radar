@@ -83,6 +83,8 @@ void GameInitialization(game_memory *Memory)
 
     InitCamera(&State->Camera, Memory);
 
+    State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
+
     Memory->IsInitialized = true;
 }
 
@@ -197,6 +199,8 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     MovePlayer(State, Input);
 
     Counter += Input->dTime;
+
+    State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
 
     if(Counter > 0.75)
     {

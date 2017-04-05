@@ -314,6 +314,37 @@ uint32 BuildShader(char *VSPath, char *FSPath)
     return ProgramID;
 }
 
+void SendVec2(uint32 Loc, vec2f value)
+{
+    glUniform2fv(Loc, 1, (GLfloat const *) value);
+}
+
+void SendVec3(uint32 Loc, vec3f value)
+{
+    glUniform3fv(Loc, 1, (GLfloat const *) value);
+}
+
+void SendVec4(uint32 Loc, vec4f value)
+{
+    glUniform4fv(Loc, 1, (GLfloat const *) value);
+}
+
+void SendMat4(uint32 Loc, mat4f value)
+{
+    glUniformMatrix4fv(Loc, 1, GL_FALSE, (GLfloat const *) value);
+}
+
+void SendInt(uint32 Loc, int value)
+{
+    glUniform1i(Loc, value);
+}
+
+void SendFloat(uint32 Loc, real32 value)
+{
+    glUniform1f(Loc, value);
+}
+
+
 uint32 MakeVertexArrayObject()
 {
     uint32 VAO;
@@ -458,7 +489,7 @@ void DestroyDisplayText(display_text *Text)
 ////////////////////////////////////////////////////////////////////////
 // NOTE - Primitive builders
 ////////////////////////////////////////////////////////////////////////
-mesh MakeUnitCube(bool MakeTexcoord = true)
+mesh MakeUnitCube(bool MakeAdditionalAttribs = true)
 {
     mesh Cube = {};
 
@@ -526,6 +557,38 @@ mesh MakeUnitCube(bool MakeTexcoord = true)
         vec2f(1, 1),
     };
 
+    vec3f Normal[24] = {
+        vec3f(-1, 0, 0),
+        vec3f(-1, 0, 0),
+        vec3f(-1, 0, 0),
+        vec3f(-1, 0, 0),
+
+        vec3f(1, 0, 0),
+        vec3f(1, 0, 0),
+        vec3f(1, 0, 0),
+        vec3f(1, 0, 0),
+
+        vec3f(0, -1, 0),
+        vec3f(0, -1, 0),
+        vec3f(0, -1, 0),
+        vec3f(0, -1, 0),
+
+        vec3f(0, 1, 0),
+        vec3f(0, 1, 0),
+        vec3f(0, 1, 0),
+        vec3f(0, 1, 0),
+
+        vec3f(0, 0, -1),
+        vec3f(0, 0, -1),
+        vec3f(0, 0, -1),
+        vec3f(0, 0, -1),
+
+        vec3f(0, 0, 1),
+        vec3f(0, 0, 1),
+        vec3f(0, 0, 1),
+        vec3f(0, 0, 1)
+    };
+
     uint32 Indices[36];
     for (uint32 i = 0; i < 6; ++i)
     {
@@ -540,11 +603,12 @@ mesh MakeUnitCube(bool MakeTexcoord = true)
 
     Cube.IndexCount = 36;
     Cube.VAO = MakeVertexArrayObject();
-    if(MakeTexcoord)
+    if(MakeAdditionalAttribs)
     {
-        Cube.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
+        Cube.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal), GL_STATIC_DRAW);
         FillVBO(0, 3, GL_FLOAT, 0, sizeof(Position), Position);
         FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
+        FillVBO(2, 3, GL_FLOAT, sizeof(Position) + sizeof(Texcoord), sizeof(Normal), Normal);
     }
     else
     {
@@ -556,16 +620,15 @@ mesh MakeUnitCube(bool MakeTexcoord = true)
     return Cube;
 }
 
-mesh MakeUnitSphere(bool MakeTexcoord = true)
+mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
 {
     mesh Sphere = {};
     
-    const real32 Radius = 1.f;
-    const uint32 nLon = 32, nLat = 24;
+    real32 Radius = 1.f;
+    uint32 nLon = 32, nLat = 24;
 
-    const uint32 nVerts = (nLon + 1) * nLat + 2;
-    // const uint32 nTriangles = nVerts * 2;
-    const uint32 nIndices = (nLat - 1)*nLon * 6 + nLon * 2 * 3;//nTriangles * 3;
+    uint32 nVerts = (nLon + 1) * nLat + 2;
+    uint32 nIndices = (nLat - 1)*nLon * 6 + nLon * 2 * 3;
 
     // Positions
     vec3f Position[nVerts];
@@ -588,13 +651,11 @@ mesh MakeUnitSphere(bool MakeTexcoord = true)
     Position[nVerts - 1] = vec3f(0, 1, 0) * -Radius;
 
     // Normals
-#if 0
-    vec3f nrm[nVerts];
+    vec3f Normal[nVerts];
     for (uint32 i = 0; i < nVerts; ++i)
     {
-        nrm[i] = Normalize(Position[i]);
+        Normal[i] = Normalize(Position[i]);
     }
-#endif
 
     // UVs
     vec2f Texcoord[nVerts];
@@ -649,11 +710,12 @@ mesh MakeUnitSphere(bool MakeTexcoord = true)
 
     Sphere.IndexCount = nIndices;
     Sphere.VAO = MakeVertexArrayObject();
-    if(MakeTexcoord)
+    if(MakeAdditionalAttribs)
     {
-        Sphere.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
+        Sphere.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal), GL_STATIC_DRAW);
         FillVBO(0, 3, GL_FLOAT, 0, sizeof(Position), Position);
         FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
+        FillVBO(2, 3, GL_FLOAT, sizeof(Position) + sizeof(Texcoord), sizeof(Normal), Normal);
     }
     else
     {
@@ -664,6 +726,4 @@ mesh MakeUnitSphere(bool MakeTexcoord = true)
 
     return Sphere;
 }
-
-
 

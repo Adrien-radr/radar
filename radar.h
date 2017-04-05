@@ -102,6 +102,7 @@ struct game_state
     game_camera Camera;
     bool DisableMouse;
     vec3f PlayerPosition;
+    vec4f LightColor;
 };
 
 typedef uint8 key_state;

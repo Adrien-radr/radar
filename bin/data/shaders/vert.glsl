@@ -2,16 +2,19 @@
 
 layout(location=0) in vec3 in_position;
 layout(location=1) in vec2 in_texcoord;
+layout(location=2) in vec3 in_normal;
 
 uniform mat4 ProjMatrix;
 uniform mat4 ViewMatrix;
 uniform mat4 ModelMatrix;
 
 out vec2 v_texcoord;
+out vec3 v_normal;
 
 void main()
 {
     v_texcoord = in_texcoord;
+    v_normal = mat3(transpose(inverse(ModelMatrix))) * in_normal;
     gl_Position = ProjMatrix * ViewMatrix * ModelMatrix * vec4(in_position, 1.0);
 }
 
