@@ -116,6 +116,8 @@ struct game_input
     mouse_state MouseRight;
 };
 
+// NOTE - Temporary, this should be elswhere.
+// The Game shouldn't have Disk IO access at all
 void *ReadFileContents(char *Filename, int *FileSize);
 void FreeFileContents(void *Contents);
 

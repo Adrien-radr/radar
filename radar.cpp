@@ -480,88 +480,6 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     return true;
 }
 
-void DestroyDisplayText(display_text *Text)
-{
-    Text->IndexCount = 0;
-    glDeleteBuffers(3, Text->VBO);
-    glDeleteVertexArrays(1, &Text->VAO);
-}
-
-display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
-{
-    display_text Text = {};
-
-    uint32 MsgLength = strlen(Msg);
-    uint32 VertexCount = MsgLength * 4;
-    uint32 IndexCount = MsgLength * 6;
-
-    uint32 PS = 4 * 3;
-    uint32 TS = 4 * 2;
-
-    real32 *Positions = (real32*)alloca(3 * VertexCount * sizeof(real32));
-    real32 *Texcoords = (real32*)alloca(2 * VertexCount * sizeof(real32));
-    uint32 *Indices = (uint32*)alloca(IndexCount * sizeof(uint32));
-
-    int X = 0, Y = 0;
-    for(uint32 i = 0; i < MsgLength; ++i)
-    {
-        uint8 AsciiIdx = Msg[i] - 32; // 32 is the 1st Ascii idx
-        glyph &Glyph = Font->Glyphs[AsciiIdx];
-
-        // Modify DisplayWidth to always be at least the length of each character
-        if(MaxPixelWidth < Glyph.CW)
-        {
-            MaxPixelWidth = Glyph.CW;
-        }
-
-        if(Msg[i] == '\n')
-        {
-            X = 0;
-            Y -= Font->LineGap;
-            AsciiIdx = Msg[++i] - 32;
-            Glyph = Font->Glyphs[AsciiIdx];
-            IndexCount -= 6;
-        }
-
-        if((X + Glyph.CW) >= MaxPixelWidth)
-        {
-            X = 0;
-            Y -= Font->LineGap;
-        }
-
-        // position (TL, BL, BR, TR)
-        real32 BaseX = (real32)(X + Glyph.X);
-        real32 BaseY = (real32)(Y - Font->Ascent - Glyph.Y);
-        Positions[i*PS+0+0] = Scale*(BaseX);              Positions[i*PS+0+1] = Scale*(BaseY);            Positions[i*PS+0+2] = 0;
-        Positions[i*PS+3+0] = Scale*(BaseX);              Positions[i*PS+3+1] = Scale*(BaseY - Glyph.CH); Positions[i*PS+3+2] = 0;
-        Positions[i*PS+6+0] = Scale*(BaseX + Glyph.CW);   Positions[i*PS+6+1] = Scale*(BaseY - Glyph.CH); Positions[i*PS+6+2] = 0;
-        Positions[i*PS+9+0] = Scale*(BaseX + Glyph.CW);   Positions[i*PS+9+1] = Scale*(BaseY);            Positions[i*PS+9+2] = 0;
-
-        // texcoords
-        Texcoords[i*TS+0+0] = Glyph.TexX0; Texcoords[i*TS+0+1] = Glyph.TexY0;
-        Texcoords[i*TS+2+0] = Glyph.TexX0; Texcoords[i*TS+2+1] = Glyph.TexY1;
-        Texcoords[i*TS+4+0] = Glyph.TexX1; Texcoords[i*TS+4+1] = Glyph.TexY1;
-        Texcoords[i*TS+6+0] = Glyph.TexX1; Texcoords[i*TS+6+1] = Glyph.TexY0;
-
-        Indices[i*6+0] = i*4+0;Indices[i*6+1] = i*4+1;Indices[i*6+2] = i*4+2;
-        Indices[i*6+3] = i*4+0;Indices[i*6+4] = i*4+2;Indices[i*6+5] = i*4+3;
-
-        X += Glyph.AdvX;
-    }
-
-    Text.VAO = MakeVertexArrayObject();
-    Text.VBO[0] = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, 3 * VertexCount * sizeof(real32), Positions);
-    Text.VBO[1] = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, 2 * VertexCount * sizeof(real32), Texcoords);
-    Text.VBO[2] = AddIndexBufferObject(GL_STATIC_DRAW, IndexCount * sizeof(uint32), Indices);
-    Text.IndexCount = IndexCount;
-    glBindVertexArray(0);
-
-    Text.Texture = Font->AtlasTextureID;
-    Text.Color = Color;
-
-    return Text;
-}
-
 int RadarMain(int argc, char **argv)
 {
     path ExecFullPath;
@@ -617,35 +535,8 @@ int RadarMain(int argc, char **argv)
         glUseProgram(ProgramSkybox);
         glUniform1i(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
 
-
         glUseProgram(0);
 
-        real32 positions[] = {
-            -100.f, 100.f, 0.5f, // topleft
-            -100.f, -100.f, 0.5f, // botleft
-            100.f, -100.f, 0.5f, // botright
-            100.f, 100.f, 0.5f, // topright
-        };
-        real32 colors[] = {
-            1.f, 1.f, 1.f, 1.f,
-            0.f, 1.f, 0.f, 1.f,
-            0.f, 1.f, 1.f, 1.f,
-            1.f, 0.f, 0.f, 1.f
-        };
-        real32 texcoords[] = { // NOTE - inverted Y coordinate ! Streamline this somewhere
-            0.f, 0.f,
-            0.f, 1.f,
-            1.f, 1.f,
-            1.f, 0.f
-        };
-        uint32 indices[] = { 0, 1, 2, 0, 2, 3 };
-
-        uint32 VAO1 = MakeVertexArrayObject();
-        uint32 PosBuffer = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(positions), positions);
-        uint32 TexBuffer = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, sizeof(texcoords), texcoords);
-        uint32 ColBuffer = AddVertexBufferObject(2, 4, GL_FLOAT, GL_STATIC_DRAW, sizeof(colors), colors);
-        uint32 IdxBuffer = AddIndexBufferObject(GL_STATIC_DRAW, sizeof(indices), indices);
-        glBindVertexArray(0);
 
         // Texture creation
         path TexPath;
@@ -860,10 +751,6 @@ int RadarMain(int argc, char **argv)
         DestroyFont(&Font);
         DestroyFont(&ConsoleFont);
         glDeleteTextures(1, &Texture1);
-        glDeleteBuffers(1, &PosBuffer);
-        glDeleteBuffers(1, &ColBuffer);
-        glDeleteBuffers(1, &IdxBuffer);
-        glDeleteVertexArrays(1, &VAO1);
         glDeleteProgram(Program1);
         glDeleteProgram(Program3D);
         glDeleteProgram(ProgramSkybox);

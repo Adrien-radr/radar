@@ -44,7 +44,7 @@ struct font
 struct display_text
 {
     uint32 VAO;
-    uint32 VBO[3]; // 0 : position, 1 : texcoord, 2 : indices
+    uint32 VBO[2]; // 0 : position+texcoord batched, 1 : indices
     uint32 IndexCount;
     uint32 Texture;
     vec4f  Color;
@@ -53,7 +53,7 @@ struct display_text
 struct mesh
 {
     uint32 VAO;
-    uint32 VBO[3]; // 0: positions, 1: texcoords, 2: colors, 3: indices
+    uint32 VBO[2]; // 0: positions+texcoords batched, 1: indices
     uint32 IndexCount;
 };
 

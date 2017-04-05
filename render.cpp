@@ -323,8 +323,26 @@ uint32 MakeVertexArrayObject()
     return VAO;
 }
 
-uint32 AddVertexBufferObject(uint32 Attrib, uint32 AttribStride, uint32 Type, 
-                             uint32 Usage, uint32 Size, void *Data)
+uint32 AddEmptyVBO(uint32 Size, uint32 Usage)
+{
+    uint32 Buffer;
+    glGenBuffers(1, &Buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, Buffer);
+    glBufferData(GL_ARRAY_BUFFER, Size, NULL, Usage);
+    
+    return Buffer;
+}
+
+void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type,
+             size_t ByteOffset, uint32 Size, void *Data)
+{
+    glEnableVertexAttribArray(Attrib);
+    glBufferSubData(GL_ARRAY_BUFFER, ByteOffset, Size, Data);
+    glVertexAttribPointer(Attrib, AttribStride, Type, GL_FALSE, 0, (GLvoid*)ByteOffset);
+}
+
+uint32 AddVBO(uint32 Attrib, uint32 AttribStride, uint32 Type, 
+              uint32 Usage, uint32 Size, void *Data)
 {
     glEnableVertexAttribArray(Attrib);
 
@@ -338,7 +356,7 @@ uint32 AddVertexBufferObject(uint32 Attrib, uint32 AttribStride, uint32 Type,
     return Buffer;
 }
 
-uint32 AddIndexBufferObject(uint32 Usage, uint32 Size, void *Data)
+uint32 AddIBO(uint32 Usage, uint32 Size, void *Data)
 {
     uint32 Buffer;
     glGenBuffers(1, &Buffer);
@@ -350,9 +368,91 @@ uint32 AddIndexBufferObject(uint32 Usage, uint32 Size, void *Data)
 
 void DestroyMesh(mesh *Mesh)
 {
-    glDeleteBuffers(3, Mesh->VBO);
+    glDeleteBuffers(2, Mesh->VBO);
     glDeleteVertexArrays(1, &Mesh->VAO);
     Mesh->IndexCount = 0;
+}
+display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
+{
+    display_text Text = {};
+
+    uint32 MsgLength = strlen(Msg);
+    uint32 VertexCount = MsgLength * 4;
+    uint32 IndexCount = MsgLength * 6;
+
+    uint32 PS = 4 * 3;
+    uint32 TS = 4 * 2;
+
+    real32 *Positions = (real32*)alloca(3 * VertexCount * sizeof(real32));
+    real32 *Texcoords = (real32*)alloca(2 * VertexCount * sizeof(real32));
+    uint32 *Indices = (uint32*)alloca(IndexCount * sizeof(uint32));
+
+    int X = 0, Y = 0;
+    for(uint32 i = 0; i < MsgLength; ++i)
+    {
+        uint8 AsciiIdx = Msg[i] - 32; // 32 is the 1st Ascii idx
+        glyph &Glyph = Font->Glyphs[AsciiIdx];
+
+        // Modify DisplayWidth to always be at least the length of each character
+        if(MaxPixelWidth < Glyph.CW)
+        {
+            MaxPixelWidth = Glyph.CW;
+        }
+
+        if(Msg[i] == '\n')
+        {
+            X = 0;
+            Y -= Font->LineGap;
+            AsciiIdx = Msg[++i] - 32;
+            Glyph = Font->Glyphs[AsciiIdx];
+            IndexCount -= 6;
+        }
+
+        if((X + Glyph.CW) >= MaxPixelWidth)
+        {
+            X = 0;
+            Y -= Font->LineGap;
+        }
+
+        // position (TL, BL, BR, TR)
+        real32 BaseX = (real32)(X + Glyph.X);
+        real32 BaseY = (real32)(Y - Font->Ascent - Glyph.Y);
+        Positions[i*PS+0+0] = Scale*(BaseX);              Positions[i*PS+0+1] = Scale*(BaseY);            Positions[i*PS+0+2] = 0;
+        Positions[i*PS+3+0] = Scale*(BaseX);              Positions[i*PS+3+1] = Scale*(BaseY - Glyph.CH); Positions[i*PS+3+2] = 0;
+        Positions[i*PS+6+0] = Scale*(BaseX + Glyph.CW);   Positions[i*PS+6+1] = Scale*(BaseY - Glyph.CH); Positions[i*PS+6+2] = 0;
+        Positions[i*PS+9+0] = Scale*(BaseX + Glyph.CW);   Positions[i*PS+9+1] = Scale*(BaseY);            Positions[i*PS+9+2] = 0;
+
+        // texcoords
+        Texcoords[i*TS+0+0] = Glyph.TexX0; Texcoords[i*TS+0+1] = Glyph.TexY0;
+        Texcoords[i*TS+2+0] = Glyph.TexX0; Texcoords[i*TS+2+1] = Glyph.TexY1;
+        Texcoords[i*TS+4+0] = Glyph.TexX1; Texcoords[i*TS+4+1] = Glyph.TexY1;
+        Texcoords[i*TS+6+0] = Glyph.TexX1; Texcoords[i*TS+6+1] = Glyph.TexY0;
+
+        Indices[i*6+0] = i*4+0;Indices[i*6+1] = i*4+1;Indices[i*6+2] = i*4+2;
+        Indices[i*6+3] = i*4+0;Indices[i*6+4] = i*4+2;Indices[i*6+5] = i*4+3;
+
+        X += Glyph.AdvX;
+    }
+
+    Text.VAO = MakeVertexArrayObject();
+    Text.VBO[0] = AddEmptyVBO(5 * VertexCount * sizeof(real32), GL_STATIC_DRAW);
+    FillVBO(0, 3, GL_FLOAT, 0, 3 * VertexCount * sizeof(real32), Positions);
+    FillVBO(1, 2, GL_FLOAT, 3 * VertexCount * sizeof(real32), 2 * VertexCount * sizeof(real32), Texcoords);
+    Text.VBO[1] = AddIBO(GL_STATIC_DRAW, IndexCount * sizeof(uint32), Indices);
+    Text.IndexCount = IndexCount;
+    glBindVertexArray(0);
+
+    Text.Texture = Font->AtlasTextureID;
+    Text.Color = Color;
+
+    return Text;
+}
+
+void DestroyDisplayText(display_text *Text)
+{
+    glDeleteBuffers(2, Text->VBO);
+    glDeleteVertexArrays(1, &Text->VAO);
+    Text->IndexCount = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -440,12 +540,17 @@ mesh MakeUnitCube(bool MakeTexcoord = true)
 
     Cube.IndexCount = 36;
     Cube.VAO = MakeVertexArrayObject();
-    Cube.VBO[0] = AddVertexBufferObject(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
     if(MakeTexcoord)
     {
-        Cube.VBO[1] = AddVertexBufferObject(1, 2, GL_FLOAT, GL_STATIC_DRAW, sizeof(Texcoord), Texcoord);
+        Cube.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
+        FillVBO(0, 3, GL_FLOAT, 0, sizeof(Position), Position);
+        FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
     }
-    Cube.VBO[2] = AddIndexBufferObject(GL_STATIC_DRAW, sizeof(Indices), Indices);
+    else
+    {
+        Cube.VBO[0] = AddVBO(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
+    }
+    Cube.VBO[1] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     glBindVertexArray(0);
 
     return Cube;
