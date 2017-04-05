@@ -7,7 +7,8 @@ uniform vec4 LightColor;
 
 out vec4 frag_color;
 
-void main() {
+void main()
+{
     vec4 diffuse_texture = texture(DiffuseTexture, v_texcoord);
 
     vec3 LightDir = normalize(vec3(0.5, 0.2, 1.0));

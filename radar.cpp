@@ -464,6 +464,37 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     return true;
 }
 
+uint32 Program1, Program3D, ProgramSkybox, ProgramPointSprite;
+
+void ReloadShaders(path ExecFullPath)
+{
+    path VSPath;
+    path FSPath;
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
+    Program1 = BuildShader(VSPath, FSPath);
+    glUseProgram(Program1);
+    SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
+
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
+    Program3D = BuildShader(VSPath, FSPath);
+    glUseProgram(Program3D);
+    SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
+
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
+    ProgramSkybox = BuildShader(VSPath, FSPath);
+    glUseProgram(ProgramSkybox);
+    SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/pointsprite_vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/pointsprite_frag.glsl");
+    ProgramPointSprite = BuildShader(VSPath, FSPath);
+    glUseProgram(ProgramPointSprite);
+    //SendInt(glGetUniformLocation(ProgramPointSprite, "Skybox"), 0);
+}
+
 int RadarMain(int argc, char **argv)
 {
     path ExecFullPath;
@@ -500,25 +531,7 @@ int RadarMain(int argc, char **argv)
             alSourcePlay(AudioSource);
         }
 
-        path VSPath;
-        path FSPath;
-        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
-        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
-        uint32 Program1 = BuildShader(VSPath, FSPath);
-        glUseProgram(Program1);
-        SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
-
-        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
-        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
-        uint32 Program3D = BuildShader(VSPath, FSPath);
-        glUseProgram(Program3D);
-        SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
-
-        MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
-        MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
-        uint32 ProgramSkybox = BuildShader(VSPath, FSPath);
-        glUseProgram(ProgramSkybox);
-        SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+        ReloadShaders(ExecFullPath);
 
         glUseProgram(0);
 
@@ -637,23 +650,7 @@ int RadarMain(int argc, char **argv)
 
             if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
             {
-                MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
-                MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
-                Program1 = BuildShader(VSPath, FSPath);
-                glUseProgram(Program1);
-                SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
-
-                MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
-                MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
-                Program3D = BuildShader(VSPath, FSPath);
-                glUseProgram(Program3D);
-                SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
-
-                MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
-                MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
-                ProgramSkybox = BuildShader(VSPath, FSPath);
-                glUseProgram(ProgramSkybox);
-                SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+                ReloadShaders(ExecFullPath);
             }
 
             game_camera &Camera = State->Camera;
