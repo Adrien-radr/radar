@@ -131,6 +131,7 @@ struct game_input
     key_state KeyLShift;
     key_state KeyLCtrl;
     key_state KeyLAlt;
+    key_state KeyF11;
 
     mouse_state MouseLeft;
     mouse_state MouseRight;

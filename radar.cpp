@@ -292,6 +292,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
     Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
     Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
+    Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
 
     Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
     Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
@@ -632,6 +633,27 @@ int RadarMain(int argc, char **argv)
 
                     LastDisableMouse = State->DisableMouse;
                 }
+            }
+
+            if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
+            {
+                MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
+                MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
+                Program1 = BuildShader(VSPath, FSPath);
+                glUseProgram(Program1);
+                SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
+
+                MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
+                MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
+                Program3D = BuildShader(VSPath, FSPath);
+                glUseProgram(Program3D);
+                SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
+
+                MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
+                MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
+                ProgramSkybox = BuildShader(VSPath, FSPath);
+                glUseProgram(ProgramSkybox);
+                SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
             }
 
             game_camera &Camera = State->Camera;

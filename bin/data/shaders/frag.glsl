@@ -10,7 +10,7 @@ out vec4 frag_color;
 void main() {
     vec4 diffuse_texture = texture(DiffuseTexture, v_texcoord);
 
-    vec3 LightDir = normalize(vec3(-0,0.5,1));
+    vec3 LightDir = normalize(vec3(0.5, 0.2, 1.0));
 
     vec4 Ka = vec4(1.0, 1.0, 1.0, 1.0);
     vec4 Kd = vec4(1.0, 1.0, 1.0, 1.0);
