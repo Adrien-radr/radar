@@ -123,11 +123,11 @@ uint32 MakeCubemap(path *Paths)
         DestroyImage(&Face);
     }
 
-    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-    glTexParameteri( GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE );
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     CheckGLError("SkyboxParams");
 
@@ -414,7 +414,7 @@ display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec
             Y -= Font->LineGap;
         }
 
-        // position (TL, BL, BR, TR)
+        // Position (TL, BL, BR, TR)
         real32 BaseX = (real32)(X + Glyph.X);
         real32 BaseY = (real32)(Y - Font->Ascent - Glyph.Y);
         Positions[i*PS+0+0] = Scale*(BaseX);              Positions[i*PS+0+1] = Scale*(BaseY);            Positions[i*PS+0+2] = 0;
@@ -556,6 +556,114 @@ mesh MakeUnitCube(bool MakeTexcoord = true)
     return Cube;
 }
 
+mesh MakeUnitSphere(bool MakeTexcoord = true)
+{
+    mesh Sphere = {};
+    
+    const real32 Radius = 1.f;
+    const uint32 nLon = 32, nLat = 24;
+
+    const uint32 nVerts = (nLon + 1) * nLat + 2;
+    // const uint32 nTriangles = nVerts * 2;
+    const uint32 nIndices = (nLat - 1)*nLon * 6 + nLon * 2 * 3;//nTriangles * 3;
+
+    // Positions
+    vec3f Position[nVerts];
+    Position[0] = vec3f(0, 1, 0) * Radius;
+    for (uint32 lat = 0; lat < nLat; ++lat)
+    {
+        real32 a1 = M_PI * (real32) (lat + 1) / (nLat + 1);
+        real32 sin1 = sinf(a1);
+        real32 cos1 = cosf(a1);
+
+        for (uint32 lon = 0; lon <= nLon; ++lon)
+        {
+            real32 a2 = M_TWO_PI * (real32) (lon == nLon ? 0 : lon) / nLon;
+            real32 sin2 = sinf(a2);
+            real32 cos2 = cosf(a2);
+
+            Position[lon + lat * (nLon + 1) + 1] = vec3f(sin1 * cos2, cos1, sin1 * sin2) * Radius;
+        }
+    }
+    Position[nVerts - 1] = vec3f(0, 1, 0) * -Radius;
+
+    // Normals
+#if 0
+    vec3f nrm[nVerts];
+    for (uint32 i = 0; i < nVerts; ++i)
+    {
+        nrm[i] = Normalize(Position[i]);
+    }
+#endif
+
+    // UVs
+    vec2f Texcoord[nVerts];
+    Texcoord[0] = vec2f(0, 1);
+    Texcoord[nVerts - 1] = vec2f(0.f);
+    for (uint32 lat = 0; lat < nLat; ++lat)
+    {
+        for (uint32 lon = 0; lon <= nLon; ++lon)
+        {
+            Texcoord[lon + lat * (nLon + 1) + 1] = vec2f(lon / (real32) nLon, 1.f - (lat + 1) / (real32) (nLat + 1));
+        }
+    }
+
+    // Triangles/Indices
+    uint32 Indices[nIndices];
+    {
+        // top
+        uint32 i = 0;
+        for (uint32 lon = 0; lon < nLon; ++lon)
+        {
+            Indices[i++] = lon + 2;
+            Indices[i++] = lon + 1;
+            Indices[i++] = 0;
+        }
+
+        // middle
+        for (uint32 lat = 0; lat < nLat - 1; ++lat)
+        {
+            for (uint32 lon = 0; lon < nLon; ++lon)
+            {
+                uint32 curr = lon + lat * (nLon + 1) + 1;
+                uint32 next = curr + nLon + 1;
+
+                Indices[i++] = curr;
+                Indices[i++] = curr + 1;
+                Indices[i++] = next + 1;
+
+                Indices[i++] = curr;
+                Indices[i++] = next + 1;
+                Indices[i++] = next;
+            }
+        }
+
+        // bottom
+        for (uint32 lon = 0; lon < nLon; ++lon)
+        {
+            Indices[i++] = nVerts - 1;
+            Indices[i++] = nVerts - (lon + 2) - 1;
+            Indices[i++] = nVerts - (lon + 1) - 1;
+        }
+    }
+
+    Sphere.IndexCount = nIndices;
+    Sphere.VAO = MakeVertexArrayObject();
+    if(MakeTexcoord)
+    {
+        Sphere.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
+        FillVBO(0, 3, GL_FLOAT, 0, sizeof(Position), Position);
+        FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
+    }
+    else
+    {
+        Sphere.VBO[0] = AddVBO(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
+    }
+    Sphere.VBO[1] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
+    glBindVertexArray(0);
+
+    return Sphere;
+}
 
 
 
