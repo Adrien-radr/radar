@@ -5,12 +5,12 @@ in vec3 v_eyeSpace_LightDir;
 uniform mat4 ViewMatrix;
 uniform mat4 ProjMatrix;
 
-out vec4 frag_color;
+layout(location=0) out vec4 frag_color;
 
 float LinearizeDepth(float depth)
 {
     float near = 1.0;
-    float far = 200.0;
+    float far = 100.0;
     float z = depth * 2.0 - 1.0;
     z = ((2.0 * far * near) / (far + near - z * (far - near))) / far;
 
@@ -32,10 +32,11 @@ void main()
     float depth = clipSpacePoint.z / clipSpacePoint.w;
     float linear_depth = LinearizeDepth(depth);
 
+    frag_color = vec4(linear_depth, linear_depth, linear_depth, 1.0);
 
-    float diffuse = max(0.0, dot(N, normalize(v_eyeSpace_LightDir)));
+    //float diffuse = max(0.0, dot(N, normalize(v_eyeSpace_LightDir)));
 
     //frag_color = vec4(0.8*diffuse, 0.2+0.8*diffuse, 0.5+0.5*diffuse, 1.0);    
-    frag_color = vec4(linear_depth, linear_depth, linear_depth, 1.0);
     //frag_color = vec4(clipSpacePoint.x, clipSpacePoint.y, clipSpacePoint.z, 1.0);
+    //frag_color = vec4(linear_depth, linear_depth, linear_depth, 1.0);
 }

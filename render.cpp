@@ -185,6 +185,8 @@ frame_buffer MakeFBO(uint32 NumAttachments, vec2i Size)
     FB.Size = Size;
     FB.NumAttachments = NumAttachments;
 
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     return FB;
 }
 
@@ -192,19 +194,29 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, uint32 
 {
     Assert(Attachment < MAX_FBO_ATTACHMENTS);
 
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO->FBO);
+
     uint32 *BufferID = &FBO->BufferIDs[Attachment];
     glGenTextures(1, BufferID);
     glBindTexture(GL_TEXTURE_2D, *BufferID);
 
     GLint BaseFormat, Format;
     FormatFromChannels(Channels, &BaseFormat, &Format);
-    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
+    // TODO : GL_R32F should be changed to a parameter : and this for all texturing
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, (GLenum) ( GL_COLOR_ATTACHMENT0 + Attachment ), GL_TEXTURE_2D, *BufferID, 0 );
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        printf("Framebuffer creation error : Attachment %u error.\n", Attachment);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 // TODO - Load Unicode characters
@@ -697,6 +709,40 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs = true)
     glBindVertexArray(0);
 
     return Cube;
+}
+
+// NOTE - Start is Top Left corner. End is Bottom Right corner.
+mesh Make2DQuad(vec2i Start, vec2i End)
+{
+    mesh Quad = {};
+
+    vec2f Position[4] =
+    {
+        vec2f(Start.x, Start.y),
+        vec2f(Start.x, End.y),
+        vec2f(End.x, End.y),
+        vec2f(End.x, Start.y)
+    };
+
+    vec2f Texcoord[4] =
+    {
+        vec2f(0, 1),
+        vec2f(0, 0),
+        vec2f(1, 0),
+        vec2f(1, 1),
+    };
+
+    uint32 Indices[6] = { 0, 1, 2, 0, 2, 3 };
+
+    Quad.IndexCount = 6;
+    Quad.VAO = MakeVertexArrayObject();
+    Quad.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
+    FillVBO(0, 2, GL_FLOAT, 0, sizeof(Position), Position);
+    FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
+    Quad.VBO[1] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
+    glBindVertexArray(0);
+    
+    return Quad;
 }
 
 mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
