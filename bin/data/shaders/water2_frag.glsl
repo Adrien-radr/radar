@@ -16,7 +16,7 @@ void main()
     float fragDepth = texture(DiffuseTexture, v_texcoord).r;
     if(fragDepth == 0.0f) discard;
 
-    float off = (1/200.0) / fragDepth;
+    float off = (1/50.0) / fragDepth;
     vec2 offsets[9] = vec2[](
             vec2(-off, off), vec2(0, off), vec2(off, off),
             vec2(-off, 0), vec2(0, 0), vec2(off, 0),

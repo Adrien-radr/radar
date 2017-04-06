@@ -774,6 +774,10 @@ int RadarMain(int argc, char **argv)
                     uint32 Loc = glGetUniformLocation(ProgramWaterPass3, "ProjMatrix");
                     SendMat4(Loc, Context.ProjectionMatrix3D);
                     CheckGLError("ProjMatrix Water");
+
+                    Loc = glGetUniformLocation(ProgramWaterPass3, "ViewMatrix");
+                    SendMat4(Loc, ViewMatrix);
+                    CheckGLError("ViewMatrix");
                 }
                 glBindTexture(GL_TEXTURE_2D, FBOPass2.BufferIDs[0]);
                 glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, GL_UNSIGNED_INT, 0);

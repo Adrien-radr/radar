@@ -2,6 +2,7 @@
 
 in vec2 v_texcoord;
 
+uniform mat4 ViewMatrix;
 uniform mat4 ProjMatrix;
 uniform sampler2D DiffuseTexture; // From GBuffer in Pass2
 
@@ -21,13 +22,8 @@ void main()
 {
     float fragDepth = texture(DiffuseTexture, v_texcoord).r;
     if(fragDepth == 0.0f) discard;
-    frag_color = vec4(fragDepth, fragDepth, fragDepth, 1.0);
 
-#if 0
-    float fragDepth = texture(DiffuseTexture, v_texcoord).r;
-    if(fragDepth == 0.0f) discard;
-
-    float off = (1/200.0) / fragDepth;
+    float off = (1/50.0) / fragDepth;
     vec2 offsets[9] = vec2[](
             vec2(-off, off), vec2(0, off), vec2(off, off),
             vec2(-off, 0), vec2(0, 0), vec2(off, 0),
@@ -42,7 +38,6 @@ void main()
         posArr[i] = ComputeEyePos(vec3(v_texcoord + offsets[i], depthArr[i]));
     }
 
-
     vec3 ddx = posArr[5] - posArr[4];
     vec3 ddx2 = posArr[4] - posArr[3];
     vec3 ddy = posArr[2] - posArr[4];
@@ -56,6 +51,15 @@ void main()
 
     vec3 n = cross(ddx, ddy);
     n = normalize(n);
+
+    vec3 LightDir = normalize(vec3(0.5, 0.2, 1.0));
+    vec3 LightDir_eye = transpose(inverse(mat3(ViewMatrix))) * LightDir;
+    float diffuse = max(0.0, dot(n, normalize(LightDir_eye)));
+    frag_color = vec4(0.8*diffuse, 0.2+0.8*diffuse, 0.5 + 0.5*diffuse, 1.0);
+#if 0
+    float fragDepth = texture(DiffuseTexture, v_texcoord).r;
+    if(fragDepth == 0.0f) discard;
+
 
     float Kernel[9] = float[](
         1 / 16.0, 2 / 16.0, 1 / 16.0,
