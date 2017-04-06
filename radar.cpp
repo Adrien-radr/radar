@@ -596,7 +596,7 @@ int RadarMain(int argc, char **argv)
 
         // Point Sprites
         real32 PSSize = 750.0;
-        int PSWidth = 50;
+        int const PSWidth = 50;
         vec2i PSStartPos(-PSWidth/2, -PSWidth/2);
         vec4f PSPosition[PSWidth*PSWidth];
 

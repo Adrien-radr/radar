@@ -134,6 +134,79 @@ uint32 MakeCubemap(path *Paths)
     return Cubemap;
 }
 
+#define MAX_FBO_ATTACHMENTS 5
+static GLuint FBOAttachments[MAX_FBO_ATTACHMENTS] = 
+{ 
+    GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
+    GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 
+};
+
+struct frame_buffer
+{
+    vec2i Size;
+    uint32 NumAttachments;
+    uint32 FBO;
+    uint32 DepthBufferID;
+    uint32 BufferIDs[MAX_FBO_ATTACHMENTS];
+};
+
+void DestroyFrameBuffer(frame_buffer *FB)
+{
+    glDeleteTextures(MAX_FBO_ATTACHMENTS, FB->BufferIDs);
+    glDeleteRenderbuffers(1, &FB->DepthBufferID);
+    glDeleteFramebuffers(1, &FB->FBO);
+    FB->Size = vec2i(0);
+    FB->FBO = 0;
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+frame_buffer MakeFBO(uint32 NumAttachments, vec2i Size)
+{
+    Assert(NumAttachments <= MAX_FBO_ATTACHMENTS);
+
+    frame_buffer FB = {};
+    glGenFramebuffers(1, &FB.FBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, FB.FBO);
+    glDrawBuffers((GLsizei) NumAttachments, FBOAttachments);
+
+    // NOTE - Always attach a depth buffer : is there an instance where you dont want that ?
+    glGenRenderbuffers(1, &FB.DepthBufferID);
+    glBindRenderbuffer(GL_RENDERBUFFER, FB.DepthBufferID);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, Size.x, Size.y);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, FB.DepthBufferID);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        printf("Framebuffer creation error : not complete.\n");
+        DestroyFrameBuffer(&FB);
+    }
+
+    FB.Size = Size;
+    FB.NumAttachments = NumAttachments;
+
+    return FB;
+}
+
+void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, uint32 Type)
+{
+    Assert(Attachment < MAX_FBO_ATTACHMENTS);
+
+    uint32 *BufferID = &FBO->BufferIDs[Attachment];
+    glGenTextures(1, BufferID);
+    glBindTexture(GL_TEXTURE_2D, *BufferID);
+
+    GLint BaseFormat, Format;
+    FormatFromChannels(Channels, &BaseFormat, &Format);
+    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, (GLenum) ( GL_COLOR_ATTACHMENT0 + Attachment ), GL_TEXTURE_2D, *BufferID, 0 );
+}
+
 // TODO - Load Unicode characters
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
@@ -630,11 +703,11 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
 {
     mesh Sphere = {};
     
-    real32 Radius = 1.f;
-    uint32 nLon = 32, nLat = 24;
+    real32 const Radius = 1.f;
+    uint32 const nLon = 32, nLat = 24;
 
-    uint32 nVerts = (nLon + 1) * nLat + 2;
-    uint32 nIndices = (nLat - 1)*nLon * 6 + nLon * 2 * 3;
+    uint32 const nVerts = (nLon + 1) * nLat + 2;
+    uint32 const nIndices = (nLat - 1)*nLon * 6 + nLon * 2 * 3;
 
     // Positions
     vec3f Position[nVerts];
