@@ -745,6 +745,64 @@ mesh Make2DQuad(vec2i Start, vec2i End)
     return Quad;
 }
 
+mesh Make3DPlane(vec2i Dimension, uint32 Subdivisions)
+{
+    mesh Plane = {};
+
+    size_t BaseSize = Square(Subdivisions);
+    size_t PositionsSize = 4 * BaseSize * sizeof(vec3f);
+    size_t TexcoordsSize = 4 * BaseSize * sizeof(vec2f);
+    size_t NormalsSize = 4 * BaseSize * sizeof(vec3f);
+    size_t IndicesSize = 6 * BaseSize * sizeof(uint32);
+
+    vec3f *Positions = (vec3f*)alloca(PositionsSize);
+    vec2f *Texcoords = (vec2f*)alloca(TexcoordsSize);
+    vec3f *Normals = (vec3f*)alloca(NormalsSize);
+    uint32 *Indices = (uint32*)alloca(IndicesSize);
+
+    vec2i SubdivDim = Dimension / Subdivisions;
+
+    for(uint32 j = 0; j < Subdivisions; ++j)
+    {
+        for(uint32 i = 0; i < Subdivisions; ++i)
+        {
+            uint32 Idx = j*Subdivisions+i;
+            Positions[Idx*4+0] = vec3f(i*SubdivDim.x, 0.f, j*SubdivDim.y);
+            Positions[Idx*4+1] = vec3f(i*SubdivDim.x, 0.f, (j+1)*SubdivDim.y);
+            Positions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, 0.f, (j+1)*SubdivDim.y);
+            Positions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, 0.f, j*SubdivDim.y);
+
+            Texcoords[Idx*4+0] = vec2f(0.f, 1.f);
+            Texcoords[Idx*4+1] = vec2f(0.f, 0.f);
+            Texcoords[Idx*4+2] = vec2f(1.f, 0.f);
+            Texcoords[Idx*4+3] = vec2f(1.f, 1.f);
+
+            Normals[Idx*4+0] = vec3f(0,1,0);
+            Normals[Idx*4+1] = vec3f(0,1,0);
+            Normals[Idx*4+2] = vec3f(0,1,0);
+            Normals[Idx*4+3] = vec3f(0,1,0);
+
+            Indices[Idx*6+0] = Idx*4+0;
+            Indices[Idx*6+1] = Idx*4+1;
+            Indices[Idx*6+2] = Idx*4+2;
+            Indices[Idx*6+3] = Idx*4+0;
+            Indices[Idx*6+4] = Idx*4+2;
+            Indices[Idx*6+5] = Idx*4+3;
+        }
+    }
+
+    Plane.IndexCount = 6 * BaseSize;
+    Plane.VAO = MakeVertexArrayObject();
+    Plane.VBO[0] = AddEmptyVBO(PositionsSize + TexcoordsSize + NormalsSize, GL_STATIC_DRAW);
+    FillVBO(0, 3, GL_FLOAT, 0, PositionsSize, Positions);
+    FillVBO(1, 2, GL_FLOAT, PositionsSize, TexcoordsSize, Texcoords);
+    FillVBO(2, 3, GL_FLOAT, PositionsSize + TexcoordsSize, NormalsSize, Normals);
+    Plane.VBO[1] = AddIBO(GL_STATIC_DRAW, IndicesSize, Indices);
+    glBindVertexArray(0);
+
+    return Plane;
+}
+
 mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
 {
     mesh Sphere = {};

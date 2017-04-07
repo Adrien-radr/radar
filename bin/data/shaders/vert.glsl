@@ -8,6 +8,7 @@ uniform mat4 ProjMatrix;
 uniform mat4 ViewMatrix;
 uniform mat4 ModelMatrix;
 
+out vec3 v_position;
 out vec2 v_texcoord;
 out vec3 v_normal;
 
@@ -15,7 +16,9 @@ void main()
 {
     v_texcoord = in_texcoord;
     v_normal = mat3(transpose(inverse(ModelMatrix))) * in_normal;
-    gl_Position = ProjMatrix * ViewMatrix * ModelMatrix * vec4(in_position, 1.0);
+    vec4 world_position = ModelMatrix * vec4(in_position, 1.0);
+    v_position = world_position.xyz;
+    gl_Position = ProjMatrix * ViewMatrix * world_position;
 }
 
 /*

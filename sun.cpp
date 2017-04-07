@@ -84,6 +84,7 @@ void GameInitialization(game_memory *Memory)
     InitCamera(&State->Camera, Memory);
 
     State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
+    State->WaterCounter = 0.0;
 
     Memory->IsInitialized = true;
 }
@@ -177,6 +178,10 @@ void LogString(console_log *Log, char const *String)
     }
 }
 
+float WaveFreq(float Start, float Freq, uint32 Idx, real64 dTime)
+{
+    return sinf(Idx*Start + Freq * (real32)dTime);
+}
 DLLEXPORT GAMEUPDATE(GameUpdate)
 {
     if(!Memory->IsInitialized)
@@ -201,6 +206,29 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     Counter += Input->dTime;
 
     State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+    State->WaterCounter += Input->dTime;
+    if(State->WaterCounter >= 2.0 * M_PI) State->WaterCounter -= 2.0 * M_PI;
+    for(uint32 j = 0; j < State->WaterSubdivs; ++j)
+    {
+        for(uint32 i = 0; i < State->WaterSubdivs; ++i)
+        {
+            uint32 Idx = j*State->WaterSubdivs+i;
+            vec2i SubdivDim = State->WaterWidth / State->WaterSubdivs;
+
+            float Start = 1.8f;
+            float Speed = 5.f;
+            float ti = WaveFreq(Start, Speed, i, State->WaterCounter);
+            float ti1 = WaveFreq(Start, Speed, i+1, State->WaterCounter);
+            float tj = WaveFreq(Start-0.4f, Speed-1.f, j, State->WaterCounter);
+            float tj1 = WaveFreq(Start-0.4f, Speed-1.f, j+1, State->WaterCounter);
+
+            State->WaterPositions[Idx*4+0] = vec3f(i*SubdivDim.x, ti*tj, j*SubdivDim.y);
+            State->WaterPositions[Idx*4+1] = vec3f(i*SubdivDim.x, ti*tj1, (j+1)*SubdivDim.y);
+            State->WaterPositions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, ti1*tj1, (j+1)*SubdivDim.y);
+            State->WaterPositions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, ti1*tj, j*SubdivDim.y);
+        }
+    }
 
     if(Counter > 0.75)
     {

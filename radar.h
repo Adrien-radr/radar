@@ -103,6 +103,11 @@ struct game_state
     bool DisableMouse;
     vec3f PlayerPosition;
     vec4f LightColor;
+
+    real64 WaterCounter;
+    uint32 static const WaterWidth = 100;
+    uint32 static const WaterSubdivs = 10;
+    vec3f WaterPositions[4*Square(WaterSubdivs)];
 };
 
 typedef uint8 key_state;
@@ -131,6 +136,7 @@ struct game_input
     key_state KeyLShift;
     key_state KeyLCtrl;
     key_state KeyLAlt;
+    key_state KeyF1;
     key_state KeyF11;
 
     mouse_state MouseLeft;

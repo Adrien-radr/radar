@@ -50,6 +50,7 @@ struct game_context
     mat4f ProjectionMatrix3D;
     mat4f ProjectionMatrix2D;
 
+    bool WireframeMode;
     vec4f ClearColor;
 
     bool IsRunning;
@@ -294,6 +295,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
     Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
     Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
+    Input->KeyF1 = BuildKeyState(GLFW_KEY_F1);
     Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
 
     Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
@@ -343,6 +345,7 @@ game_context InitContext(game_memory *Memory)
                         Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 1000.f);
                 Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
+                Context.WireframeMode = false;
                 Context.ClearColor = vec4f(0.2f, 0.3f, 0.7f, 0.f);
                 glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
 
@@ -471,7 +474,6 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
 }
 
 uint32 Program1, Program3D, ProgramSkybox;
-uint32 ProgramWaterPass1, ProgramWaterPass2, ProgramWaterPass3;
 
 void ReloadShaders(path ExecFullPath)
 {
@@ -488,28 +490,13 @@ void ReloadShaders(path ExecFullPath)
     Program3D = BuildShader(VSPath, FSPath);
     glUseProgram(Program3D);
     SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
+    SendInt(glGetUniformLocation(Program3D, "Skybox"), 1);
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
     ProgramSkybox = BuildShader(VSPath, FSPath);
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
-
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/water1_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water1_frag.glsl");
-    ProgramWaterPass1 = BuildShader(VSPath, FSPath);
-
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/screenquad_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water2_frag.glsl");
-    ProgramWaterPass2 = BuildShader(VSPath, FSPath);
-    glUseProgram(ProgramWaterPass2);
-    SendInt(glGetUniformLocation(ProgramWaterPass2, "DiffuseTexture"), 0);
-
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/screenquad_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water3_frag.glsl");
-    ProgramWaterPass3 = BuildShader(VSPath, FSPath);
-    glUseProgram(ProgramWaterPass3);
-    SendInt(glGetUniformLocation(ProgramWaterPass3, "DiffuseTexture"), 0);
 
     glUseProgram(0);
 }
@@ -539,6 +526,8 @@ int RadarMain(int argc, char **argv)
         int GameRefreshHz = 60;
         real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
 
+        game_system *System = (game_system*)Memory.PermanentMemPool;
+        game_state *State = (game_state*)POOL_OFFSET(Memory.PermanentMemPool, game_system);
 /////////////////////////
     // TEMP TESTS
         display_text Texts[ConsoleLogCapacity] = {};
@@ -587,10 +576,22 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX),
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
+        mesh Sphere = MakeUnitSphere();
+        mesh Plane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), State->WaterSubdivs);
 
         // Cubemaps Test
         path CubemapPaths[6];
         {
+#if 0
+            path CubemapNames[6] = {
+                "data/default_diffuse.png",
+                "data/default_diffuse.png",
+                "data/default_diffuse.png",
+                "data/default_diffuse.png",
+                "data/default_diffuse.png",
+                "data/default_diffuse.png",
+            };
+#else
             path CubemapNames[6] = {
                 "data/Skybox/Test/right.png",
                 "data/Skybox/Test/left.png",
@@ -599,6 +600,7 @@ int RadarMain(int argc, char **argv)
                 "data/Skybox/Test/back.png",
                 "data/Skybox/Test/front.png",
             };
+#endif
             for(uint32 i = 0; i < 6; ++i)
             {
                 MakeRelativePath(CubemapPaths[i], ExecFullPath, CubemapNames[i]);
@@ -607,27 +609,17 @@ int RadarMain(int argc, char **argv)
 
         uint32 TestCubemap = MakeCubemap(CubemapPaths);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+        glActiveTexture(GL_TEXTURE0);
         mesh SkyboxCube = MakeUnitCube(false);
-
-        // Point Sprite Water
-        real32 PSSize = 1000.0;
-        int const PSWidth = 50;
-        vec2i PSStartPos(-PSWidth/2, -PSWidth/2);
-        vec4f PSPosition[PSWidth*PSWidth];
-
-        uint32 PSVAO = MakeVertexArrayObject();
-        uint32 PSVBO = AddVBO(0, 4, GL_FLOAT, GL_DYNAMIC_DRAW, sizeof(PSPosition), NULL);
-        glBindVertexArray(0);
-        real64 WaveTimer = 0.0;
 
         mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
 
+#if 0
         frame_buffer FBOPass1 = MakeFBO(1, vec2i(Config.WindowWidth, Config.WindowHeight));
         AttachBuffer(&FBOPass1, 0, 1, GL_FLOAT); 
-
-        frame_buffer FBOPass2 = MakeFBO(1, vec2i(Config.WindowWidth, Config.WindowHeight));
-        AttachBuffer(&FBOPass2, 0, 1, GL_FLOAT); 
-
+#endif
 /////////////////////////
         bool LastDisableMouse = false;
 
@@ -654,8 +646,6 @@ int RadarMain(int argc, char **argv)
 
             Game.GameUpdate(&Memory, &Input);
 
-            game_system *System = (game_system*)Memory.PermanentMemPool;
-            game_state *State = (game_state*)POOL_OFFSET(Memory.PermanentMemPool, game_system);
             {
                 tmp_sound_data *SoundData = System->SoundData;
                 if(SoundData->ReloadSoundBuffer)
@@ -689,6 +679,12 @@ int RadarMain(int argc, char **argv)
                 ReloadShaders(ExecFullPath);
             }
 
+            if(KEY_UP(Input.KeyF1))
+            {
+                Context.WireframeMode = !Context.WireframeMode;
+                glPolygonMode(GL_FRONT_AND_BACK, Context.WireframeMode ? GL_LINE : GL_FILL);
+            }
+
             game_camera &Camera = State->Camera;
             mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
@@ -708,6 +704,8 @@ int RadarMain(int argc, char **argv)
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
                 CheckGLError("LightColor Cube");
+                Loc = glGetUniformLocation(Program3D, "CameraPos");
+                SendVec3(Loc, State->Camera.Position);
                 glBindVertexArray(Cube.VAO);
                 glBindTexture(GL_TEXTURE_2D, Texture1);
                 mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
@@ -719,68 +717,20 @@ int RadarMain(int argc, char **argv)
                     CheckGLError("ModelMatrix");
                     glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
                 }
-            }
 
-            { // NOTE - Point Sprite Rendering Test
-                // PASS 1 : Render Point Sprites to FBO
-                glBindFramebuffer(GL_FRAMEBUFFER, FBOPass1.FBO);
-                glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                // Render sphere at origin
+                ModelMatrix.FromTRS(vec3f(0.f), vec3f(0.f), vec3f(1.f));
+                SendMat4(Loc, ModelMatrix);
+                glBindVertexArray(Sphere.VAO);
+                glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
 
-                glUseProgram(ProgramWaterPass1);
-                // TODO - ProjMatrix updated only when resize happen
-                {
-                    uint32 Loc = glGetUniformLocation(ProgramWaterPass1, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Cube");
-
-                    Loc = glGetUniformLocation(ProgramWaterPass1, "ViewMatrix");
-                    SendMat4(Loc, ViewMatrix);
-                    CheckGLError("ViewMatrix");
-                }
-
-                for(int j = 0; j < PSWidth; ++j)
-                {
-                    for(int i = 0; i < PSWidth; ++i)
-                    {
-                        PSPosition[j*PSWidth+i] = vec4f(PSStartPos.x + i, 
-                                sinf(0.25f*j + 0.25f * 2.0f*M_PI * WaveTimer) * 
-                                sinf(0.15f*i + 0.15f * 2.0f*M_PI * WaveTimer),
-                                PSStartPos.y + j, PSSize);
-                    }
-                }
-                WaveTimer += Input.dTime;
-                glBindVertexArray(PSVAO);
-                UpdateVBO(PSVBO, 0, sizeof(PSPosition), PSPosition);
-                glDrawArrays(GL_POINTS, 0, sizeof(PSPosition) / sizeof(PSPosition[0]));
-
-                // NOTE PASS 2 : Use depth buffer and filter it on screen
-                glBindFramebuffer(GL_FRAMEBUFFER, FBOPass2.FBO);
-                glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-                glUseProgram(ProgramWaterPass2);
-                glBindVertexArray(ScreenQuad.VAO);
-                glBindTexture(GL_TEXTURE_2D, FBOPass1.BufferIDs[0]);
-                glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, GL_UNSIGNED_INT, 0);
-
-                // NOTE PASS 3 : Use filtered depth buffer to compute water stuff
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
-
-                glUseProgram(ProgramWaterPass3);
-                // TODO - ProjMatrix updated only when resize happen
-                {
-                    uint32 Loc = glGetUniformLocation(ProgramWaterPass3, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Water");
-
-                    Loc = glGetUniformLocation(ProgramWaterPass3, "ViewMatrix");
-                    SendMat4(Loc, ViewMatrix);
-                    CheckGLError("ViewMatrix");
-                }
-                glBindTexture(GL_TEXTURE_2D, FBOPass2.BufferIDs[0]);
-                glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, GL_UNSIGNED_INT, 0);
+                // Render Plane
+                real32 hW = State->WaterWidth/2.f;
+                ModelMatrix.SetTranslation(vec3f(-hW, -3.f, -hW));
+                SendMat4(Loc, ModelMatrix);
+                glBindVertexArray(Plane.VAO);
+                UpdateVBO(Plane.VBO[0], 0, sizeof(State->WaterPositions), State->WaterPositions);
+                glDrawElements(GL_TRIANGLES, Plane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 
             { // NOTE - Skybox Rendering Test, put somewhere else
@@ -860,11 +810,6 @@ int RadarMain(int argc, char **argv)
         glDeleteProgram(Program1);
         glDeleteProgram(Program3D);
         glDeleteProgram(ProgramSkybox);
-        glDeleteProgram(ProgramWaterPass1);
-        glDeleteProgram(ProgramWaterPass2);
-        glDeleteProgram(ProgramWaterPass3);
-        glDeleteBuffers(1, &PSVBO);
-        glDeleteVertexArrays(1, &PSVAO);
     }
 
     DestroyMemory(&Memory);
