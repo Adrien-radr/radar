@@ -474,6 +474,7 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
 }
 
 uint32 Program1, Program3D, ProgramSkybox;
+uint32 ProgramWater;
 
 void ReloadShaders(path ExecFullPath)
 {
@@ -497,6 +498,12 @@ void ReloadShaders(path ExecFullPath)
     ProgramSkybox = BuildShader(VSPath, FSPath);
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water_frag.glsl");
+    ProgramWater = BuildShader(VSPath, FSPath);
+    glUseProgram(ProgramWater);
+    SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
 
     glUseProgram(0);
 }
@@ -541,6 +548,8 @@ int RadarMain(int argc, char **argv)
 
         ReloadShaders(ExecFullPath);
 
+        glActiveTexture(GL_TEXTURE0);
+
         // Texture Test
         path TexPath;
         MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
@@ -577,7 +586,8 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
         mesh Sphere = MakeUnitSphere();
-        mesh Plane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), State->WaterSubdivs);
+        mesh WaterPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), State->WaterSubdivs, 1, true);
+        mesh UnderPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), 1, 10);
 
         // Cubemaps Test
         path CubemapPaths[6];
@@ -609,9 +619,6 @@ int RadarMain(int argc, char **argv)
 
         uint32 TestCubemap = MakeCubemap(CubemapPaths);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
-        glActiveTexture(GL_TEXTURE0);
         mesh SkyboxCube = MakeUnitCube(false);
 
         mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
@@ -724,13 +731,41 @@ int RadarMain(int argc, char **argv)
                 glBindVertexArray(Sphere.VAO);
                 glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
 
-                // Render Plane
                 real32 hW = State->WaterWidth/2.f;
+                ModelMatrix.SetTranslation(vec3f(-hW, -6.f, -hW));
+                SendMat4(Loc, ModelMatrix);
+                glBindVertexArray(UnderPlane.VAO);
+                glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
+            }
+
+            { // NOTE - Water Rendering Test
+                glUseProgram(ProgramWater);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(ProgramWater, "ProjMatrix");
+                    SendMat4(Loc, Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix Cube");
+
+                    Loc = glGetUniformLocation(ProgramWater, "ViewMatrix");
+                    SendMat4(Loc, ViewMatrix);
+                    CheckGLError("ViewMatrix");
+                }
+                uint32 Loc = glGetUniformLocation(ProgramWater, "LightColor");
+                SendVec4(Loc, State->LightColor);
+                Loc = glGetUniformLocation(ProgramWater, "CameraPos");
+                SendVec3(Loc, State->Camera.Position);
+
+                real32 hW = State->WaterWidth/2.f;
+                Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
+                mat4f ModelMatrix;
                 ModelMatrix.SetTranslation(vec3f(-hW, -3.f, -hW));
                 SendMat4(Loc, ModelMatrix);
-                glBindVertexArray(Plane.VAO);
-                UpdateVBO(Plane.VBO[0], 0, System->WaterVertexDataSize, System->WaterVertexData);
-                glDrawElements(GL_TRIANGLES, Plane.IndexCount, GL_UNSIGNED_INT, 0);
+                glBindVertexArray(WaterPlane.VAO);
+                glBindBuffer(GL_ARRAY_BUFFER, WaterPlane.VBO[1]);
+                UpdateVBO(WaterPlane.VBO[1], 0, System->WaterSystem->VertexPositionsSize, System->WaterSystem->Positions);
+                UpdateVBO(WaterPlane.VBO[1], System->WaterSystem->VertexPositionsSize, 
+                            System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
+                glDrawElements(GL_TRIANGLES, WaterPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 
             { // NOTE - Skybox Rendering Test, put somewhere else
@@ -804,6 +839,8 @@ int RadarMain(int argc, char **argv)
         // TODO - Destroy Console meshes
         DestroyMesh(&Cube);
         DestroyMesh(&SkyboxCube);
+        DestroyMesh(&WaterPlane);
+        DestroyMesh(&UnderPlane);
         DestroyFont(&Font);
         DestroyFont(&ConsoleFont);
         glDeleteTextures(1, &Texture1);

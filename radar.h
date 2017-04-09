@@ -72,13 +72,21 @@ struct console_log
     uint32 StringCount;
 };
 
+struct water_system
+{
+    size_t VertexDataSize;
+    size_t VertexPositionsSize;
+    real32 *VertexData;
+    void *Positions;
+    void *Normals;
+    void *FaceNormals;
+};
+
 struct game_system
 {
     console_log *ConsoleLog;
     tmp_sound_data *SoundData;
-
-    size_t WaterVertexDataSize;
-    real32 *WaterVertexData;
+    water_system *WaterSystem;
 };
 
 struct game_camera
@@ -110,7 +118,7 @@ struct game_state
 
     // NOTE - Tmp storage here
     uint32 static const WaterWidth = 100;
-    uint32 static const WaterSubdivs = 10;
+    uint32 static const WaterSubdivs = 100;
 };
 
 typedef uint8 key_state;

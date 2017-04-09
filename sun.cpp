@@ -73,14 +73,20 @@ void GameInitialization(game_memory *Memory)
     // Push Data
     tmp_sound_data *SoundBuffer = (tmp_sound_data*)PushArenaStruct(&Memory->ScratchArena, tmp_sound_data);
     console_log *ConsoleLog = (console_log*)PushArenaStruct(&Memory->ScratchArena, console_log);
-    size_t *WaterVertexDataSize = (size_t*)PushArenaData(&Memory->ScratchArena, sizeof(size_t));
-    *WaterVertexDataSize = 4 * Square(State->WaterSubdivs) * sizeof(vec3f);
-    real32 *WaterVertexData = (real32*)PushArenaData(&Memory->ScratchArena, *WaterVertexDataSize);
+    water_system *WaterSystem = (water_system*)PushArenaStruct(&Memory->ScratchArena, water_system);
+    size_t WaterVertexDataSize = Square(State->WaterSubdivs) * (4 + 4 + 2) * sizeof(vec3f); // Pos(4) + Nrm(4) + FaceNrm(2)
+    size_t WaterVertexPositionsSize = Square(State->WaterSubdivs) * 4 * sizeof(vec3f);
+    real32 *WaterVertexData = (real32*)PushArenaData(&Memory->ScratchArena, WaterVertexDataSize);
 
     System->ConsoleLog = ConsoleLog;
     System->SoundData = SoundBuffer;
-    System->WaterVertexDataSize = *WaterVertexDataSize;
-    System->WaterVertexData = WaterVertexData;
+    System->WaterSystem = WaterSystem;
+    System->WaterSystem->VertexDataSize = WaterVertexDataSize;
+    System->WaterSystem->VertexPositionsSize = WaterVertexPositionsSize;
+    System->WaterSystem->VertexData = WaterVertexData;
+    System->WaterSystem->Positions = System->WaterSystem->VertexData;
+    System->WaterSystem->Normals = System->WaterSystem->VertexData + WaterVertexPositionsSize;
+    System->WaterSystem->FaceNormals = System->WaterSystem->VertexData + 2 * WaterVertexPositionsSize;
 
     FillAudioBuffer(SoundBuffer);
     SoundBuffer->ReloadSoundBuffer = true;
@@ -185,7 +191,7 @@ void LogString(console_log *Log, char const *String)
     }
 }
 
-float WaveFreq(float Start, float Freq, uint32 Idx, real64 dTime)
+float WaveFreq(float Start, float Freq, float Idx, real64 dTime)
 {
     return sinf(Idx*Start + Freq * (real32)dTime);
 }
@@ -215,26 +221,84 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
 
     State->WaterCounter += Input->dTime;
-    if(State->WaterCounter >= 2.0 * M_PI) State->WaterCounter -= 2.0 * M_PI;
-    vec3f *WaterPositions = (vec3f*)System->WaterVertexData;
-    for(uint32 j = 0; j < State->WaterSubdivs; ++j)
+    //if(State->WaterCounter >= (1.0)) State->WaterCounter -= 1.0;
+    vec3f *WaterPositions = (vec3f*)System->WaterSystem->Positions;
+    vec3f *WaterNormals = (vec3f*)System->WaterSystem->Normals;
+    vec3f *WaterFaceNormals = (vec3f*)System->WaterSystem->FaceNormals;
+
+    vec2f SubdivDim = State->WaterWidth / (real32)State->WaterSubdivs;
+    float Start = 0.10f;
+    float Speed = 0.15f;
+    float Magnitude = 2.f;
     {
-        for(uint32 i = 0; i < State->WaterSubdivs; ++i)
+        // Simulation step on the positions
+        for(uint32 j = 0; j < State->WaterSubdivs; ++j)
         {
-            uint32 Idx = j*State->WaterSubdivs+i;
-            vec2i SubdivDim = State->WaterWidth / State->WaterSubdivs;
+            for(uint32 i = 0; i < State->WaterSubdivs; ++i)
+            {
+                uint32 Idx = j*State->WaterSubdivs+i;
 
-            float Start = 1.8f;
-            float Speed = 5.f;
-            float ti = WaveFreq(Start, Speed, i, State->WaterCounter);
-            float ti1 = WaveFreq(Start, Speed, i+1, State->WaterCounter);
-            float tj = WaveFreq(Start-0.4f, Speed-1.f, j, State->WaterCounter);
-            float tj1 = WaveFreq(Start-0.4f, Speed-1.f, j+1, State->WaterCounter);
+                float ti = WaveFreq(Start, Speed, i, State->WaterCounter);
+                float ti1 = WaveFreq(Start, Speed, (i+1), State->WaterCounter);
+                float tj = WaveFreq(Start, Speed, j, State->WaterCounter);
+                float tj1 = WaveFreq(Start, Speed, (j+1), State->WaterCounter);
 
-            WaterPositions[Idx*4+0] = vec3f(i*SubdivDim.x, ti*tj, j*SubdivDim.y);
-            WaterPositions[Idx*4+1] = vec3f(i*SubdivDim.x, ti*tj1, (j+1)*SubdivDim.y);
-            WaterPositions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, ti1*tj1, (j+1)*SubdivDim.y);
-            WaterPositions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, ti1*tj, j*SubdivDim.y);
+                WaterPositions[Idx*4+0] = vec3f(i*SubdivDim.x, Magnitude * ti*tj, j*SubdivDim.y);
+                WaterPositions[Idx*4+1] = vec3f(i*SubdivDim.x, Magnitude * ti*tj1, (j+1)*SubdivDim.y);
+                WaterPositions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, Magnitude * ti1*tj1, (j+1)*SubdivDim.y);
+                WaterPositions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, Magnitude * ti1*tj, j*SubdivDim.y);
+
+                WaterFaceNormals[Idx*2+0] = Cross(WaterPositions[Idx*4+1] - WaterPositions[Idx*4+0],
+                        WaterPositions[Idx*4+2] - WaterPositions[Idx*4+0]);
+                WaterFaceNormals[Idx*2+1] = Cross(WaterPositions[Idx*4+2] - WaterPositions[Idx*4+0],
+                        WaterPositions[Idx*4+3] - WaterPositions[Idx*4+0]);
+            }
+        }
+        // Regenerate normals
+        int32 IdxOffset[] = { 0, State->WaterSubdivs, State->WaterSubdivs + 1, 1 };
+        for(uint32 j = 0; j < State->WaterSubdivs; ++j)
+        {
+            for(uint32 i = 0; i < State->WaterSubdivs; ++i)
+            {
+                int32 Idx = j * State->WaterSubdivs + i;
+                for(uint32 v = 0; v < 4; ++v)
+                {
+                    int32 FaceIdx = Idx + IdxOffset[v];
+                    int32 IdxTL = FaceIdx - State->WaterSubdivs - 1;
+                    int32 IdxTR = FaceIdx - State->WaterSubdivs;
+                    int32 IdxBL = FaceIdx - 1;
+                    int32 IdxBR = FaceIdx;
+
+                    // Add Face normals from the 4 surrounding quads
+                    vec3f Sum(0.f);
+
+                    int32 iIdx = FaceIdx % State->WaterSubdivs;
+                    int32 jIdx = FaceIdx / State->WaterSubdivs;
+                    if(iIdx > 0)
+                    {
+                        if(jIdx > 0)
+                        {
+                            Sum += WaterFaceNormals[IdxTL*2+0] + WaterFaceNormals[IdxTL*2+1];
+                        }
+                        if(jIdx < (State->WaterSubdivs-1))
+                        {
+                            Sum += WaterFaceNormals[IdxBL*2+1];
+                        }
+                    }
+                    if(iIdx < (State->WaterSubdivs-1))
+                    {
+                        if(jIdx > 0)
+                        {
+                            Sum += WaterFaceNormals[IdxTR*2+0];
+                        }
+                        if(jIdx < (State->WaterSubdivs-1))
+                        {
+                            Sum += WaterFaceNormals[IdxBR*2+0] + WaterFaceNormals[IdxBR*2+1];
+                        }
+                    }
+                    WaterNormals[Idx*4+v] = Normalize(Sum);
+                }
+            }
         }
     }
 

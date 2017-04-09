@@ -3,7 +3,6 @@ in vec3 v_position;
 in vec2 v_texcoord;
 in vec3 v_normal;
 
-uniform sampler2D DiffuseTexture;
 uniform samplerCube Skybox;
 uniform vec4 LightColor;
 uniform vec3 CameraPos;
@@ -12,8 +11,6 @@ out vec4 frag_color;
 
 void main()
 {
-    vec4 diffuse_texture = texture(DiffuseTexture, v_texcoord);
-
     vec3 N = normalize(v_normal);
 
     vec3 LightDir = normalize(vec3(0.5, 0.2, 1.0));
@@ -35,5 +32,6 @@ void main()
     vec3 refract_vec = refract(I, N, IOR);
     vec4 refract_color = texture(Skybox, refract_vec);
 
-    frag_color = (ambient + diffuse) * (0.025 * reflect_color + 0.05 * refract_color + 0.95 * diffuse_texture);
+    frag_color = reflect_color;
 }
+

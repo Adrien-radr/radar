@@ -53,7 +53,7 @@ struct display_text
 struct mesh
 {
     uint32 VAO;
-    uint32 VBO[2]; // 0: positions+texcoords+normals batched, 1: indices
+    uint32 VBO[3]; // 0: indices, 1-? : data
     uint32 IndexCount;
 };
 

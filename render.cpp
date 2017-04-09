@@ -494,6 +494,7 @@ void DestroyMesh(mesh *Mesh)
     glDeleteVertexArrays(1, &Mesh->VAO);
     Mesh->IndexCount = 0;
 }
+
 display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
 {
     display_text Text = {};
@@ -557,10 +558,10 @@ display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec
     }
 
     Text.VAO = MakeVertexArrayObject();
-    Text.VBO[0] = AddEmptyVBO(5 * VertexCount * sizeof(real32), GL_STATIC_DRAW);
+    Text.VBO[0] = AddIBO(GL_STATIC_DRAW, IndexCount * sizeof(uint32), Indices);
+    Text.VBO[1] = AddEmptyVBO(5 * VertexCount * sizeof(real32), GL_STATIC_DRAW);
     FillVBO(0, 3, GL_FLOAT, 0, 3 * VertexCount * sizeof(real32), Positions);
     FillVBO(1, 2, GL_FLOAT, 3 * VertexCount * sizeof(real32), 2 * VertexCount * sizeof(real32), Texcoords);
-    Text.VBO[1] = AddIBO(GL_STATIC_DRAW, IndexCount * sizeof(uint32), Indices);
     Text.IndexCount = IndexCount;
     glBindVertexArray(0);
 
@@ -694,18 +695,18 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs = true)
 
     Cube.IndexCount = 36;
     Cube.VAO = MakeVertexArrayObject();
+    Cube.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     if(MakeAdditionalAttribs)
     {
-        Cube.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal), GL_STATIC_DRAW);
+        Cube.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal), GL_STATIC_DRAW);
         FillVBO(0, 3, GL_FLOAT, 0, sizeof(Position), Position);
         FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
         FillVBO(2, 3, GL_FLOAT, sizeof(Position) + sizeof(Texcoord), sizeof(Normal), Normal);
     }
     else
     {
-        Cube.VBO[0] = AddVBO(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
+        Cube.VBO[1] = AddVBO(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
     }
-    Cube.VBO[1] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     glBindVertexArray(0);
 
     return Cube;
@@ -736,51 +737,55 @@ mesh Make2DQuad(vec2i Start, vec2i End)
 
     Quad.IndexCount = 6;
     Quad.VAO = MakeVertexArrayObject();
-    Quad.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
+    Quad.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
+    Quad.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
     FillVBO(0, 2, GL_FLOAT, 0, sizeof(Position), Position);
     FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
-    Quad.VBO[1] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     glBindVertexArray(0);
     
     return Quad;
 }
 
-mesh Make3DPlane(vec2i Dimension, uint32 Subdivisions)
+mesh Make3DPlane(vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic = false)
 {
     mesh Plane = {};
 
     size_t BaseSize = Square(Subdivisions);
     size_t PositionsSize = 4 * BaseSize * sizeof(vec3f);
-    size_t TexcoordsSize = 4 * BaseSize * sizeof(vec2f);
     size_t NormalsSize = 4 * BaseSize * sizeof(vec3f);
+    size_t TexcoordsSize = 4 * BaseSize * sizeof(vec2f);
     size_t IndicesSize = 6 * BaseSize * sizeof(uint32);
 
-    vec3f *Positions = (vec3f*)alloca(PositionsSize);
-    vec2f *Texcoords = (vec2f*)alloca(TexcoordsSize);
-    vec3f *Normals = (vec3f*)alloca(NormalsSize);
-    uint32 *Indices = (uint32*)alloca(IndicesSize);
+    // TODO - Do we want Malloc here ? Probably not
+    // Not enough stack size for alloca for larger planes though
+    vec3f *Positions = (vec3f*)malloc(PositionsSize);
+    vec3f *Normals = (vec3f*)malloc(NormalsSize);
+    vec2f *Texcoords = (vec2f*)malloc(TexcoordsSize);
+    uint32 *Indices = (uint32*)malloc(IndicesSize);
 
     vec2i SubdivDim = Dimension / Subdivisions;
+    vec2f TexMax = Dimension / (real32)TextureRepeatCount;
 
     for(uint32 j = 0; j < Subdivisions; ++j)
     {
         for(uint32 i = 0; i < Subdivisions; ++i)
         {
             uint32 Idx = j*Subdivisions+i;
+
             Positions[Idx*4+0] = vec3f(i*SubdivDim.x, 0.f, j*SubdivDim.y);
             Positions[Idx*4+1] = vec3f(i*SubdivDim.x, 0.f, (j+1)*SubdivDim.y);
             Positions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, 0.f, (j+1)*SubdivDim.y);
             Positions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, 0.f, j*SubdivDim.y);
 
-            Texcoords[Idx*4+0] = vec2f(0.f, 1.f);
-            Texcoords[Idx*4+1] = vec2f(0.f, 0.f);
-            Texcoords[Idx*4+2] = vec2f(1.f, 0.f);
-            Texcoords[Idx*4+3] = vec2f(1.f, 1.f);
-
             Normals[Idx*4+0] = vec3f(0,1,0);
             Normals[Idx*4+1] = vec3f(0,1,0);
             Normals[Idx*4+2] = vec3f(0,1,0);
             Normals[Idx*4+3] = vec3f(0,1,0);
+
+            Texcoords[Idx*4+0] = vec2f(0.f, TexMax.y);
+            Texcoords[Idx*4+1] = vec2f(0.f, 0.f);
+            Texcoords[Idx*4+2] = vec2f(TexMax.x, 0.f);
+            Texcoords[Idx*4+3] = vec2f(TexMax.x, TexMax.y);
 
             Indices[Idx*6+0] = Idx*4+0;
             Indices[Idx*6+1] = Idx*4+1;
@@ -793,13 +798,19 @@ mesh Make3DPlane(vec2i Dimension, uint32 Subdivisions)
 
     Plane.IndexCount = 6 * BaseSize;
     Plane.VAO = MakeVertexArrayObject();
-    Plane.VBO[0] = AddEmptyVBO(PositionsSize + TexcoordsSize + NormalsSize, GL_STATIC_DRAW);
+    Plane.VBO[0] = AddIBO(GL_STATIC_DRAW, IndicesSize, Indices);
+    // Positions and Normals in the 1st VBO
+    Plane.VBO[1] = AddEmptyVBO(PositionsSize + NormalsSize, Dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     FillVBO(0, 3, GL_FLOAT, 0, PositionsSize, Positions);
-    FillVBO(1, 2, GL_FLOAT, PositionsSize, TexcoordsSize, Texcoords);
-    FillVBO(2, 3, GL_FLOAT, PositionsSize + TexcoordsSize, NormalsSize, Normals);
-    Plane.VBO[1] = AddIBO(GL_STATIC_DRAW, IndicesSize, Indices);
+    FillVBO(2, 3, GL_FLOAT, PositionsSize, NormalsSize, Normals);
+    // Texcoords in the 2nd VBO
+    Plane.VBO[2] = AddVBO(1, 2, GL_FLOAT, GL_STATIC_DRAW, TexcoordsSize, Texcoords);
     glBindVertexArray(0);
 
+    free(Positions);
+    free(Normals);
+    free(Texcoords);
+    free(Indices);
     return Plane;
 }
 
@@ -893,18 +904,18 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
 
     Sphere.IndexCount = nIndices;
     Sphere.VAO = MakeVertexArrayObject();
+    Sphere.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     if(MakeAdditionalAttribs)
     {
-        Sphere.VBO[0] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal), GL_STATIC_DRAW);
+        Sphere.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal), GL_STATIC_DRAW);
         FillVBO(0, 3, GL_FLOAT, 0, sizeof(Position), Position);
         FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
         FillVBO(2, 3, GL_FLOAT, sizeof(Position) + sizeof(Texcoord), sizeof(Normal), Normal);
     }
     else
     {
-        Sphere.VBO[0] = AddVBO(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
+        Sphere.VBO[1] = AddVBO(0, 3, GL_FLOAT, GL_STATIC_DRAW, sizeof(Position), Position);
     }
-    Sphere.VBO[1] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     glBindVertexArray(0);
 
     return Sphere;
