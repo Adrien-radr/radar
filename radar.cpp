@@ -729,7 +729,7 @@ int RadarMain(int argc, char **argv)
                 ModelMatrix.SetTranslation(vec3f(-hW, -3.f, -hW));
                 SendMat4(Loc, ModelMatrix);
                 glBindVertexArray(Plane.VAO);
-                UpdateVBO(Plane.VBO[0], 0, sizeof(State->WaterPositions), State->WaterPositions);
+                UpdateVBO(Plane.VBO[0], 0, System->WaterVertexDataSize, System->WaterVertexData);
                 glDrawElements(GL_TRIANGLES, Plane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 

@@ -12,7 +12,8 @@ void InitArena(memory_arena *Arena, uint64 Capacity, void *BasePtr)
     Arena->Size = 0;
 }
 
-#define PushArenaData(Arena, PODType) _PushArenaData((Arena), sizeof(PODType))
+#define PushArenaStruct(Arena, Struct) _PushArenaData((Arena), sizeof(Struct))
+#define PushArenaData(Arena, Size) _PushArenaData((Arena), (Size))
 void *_PushArenaData(memory_arena *Arena, uint64 Size)
 {
     Assert(Arena->Size + Size <= Arena->Capacity);
@@ -63,21 +64,27 @@ void InitCamera(game_camera *Camera, game_memory *Memory)
 
 void GameInitialization(game_memory *Memory)
 {
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
+
     // Init Scratch Pool
     InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
 
-    // Push GameSystem Data
-    tmp_sound_data *SoundBuffer = (tmp_sound_data*)PushArenaData(&Memory->ScratchArena, tmp_sound_data);
-    console_log *ConsoleLog = (console_log*)PushArenaData(&Memory->ScratchArena, console_log);
+    // Push Data
+    tmp_sound_data *SoundBuffer = (tmp_sound_data*)PushArenaStruct(&Memory->ScratchArena, tmp_sound_data);
+    console_log *ConsoleLog = (console_log*)PushArenaStruct(&Memory->ScratchArena, console_log);
+    size_t *WaterVertexDataSize = (size_t*)PushArenaData(&Memory->ScratchArena, sizeof(size_t));
+    *WaterVertexDataSize = 4 * Square(State->WaterSubdivs) * sizeof(vec3f);
+    real32 *WaterVertexData = (real32*)PushArenaData(&Memory->ScratchArena, *WaterVertexDataSize);
 
-    game_system *System = (game_system*)Memory->PermanentMemPool;
     System->ConsoleLog = ConsoleLog;
     System->SoundData = SoundBuffer;
+    System->WaterVertexDataSize = *WaterVertexDataSize;
+    System->WaterVertexData = WaterVertexData;
 
     FillAudioBuffer(SoundBuffer);
     SoundBuffer->ReloadSoundBuffer = true;
 
-    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
     State->DisableMouse = false;
     State->PlayerPosition = vec3f(300, 300, 0);
 
@@ -209,6 +216,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     State->WaterCounter += Input->dTime;
     if(State->WaterCounter >= 2.0 * M_PI) State->WaterCounter -= 2.0 * M_PI;
+    vec3f *WaterPositions = (vec3f*)System->WaterVertexData;
     for(uint32 j = 0; j < State->WaterSubdivs; ++j)
     {
         for(uint32 i = 0; i < State->WaterSubdivs; ++i)
@@ -223,10 +231,10 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
             float tj = WaveFreq(Start-0.4f, Speed-1.f, j, State->WaterCounter);
             float tj1 = WaveFreq(Start-0.4f, Speed-1.f, j+1, State->WaterCounter);
 
-            State->WaterPositions[Idx*4+0] = vec3f(i*SubdivDim.x, ti*tj, j*SubdivDim.y);
-            State->WaterPositions[Idx*4+1] = vec3f(i*SubdivDim.x, ti*tj1, (j+1)*SubdivDim.y);
-            State->WaterPositions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, ti1*tj1, (j+1)*SubdivDim.y);
-            State->WaterPositions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, ti1*tj, j*SubdivDim.y);
+            WaterPositions[Idx*4+0] = vec3f(i*SubdivDim.x, ti*tj, j*SubdivDim.y);
+            WaterPositions[Idx*4+1] = vec3f(i*SubdivDim.x, ti*tj1, (j+1)*SubdivDim.y);
+            WaterPositions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, ti1*tj1, (j+1)*SubdivDim.y);
+            WaterPositions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, ti1*tj, j*SubdivDim.y);
         }
     }
 

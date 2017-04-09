@@ -76,6 +76,9 @@ struct game_system
 {
     console_log *ConsoleLog;
     tmp_sound_data *SoundData;
+
+    size_t WaterVertexDataSize;
+    real32 *WaterVertexData;
 };
 
 struct game_camera
@@ -103,11 +106,11 @@ struct game_state
     bool DisableMouse;
     vec3f PlayerPosition;
     vec4f LightColor;
-
     real64 WaterCounter;
+
+    // NOTE - Tmp storage here
     uint32 static const WaterWidth = 100;
     uint32 static const WaterSubdivs = 10;
-    vec3f WaterPositions[4*Square(WaterSubdivs)];
 };
 
 typedef uint8 key_state;
