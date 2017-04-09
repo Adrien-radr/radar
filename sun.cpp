@@ -240,8 +240,8 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
                 float ti = WaveFreq(Start, Speed, i, State->WaterCounter);
                 float ti1 = WaveFreq(Start, Speed, (i+1), State->WaterCounter);
-                float tj = WaveFreq(Start, Speed, j, State->WaterCounter);
-                float tj1 = WaveFreq(Start, Speed, (j+1), State->WaterCounter);
+                float tj = WaveFreq(1.1f*Start, 5.f*Speed, j, State->WaterCounter);
+                float tj1 = WaveFreq(1.1f*Start, 5.f*Speed, (j+1), State->WaterCounter);
 
                 WaterPositions[Idx*4+0] = vec3f(i*SubdivDim.x, Magnitude * ti*tj, j*SubdivDim.y);
                 WaterPositions[Idx*4+1] = vec3f(i*SubdivDim.x, Magnitude * ti*tj1, (j+1)*SubdivDim.y);

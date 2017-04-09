@@ -589,6 +589,8 @@ int RadarMain(int argc, char **argv)
         mesh WaterPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), State->WaterSubdivs, 1, true);
         mesh UnderPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), 1, 10);
 
+        vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
+
         // Cubemaps Test
         path CubemapPaths[6];
         {
@@ -617,9 +619,12 @@ int RadarMain(int argc, char **argv)
             }
         }
 
+        mesh SkyboxCube = MakeUnitCube(false);
         uint32 TestCubemap = MakeCubemap(CubemapPaths);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
-        mesh SkyboxCube = MakeUnitCube(false);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+        glActiveTexture(GL_TEXTURE0);
 
         mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
 
@@ -710,7 +715,8 @@ int RadarMain(int argc, char **argv)
 
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
-                CheckGLError("LightColor Cube");
+                Loc = glGetUniformLocation(Program3D, "SunDirection");
+                SendVec3(Loc, SunDirection);
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
                 glBindVertexArray(Cube.VAO);
@@ -754,6 +760,8 @@ int RadarMain(int argc, char **argv)
                 SendVec4(Loc, State->LightColor);
                 Loc = glGetUniformLocation(ProgramWater, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
+                Loc = glGetUniformLocation(ProgramWater, "SunDirection");
+                SendVec3(Loc, SunDirection);
 
                 real32 hW = State->WaterWidth/2.f;
                 Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
