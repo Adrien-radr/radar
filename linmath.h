@@ -169,7 +169,7 @@ float Dot(const vec2<T> &a, const vec2<T> &b)
 }
 
 template<typename T>
-float Len(const vec2<T> &v)
+float Length(const vec2<T> &v)
 {
 	const float dot = Dot(v, v);
 	return dot > 0.f ? sqrtf(dot) : 0.f;
@@ -178,7 +178,7 @@ float Len(const vec2<T> &v)
 template<typename T>
 vec2<T> Normalize(const vec2<T> &v)
 {
-	const float len = Len(v);
+	const float len = Length(v);
 	if (len > 0.f)
 	{
 		float k = 1.f / len;
@@ -335,7 +335,7 @@ inline vec3<T> Cross(const vec3<T> &a, const vec3<T> &b)
 }
 
 template<typename T>
-inline float Len(const vec3<T> &v)
+inline float Length(const vec3<T> &v)
 {
 	const float dot = Dot(v, v);
 	return dot > 0.f ? sqrtf(dot) : 0.f;
@@ -344,7 +344,7 @@ inline float Len(const vec3<T> &v)
 template<typename T>
 inline vec3<T> Normalize(const vec3<T> &v)
 {
-	const float len = Len(v);
+	const float len = Length(v);
 	if (len > 0.f)
 	{
 		float k = 1.f / len;
@@ -537,7 +537,7 @@ inline vec4<T> Cross(const vec4<T> &a, const vec4<T> &b)
 }
 
 template<typename T>
-inline float Len(const vec4<T> &v)
+inline float Length(const vec4<T> &v)
 {
 	const float dot = Dot(v, v);
 	return dot > 0.f ? sqrtf(dot) : 0.f;
@@ -546,7 +546,7 @@ inline float Len(const vec4<T> &v)
 template<typename T>
 inline vec4<T> Normalize(const vec4<T> &v)
 {
-	const float len = Len(v);
+	const float len = Length(v);
 	if (len > 0.f)
 	{
 		float k = 1.f / len;
@@ -1193,6 +1193,40 @@ public:
 
 typedef mat4<float> mat4f;
 typedef mat4<int> mat4i;
+
+class complex {
+public:
+    float r, i;
+    complex() : r(0.f), i(0.f) {}
+    complex(float r, float i) : r(r), i(i) {}
+
+    complex operator*(const complex &c) const
+    {
+        return complex(this->r*c.r - this->i*c.i, this->r*c.i + this->i*c.r);
+    }
+    complex operator+(const complex& c) const
+    {
+        return complex(this->r + c.r, this->i + c.i);
+    }
+    complex operator-(const complex& c) const
+    {
+        return complex(this->r - c.r, this->i - c.i);
+    }
+    complex operator*(const float c) const
+    {
+        return complex(this->r*c, this->i*c);
+    }
+    complex& operator=(const complex& c)
+    {
+        return *this;
+    }
+};
+
+complex Conjugate(const complex &c)
+{
+    return complex(c.r, -c.i);
+}
+
 /*
 void mat4_row(vec4 r, mat4 M, int i) {
 	int k;

@@ -499,13 +499,32 @@ void ReloadShaders(path ExecFullPath)
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
 
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/water_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water_frag.glsl");
     ProgramWater = BuildShader(VSPath, FSPath);
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
 
     glUseProgram(0);
+}
+
+void InitializeFromGame(game_memory *Memory)
+{
+    // Initialize Water from game Info
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+    water_system *WaterSystem = System->WaterSystem;
+
+    WaterSystem->VAO = MakeVertexArrayObject();
+    WaterSystem->VBO[0] = AddIBO(GL_STATIC_DRAW, WaterSystem->IndexCount * sizeof(uint32), WaterSystem->IndexData);
+    WaterSystem->VBO[1] = AddEmptyVBO(WaterSystem->VertexDataSize, GL_STATIC_DRAW);
+    size_t VertSize = WaterSystem->VertexCount * sizeof(vec3f);
+    FillVBO(0, 3, GL_FLOAT, 0, VertSize, NULL);
+    FillVBO(1, 3, GL_FLOAT, VertSize, VertSize, NULL);
+    FillVBO(2, 3, GL_FLOAT, 2*VertSize, VertSize, NULL);
+    glBindVertexArray(0);
+
+    Memory->IsGameInitialized = true;
+    Memory->IsInitialized = true;
 }
 
 int RadarMain(int argc, char **argv)
@@ -586,8 +605,8 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
         mesh Sphere = MakeUnitSphere();
-        mesh WaterPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), State->WaterSubdivs, 1, true);
-        mesh UnderPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), 1, 10);
+        mesh WaterPlane = Make3DPlane(vec2i(g_WaterWidth, g_WaterWidth), g_WaterN+1, 1, true);
+        mesh UnderPlane = Make3DPlane(vec2i(g_WaterWidth, g_WaterWidth), 1, 10);
 
         vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
 
@@ -657,6 +676,10 @@ int RadarMain(int argc, char **argv)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             Game.GameUpdate(&Memory, &Input);
+            if(!Memory.IsInitialized)
+            {
+                InitializeFromGame(&Memory);
+            }
 
             {
                 tmp_sound_data *SoundData = System->SoundData;
@@ -737,13 +760,14 @@ int RadarMain(int argc, char **argv)
                 glBindVertexArray(Sphere.VAO);
                 glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
 
-                real32 hW = State->WaterWidth/2.f;
+                real32 hW = g_WaterWidth/2.f;
                 ModelMatrix.SetTranslation(vec3f(-hW, -6.f, -hW));
                 SendMat4(Loc, ModelMatrix);
                 glBindVertexArray(UnderPlane.VAO);
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 
+#if 0
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
                 // TODO - ProjMatrix updated only when resize happen
@@ -763,7 +787,7 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(ProgramWater, "SunDirection");
                 SendVec3(Loc, SunDirection);
 
-                real32 hW = State->WaterWidth/2.f;
+                real32 hW = g_WaterWidth/2.f;
                 Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
                 mat4f ModelMatrix;
                 ModelMatrix.SetTranslation(vec3f(-hW, -3.f, -hW));
@@ -775,6 +799,7 @@ int RadarMain(int argc, char **argv)
                             System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
                 glDrawElements(GL_TRIANGLES, WaterPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
+#endif
 
             { // NOTE - Skybox Rendering Test, put somewhere else
                 glDisable(GL_CULL_FACE);
