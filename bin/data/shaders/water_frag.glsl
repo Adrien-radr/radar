@@ -2,7 +2,6 @@
 in vec3 v_position;
 in vec2 v_texcoord;
 in vec3 v_normal;
-in vec3 v_halfvector;
 in vec3 v_sundirection;
 
 uniform samplerCube Skybox;
@@ -33,7 +32,7 @@ void main()
 
     vec3 reflect_vec = reflect(I, N);
     vec4 reflect_color = texture(Skybox, reflect_vec);
-    reflect_color = 0.5 * reflect_color + vec4(0.5, 0.5, 0.5, 0);
+    reflect_color = 0.25 * reflect_color + vec4(0.75, 0.75, 0.75, 0);
 
     frag_color = emissive_color * emissive_contribution +
                  ambient_color * ambient_contribution * reflect_color +

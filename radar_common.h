@@ -20,6 +20,7 @@
 #elif defined(__unix__) || defined (__unix) || defined(unix)
 #   define RADAR_UNIX 1
 #   define DLLEXPORT extern "C"
+#   include <stddef.h>
 #else
 #   error "Unknown OS. Only Windows & Linux supported for now."
 #endif
@@ -41,7 +42,7 @@ typedef char path[MAX_PATH];
 
 #ifdef DEBUG
 #ifndef Assert
-#define Assert(expr) if(!(expr)) { *(int*)0 = 0; }
+#define Assert(expr) if(!(expr)) { printf("Assert %s %s.\n", __FILE__, __LINE__); *(int*)0 = 0; }
 #endif
 #define DebugPrint(str, ...) printf(str, ##__VA_ARGS__);
 #else

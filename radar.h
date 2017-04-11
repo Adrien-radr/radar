@@ -53,6 +53,7 @@ struct game_memory
 
     bool IsValid;
     bool IsInitialized;
+    bool IsGameInitialized;
 };
 
 struct tmp_sound_data
@@ -72,14 +73,38 @@ struct console_log
     uint32 StringCount;
 };
 
+// NOTE - Tmp storage here
+uint32 static const g_WaterWidth = 64;
+uint32 static const g_WaterN = 64;
+vec2f  static const g_WaterW = vec2f(-0.5, -0.5);
+real32 static const g_G = -9.82f;
+real32 static const g_A = 1.0f;
+
 struct water_system
 {
     size_t VertexDataSize;
-    size_t VertexPositionsSize;
+    size_t VertexCount;
     real32 *VertexData;
+    size_t IndexDataSize;
+    uint32 IndexCount;
+    uint32 *IndexData;
+
+    // NOTE - Accessor Pointers, index VertexData
     void *Positions;
     void *Normals;
-    void *FaceNormals;
+    //void *FaceNormals;
+    void *HTilde0;
+    void *HTilde0mk;
+    void *OrigPositions;
+
+    complex *hTilde;
+    complex *hTildeSlopeX;
+    complex *hTildeSlopeZ;
+    complex *hTildeDX;
+    complex *hTildeDZ;
+
+    uint32 VAO;
+    uint32 VBO[2]; // 0 : vdata, 1 : idata
 };
 
 struct game_system
@@ -115,10 +140,6 @@ struct game_state
     vec3f PlayerPosition;
     vec4f LightColor;
     real64 WaterCounter;
-
-    // NOTE - Tmp storage here
-    uint32 static const WaterWidth = 100;
-    uint32 static const WaterSubdivs = 100;
 };
 
 typedef uint8 key_state;
