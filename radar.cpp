@@ -605,7 +605,6 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
         mesh Sphere = MakeUnitSphere();
-        mesh WaterPlane = Make3DPlane(vec2i(g_WaterWidth, g_WaterWidth), g_WaterN+1, 1, true);
         mesh UnderPlane = Make3DPlane(vec2i(g_WaterWidth, g_WaterWidth), 1, 10);
 
         vec3f SunDirection = Normalize(vec3f(0.7, 1.2, -0.7));
@@ -767,7 +766,7 @@ int RadarMain(int argc, char **argv)
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 
-#if 0
+#if 1
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
                 // TODO - ProjMatrix updated only when resize happen
@@ -792,12 +791,14 @@ int RadarMain(int argc, char **argv)
                 mat4f ModelMatrix;
                 ModelMatrix.SetTranslation(vec3f(-hW, -3.f, -hW));
                 SendMat4(Loc, ModelMatrix);
-                glBindVertexArray(WaterPlane.VAO);
-                glBindBuffer(GL_ARRAY_BUFFER, WaterPlane.VBO[1]);
-                UpdateVBO(WaterPlane.VBO[1], 0, System->WaterSystem->VertexPositionsSize, System->WaterSystem->Positions);
-                UpdateVBO(WaterPlane.VBO[1], System->WaterSystem->VertexPositionsSize, 
-                            System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
-                glDrawElements(GL_TRIANGLES, WaterPlane.IndexCount, GL_UNSIGNED_INT, 0);
+
+                water_system *WaterSystem = System->WaterSystem;
+                glBindVertexArray(WaterSystem->VAO);
+                glBindBuffer(GL_ARRAY_BUFFER, WaterSystem->VBO[1]);
+                //UpdateVBO(WaterPlane.VBO[1], 0, System->WaterSystem->VertexPositionsSize, System->WaterSystem->Positions);
+                //UpdateVBO(WaterPlane.VBO[1], System->WaterSystem->VertexPositionsSize, 
+                            //System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
+                glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
             }
 #endif
 
@@ -872,7 +873,6 @@ int RadarMain(int argc, char **argv)
         // TODO - Destroy Console meshes
         DestroyMesh(&Cube);
         DestroyMesh(&SkyboxCube);
-        DestroyMesh(&WaterPlane);
         DestroyMesh(&UnderPlane);
         DestroyFont(&Font);
         DestroyFont(&ConsoleFont);
