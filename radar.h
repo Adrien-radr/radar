@@ -74,11 +74,11 @@ struct console_log
 };
 
 // NOTE - Tmp storage here
-uint32 static const g_WaterWidth = 64;
-uint32 static const g_WaterN = 64;
-vec2f  static const g_WaterW = vec2f(-0.5, -0.5);
-real32 static const g_G = -9.82f;
-real32 static const g_A = 1.0f;
+int32 static const g_WaterWidth = 64;
+int32 static const g_WaterN = 32;
+vec2f  static const g_WaterW = vec2f(9.0, 13.0);
+real32 static const g_G = 9.81f;
+real32 static const g_A = 0.0003f;
 
 struct water_system
 {
@@ -157,6 +157,7 @@ typedef uint8 mouse_state;
 struct game_input
 {
     real64 dTime;
+    real64 dTimeFixed;
 
     int32  MousePosX;
     int32  MousePosY;

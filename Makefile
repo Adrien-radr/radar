@@ -78,7 +78,7 @@ CC=g++
 CFLAGS=-g -Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS
 DEBUG_FLAGS=-DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
-VERSION_FLAGS=$(DEBUG_FLAGS)
+VERSION_FLAGS=$(RELEASE_FLAGS)
 
 LIB_FLAGS=-L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -lcJSON -lglfw3 -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -ldl -lpthread

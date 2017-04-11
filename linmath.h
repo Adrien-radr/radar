@@ -1196,9 +1196,8 @@ typedef mat4<int> mat4i;
 
 class complex {
 public:
-    float r, i;
     complex() : r(0.f), i(0.f) {}
-    complex(float r, float i) : r(r), i(i) {}
+    complex(float a, float b) : r(a), i(b) {}
 
     complex operator*(const complex &c) const
     {
@@ -1218,8 +1217,12 @@ public:
     }
     complex& operator=(const complex& c)
     {
+        this->r = c.r;
+        this->i = c.i;
         return *this;
     }
+
+    float r, i;
 };
 
 complex Conjugate(const complex &c)

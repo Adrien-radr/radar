@@ -20,7 +20,7 @@ void main()
 
     v_position = world_position.xyz;
     v_texcoord = in_texcoord.xy;
-    v_normal = (inverse(transpose(ModelMatrix)) * vec4(in_normal, 0.0)).xyz;
+    v_normal = (inverse(transpose(ModelMatrix)) * vec4(normalize(in_normal), 0.0)).xyz;
     v_sundirection = SunDirection;
 
     gl_Position = ProjMatrix * ViewMatrix * world_position;

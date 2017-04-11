@@ -35,10 +35,14 @@ void main()
     reflect_color = 0.25 * reflect_color + vec4(0.75, 0.75, 0.75, 0);
 
     frag_color = emissive_color * emissive_contribution +
-                 ambient_color * ambient_contribution * reflect_color +
-                 diffuse_color * diffuse_contribution * reflect_color * max(0.0, d) +
-                 (facing ? specular_color * specular_contribution * reflect_color * max(0.0, pow(dot(H, N), 120.0)):
-                 vec4(0.0, 0.0, 0.0, 0.0));
+                 ambient_color * ambient_contribution * reflect_color;// +
+                 //diffuse_color * diffuse_contribution * reflect_color * max(0.0, d) +
+                 //(facing ? specular_color * specular_contribution * reflect_color * max(0.0, pow(dot(H, N), 120.0)):
+                 //vec4(0.0, 0.0, 0.0, 0.0));
+
+    frag_color += diffuse_color * diffuse_contribution * max(0.0, d);
+    //frag_color *= 0.0001;
+    //frag_color += vec4(N, 1.0);
     frag_color.a = 1.0;
 }
 

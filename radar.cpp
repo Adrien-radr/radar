@@ -300,6 +300,8 @@ void GetFrameInput(game_context *Context, game_input *Input)
 
     Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
     Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
+
+    Input->dTimeFixed = 0.1f; // 100FPS
 }
 
 game_context InitContext(game_memory *Memory)
@@ -349,7 +351,7 @@ game_context InitContext(game_memory *Memory)
                 Context.ClearColor = vec4f(0.2f, 0.3f, 0.7f, 0.f);
                 glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
 
-                glEnable(GL_CULL_FACE);
+                glDisable(GL_CULL_FACE);
                 glCullFace(GL_BACK);
                 glFrontFace(GL_CCW);
 
@@ -517,14 +519,29 @@ void InitializeFromGame(game_memory *Memory)
     WaterSystem->VAO = MakeVertexArrayObject();
     WaterSystem->VBO[0] = AddIBO(GL_STATIC_DRAW, WaterSystem->IndexCount * sizeof(uint32), WaterSystem->IndexData);
     WaterSystem->VBO[1] = AddEmptyVBO(WaterSystem->VertexDataSize, GL_STATIC_DRAW);
-    size_t VertSize = WaterSystem->VertexCount * sizeof(vec3f);
-    FillVBO(0, 3, GL_FLOAT, 0, VertSize, NULL);
-    FillVBO(1, 3, GL_FLOAT, VertSize, VertSize, NULL);
-    FillVBO(2, 3, GL_FLOAT, 2*VertSize, VertSize, NULL);
+    size_t VertSize = WaterSystem->VertexCount * sizeof(real32);
+    FillVBO(0, 3, GL_FLOAT, 0, VertSize, WaterSystem->VertexData);
+    FillVBO(1, 3, GL_FLOAT, VertSize, VertSize, WaterSystem->VertexData + WaterSystem->VertexCount);
+    FillVBO(2, 3, GL_FLOAT, 2*VertSize, VertSize, WaterSystem->VertexData + 2 * WaterSystem->VertexCount);
     glBindVertexArray(0);
 
     Memory->IsGameInitialized = true;
     Memory->IsInitialized = true;
+}
+
+void UpdateWaterMesh(game_memory *Memory)
+{
+    // Initialize Water from game Info
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+    water_system *WaterSystem = System->WaterSystem;
+
+    glBindVertexArray(WaterSystem->VAO);
+    size_t VertSize = WaterSystem->VertexCount * sizeof(real32);
+    UpdateVBO(WaterSystem->VBO[1], 0, VertSize, WaterSystem->VertexData);
+    UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData + WaterSystem->VertexCount);
+    //UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData);
+
+    glBindVertexArray(0);
 }
 
 int RadarMain(int argc, char **argv)
@@ -605,7 +622,7 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
         mesh Sphere = MakeUnitSphere();
-        mesh UnderPlane = Make3DPlane(vec2i(g_WaterWidth, g_WaterWidth), 1, 10);
+        mesh UnderPlane = Make3DPlane(vec2i(1.3*g_WaterWidth, 1.3*g_WaterWidth), 1, 10);
 
         vec3f SunDirection = Normalize(vec3f(0.7, 1.2, -0.7));
 
@@ -759,14 +776,15 @@ int RadarMain(int argc, char **argv)
                 glBindVertexArray(Sphere.VAO);
                 glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
 
-                real32 hW = g_WaterWidth/2.f;
-                ModelMatrix.SetTranslation(vec3f(-hW, -6.f, -hW));
+                real32 hW = 1.3f*g_WaterWidth/2.f;
+                ModelMatrix.SetTranslation(vec3f(-hW, -8.f, -hW));
                 SendMat4(Loc, ModelMatrix);
                 glBindVertexArray(UnderPlane.VAO);
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 
 #if 1
+            UpdateWaterMesh(&Memory);
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
                 // TODO - ProjMatrix updated only when resize happen
@@ -789,16 +807,25 @@ int RadarMain(int argc, char **argv)
                 real32 hW = g_WaterWidth/2.f;
                 Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
                 mat4f ModelMatrix;
-                ModelMatrix.SetTranslation(vec3f(-hW, -3.f, -hW));
-                SendMat4(Loc, ModelMatrix);
-
                 water_system *WaterSystem = System->WaterSystem;
                 glBindVertexArray(WaterSystem->VAO);
-                glBindBuffer(GL_ARRAY_BUFFER, WaterSystem->VBO[1]);
+                //glBindBuffer(GL_ARRAY_BUFFER, WaterSystem->VBO[1]);
                 //UpdateVBO(WaterPlane.VBO[1], 0, System->WaterSystem->VertexPositionsSize, System->WaterSystem->Positions);
                 //UpdateVBO(WaterPlane.VBO[1], System->WaterSystem->VertexPositionsSize, 
                             //System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
-                glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
+
+                int Repeat = 3;
+                int Middle = (Repeat-1)/2;
+                for(int j = 0; j < Repeat; ++j)
+                {
+                    for(int i = 0; i < Repeat; ++i)
+                    {
+                        // MIDDLE
+                        ModelMatrix.SetTranslation(vec3f(g_WaterWidth * (Middle-i), -1.f, g_WaterWidth * (Middle-j)));
+                        SendMat4(Loc, ModelMatrix);
+                        glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
+                    }
+                }
             }
 #endif
 
