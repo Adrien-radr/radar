@@ -168,16 +168,78 @@ wave_vector ComputeWave(water_system *WaterSystem, vec2f X, real32 T)
             HTildeC = ComputeHTilde(WaterSystem, T, n_prime, m_prime) * C;
 
             V.H = V.H + HTildeC;
-            V.N = V.N + vec3f(-Kx * HTildeC.i, 0.f, -Kz * HTildeC.i);
+            V.N = V.N + vec3f(-Kx * HTildeC.i*g_WaterWidth, 0.f, -Kz * HTildeC.i*g_WaterWidth);
             if(KLen < 1e-6f) continue;
             V.D = V.D + vec2f(Kx / KLen * HTildeC.i, Kz / KLen * HTildeC.i);
         }
     }
 
-    V.N = Normalize(vec3f(0, 1, 0) - V.N);
+    //V.N = Normalize(vec3f(0, 1, 0) - V.N);
+    V.N = vec3f(0, 1, 0) - Normalize(V.N);
     //V.N = Normalize(V.N);
 
     return V;
+}
+
+void UpdateWater(game_state *State, game_system *System, game_input *Input)
+{
+    State->WaterCounter += Input->dTimeFixed;
+
+    vec3f *WaterPositions = (vec3f*)System->WaterSystem->Positions;
+    vec3f *WaterHTilde0 = (vec3f*)System->WaterSystem->HTilde0;
+    vec3f *WaterNormals = (vec3f*)System->WaterSystem->Normals;
+    vec3f *WaterOrigPositions = (vec3f*)System->WaterSystem->OrigPositions;
+
+    int N = g_WaterN;
+    int NPlus1 = N+1;
+
+    float Lambda = -1.f;
+    vec2f X;
+    vec2f D;
+    wave_vector Wave;
+
+    for(int m_prime = 0; m_prime < N; ++m_prime)
+    {
+        for(int n_prime = 0; n_prime < N; ++n_prime)
+        {
+            int Idx = m_prime * NPlus1 + n_prime;
+
+            X = vec2f(WaterPositions[Idx].x, WaterPositions[Idx].z);
+            Wave = ComputeWave(System->WaterSystem, X, 2*(real32)State->WaterCounter);
+
+            WaterPositions[Idx].y = Wave.H.r;
+            WaterPositions[Idx].x = WaterOrigPositions[Idx].x + Lambda * Wave.D.x;
+            WaterPositions[Idx].z = WaterOrigPositions[Idx].z + Lambda * Wave.D.y;
+
+            WaterNormals[Idx] = Wave.N;
+
+            // NOTE - Fill in the far side to finish our quads
+            if(n_prime == 0 && m_prime == 0)
+            {
+                WaterPositions[Idx + N + NPlus1 * N].y = Wave.H.r;
+                WaterPositions[Idx + N + NPlus1 * N].x = WaterOrigPositions[Idx + N + NPlus1 * N].x + Lambda * Wave.D.x;
+                WaterPositions[Idx + N + NPlus1 * N].z = WaterOrigPositions[Idx + N + NPlus1 * N].z + Lambda * Wave.D.y;
+
+                WaterNormals[Idx + N + NPlus1 * N] = Wave.N;
+            }
+            if(n_prime == 0)
+            {
+                WaterPositions[Idx + N].y = Wave.H.r;
+                WaterPositions[Idx + N].x = WaterOrigPositions[Idx + N].x + Lambda * Wave.D.x;
+                WaterPositions[Idx + N].z = WaterOrigPositions[Idx + N].z + Lambda * Wave.D.y;
+
+                WaterNormals[Idx + N] = Wave.N;
+            }
+            if(m_prime == 0)
+            {
+                WaterPositions[Idx + NPlus1 * N].y = Wave.H.r;
+                WaterPositions[Idx + NPlus1 * N].x = WaterOrigPositions[Idx + NPlus1 * N].x + Lambda * Wave.D.x;
+                WaterPositions[Idx + NPlus1 * N].z = WaterOrigPositions[Idx + NPlus1 * N].z + Lambda * Wave.D.y;
+
+                WaterNormals[Idx + NPlus1 * N] = Wave.N;
+            }
+        }
+    }
 }
 
 void WaterInitialization(game_memory *Memory, game_state *State, game_system *System)
@@ -377,67 +439,6 @@ void LogString(console_log *Log, char const *String)
     else
     {
         Log->StringCount++;
-    }
-}
-
-void UpdateWater(game_state *State, game_system *System, game_input *Input)
-{
-    State->WaterCounter += Input->dTimeFixed;
-
-    vec3f *WaterPositions = (vec3f*)System->WaterSystem->Positions;
-    vec3f *WaterHTilde0 = (vec3f*)System->WaterSystem->HTilde0;
-    vec3f *WaterNormals = (vec3f*)System->WaterSystem->Normals;
-    vec3f *WaterOrigPositions = (vec3f*)System->WaterSystem->OrigPositions;
-
-    int N = g_WaterN;
-    int NPlus1 = N+1;
-
-    float Lambda = -1.f;
-    vec2f X;
-    vec2f D;
-    wave_vector Wave;
-
-    for(int m_prime = 0; m_prime < N; ++m_prime)
-    {
-        for(int n_prime = 0; n_prime < N; ++n_prime)
-        {
-            int Idx = m_prime * NPlus1 + n_prime;
-
-            X = vec2f(WaterPositions[Idx].x, WaterPositions[Idx].z);
-            Wave = ComputeWave(System->WaterSystem, X, 2*(real32)State->WaterCounter);
-
-            WaterPositions[Idx].y = Wave.H.r;
-            WaterPositions[Idx].x = WaterOrigPositions[Idx].x + Lambda * Wave.D.x;
-            WaterPositions[Idx].z = WaterOrigPositions[Idx].z + Lambda * Wave.D.y;
-
-            WaterNormals[Idx] = Wave.N;
-
-            // NOTE - Fill in the far side to finish our quads
-            if(n_prime == 0 && m_prime == 0)
-            {
-                WaterPositions[Idx + N + NPlus1 * N].y = Wave.H.r;
-                WaterPositions[Idx + N + NPlus1 * N].x = WaterOrigPositions[Idx + N + NPlus1 * N].x + Lambda * Wave.D.x;
-                WaterPositions[Idx + N + NPlus1 * N].z = WaterOrigPositions[Idx + N + NPlus1 * N].z + Lambda * Wave.D.y;
-
-                WaterNormals[Idx + N + NPlus1 * N] = Wave.N;
-            }
-            if(n_prime == 0)
-            {
-                WaterPositions[Idx + N].y = Wave.H.r;
-                WaterPositions[Idx + N].x = WaterOrigPositions[Idx + N].x + Lambda * Wave.D.x;
-                WaterPositions[Idx + N].z = WaterOrigPositions[Idx + N].z + Lambda * Wave.D.y;
-
-                WaterNormals[Idx + N] = Wave.N;
-            }
-            if(m_prime == 0)
-            {
-                WaterPositions[Idx + NPlus1 * N].y = Wave.H.r;
-                WaterPositions[Idx + NPlus1 * N].x = WaterOrigPositions[Idx + NPlus1 * N].x + Lambda * Wave.D.x;
-                WaterPositions[Idx + NPlus1 * N].z = WaterOrigPositions[Idx + NPlus1 * N].z + Lambda * Wave.D.y;
-
-                WaterNormals[Idx + NPlus1 * N] = Wave.N;
-            }
-        }
     }
 }
 
