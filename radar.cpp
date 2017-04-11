@@ -589,7 +589,7 @@ int RadarMain(int argc, char **argv)
         mesh WaterPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), State->WaterSubdivs, 1, true);
         mesh UnderPlane = Make3DPlane(vec2i(State->WaterWidth, State->WaterWidth), 1, 10);
 
-        vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
+        vec3f SunDirection = Normalize(vec3f(0.7, 1.2, -0.7));
 
         // Cubemaps Test
         path CubemapPaths[6];
@@ -605,12 +605,12 @@ int RadarMain(int argc, char **argv)
             };
 #else
             path CubemapNames[6] = {
-                "data/Skybox/Test/right.png",
-                "data/Skybox/Test/left.png",
-                "data/Skybox/Test/bottom.png",
-                "data/Skybox/Test/top.png",
-                "data/Skybox/Test/back.png",
-                "data/Skybox/Test/front.png",
+                "data/Skybox/2/right.png",
+                "data/Skybox/2/left.png",
+                "data/Skybox/2/bottom.png",
+                "data/Skybox/2/top.png",
+                "data/Skybox/2/back.png",
+                "data/Skybox/2/front.png",
             };
 #endif
             for(uint32 i = 0; i < 6; ++i)
