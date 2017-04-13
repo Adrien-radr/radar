@@ -74,11 +74,18 @@ struct console_log
 };
 
 // NOTE - Tmp storage here
-int32 static const g_WaterWidth = 64;
-int32 static const g_WaterN = 32;
-vec2f  static const g_WaterW = vec2f(0.0, 32.0);
+// Beaufort Level : WidthScale, WaveScale, Choppiness
+// Beaufort    12 :          4,         1,          1
+// Beaufort     7 :          3,       0.5,        0.3
+// Beaufort     3 :          3,       0.1,        0.1
+// Beaufort     1 :          3,      0.05,      0.005
+int32 static const g_WaterN = 64;
+int32 static const g_WaterWidth = 3*g_WaterN;
+
+real32 static const g_Power = 20.0;
+vec2f  static const g_WaterW = vec2f(0.5f*g_WaterN, 0.0);
 real32 static const g_G = 9.81f;
-real32 static const g_A = 0.0003f;
+real32 static const g_A = 0.00000025f * 0.3f * g_WaterN;
 
 struct water_system
 {
@@ -102,6 +109,13 @@ struct water_system
     complex *hTildeSlopeZ;
     complex *hTildeDX;
     complex *hTildeDZ;
+
+    // NOTE - FFT system
+    int Switch;
+    int Log2N;
+    complex *FFTC[2];
+    complex **FFTW;
+    uint32 *Reversed;
 
     uint32 VAO;
     uint32 VBO[2]; // 0 : vdata, 1 : idata

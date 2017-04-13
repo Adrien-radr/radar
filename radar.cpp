@@ -624,7 +624,11 @@ int RadarMain(int argc, char **argv)
         mesh Sphere = MakeUnitSphere();
         mesh UnderPlane = Make3DPlane(vec2i(1.3*g_WaterWidth, 1.3*g_WaterWidth), 1, 10);
 
+#if 1 // Skybox 1
+        vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
+#else // Skybox 2
         vec3f SunDirection = Normalize(vec3f(0.7, 1.2, -0.7));
+#endif
 
         // Cubemaps Test
         path CubemapPaths[6];
@@ -640,12 +644,12 @@ int RadarMain(int argc, char **argv)
             };
 #else
             path CubemapNames[6] = {
-                "data/Skybox/2/right.png",
-                "data/Skybox/2/left.png",
-                "data/Skybox/2/bottom.png",
-                "data/Skybox/2/top.png",
-                "data/Skybox/2/back.png",
-                "data/Skybox/2/front.png",
+                "data/Skybox/1/right.png",
+                "data/Skybox/1/left.png",
+                "data/Skybox/1/bottom.png",
+                "data/Skybox/1/top.png",
+                "data/Skybox/1/back.png",
+                "data/Skybox/1/front.png",
             };
 #endif
             for(uint32 i = 0; i < 6; ++i)
@@ -661,7 +665,7 @@ int RadarMain(int argc, char **argv)
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
-        mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+        //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
 
 #if 0
         frame_buffer FBOPass1 = MakeFBO(1, vec2i(Config.WindowWidth, Config.WindowHeight));
@@ -814,7 +818,7 @@ int RadarMain(int argc, char **argv)
                 //UpdateVBO(WaterPlane.VBO[1], System->WaterSystem->VertexPositionsSize, 
                             //System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
 
-                int Repeat = 3;
+                int Repeat = 31;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
                 {
