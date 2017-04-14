@@ -86,11 +86,10 @@ void main()
     float nSnell = 1.34f;
     float exp_fog_range = 0.0008;
     float reflect_ratio = 0.25;
-    vec4 fog_color = vec4(0.20, 0.30, 0.40, 1.0);
+    vec4 fog_color = vec4(0.30, 0.40, 0.50, 1.0);
     vec4 sky_color = vec4(0.35, 0.50, 0.65, 1.0);
     vec4 water_color = vec4(0.01, 0.19, 0.31, 1.0);
     vec4 sss_color = vec4(0.4, 0.9, 0.05, 1.0);
-    //vec4 sss_color = vec4(0.4, 0.8, 0.05, 1.0);
     vec4 specular_color = vec4(1,1,1,1);
     vec4 reflect_color = texture(Skybox, R);
 
