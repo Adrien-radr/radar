@@ -80,12 +80,12 @@ struct console_log
 // Beaufort     3 :          3,       0.1,        0.1
 // Beaufort     1 :          3,      0.05,      0.005
 int32 static const g_WaterN = 64;
-int32 static const g_WaterWidth = 4*g_WaterN;
+int32 static const g_WaterWidth = 3*g_WaterN;
 
 real32 static const g_Power = 20.0;
-vec2f  static const g_WaterW = vec2f(1.0f*g_WaterN, 0.0);
+vec2f  static const g_WaterW = vec2f(0.5f*g_WaterN, 0.0);
 real32 static const g_G = 9.81f;
-real32 static const g_A = 0.00000025f * 0.8f * g_WaterN;
+real32 static const g_A = 0.00000025f * 0.3f * g_WaterN;
 
 struct water_system
 {

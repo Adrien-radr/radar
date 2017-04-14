@@ -344,7 +344,7 @@ game_context InitContext(game_memory *Memory)
                 printf("GL Max Array Layers : %d\n", MaxLayers);
 
                 Context.ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
-                        Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 1000.f);
+                        Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 10000.f);
                 Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
                 Context.WireframeMode = false;

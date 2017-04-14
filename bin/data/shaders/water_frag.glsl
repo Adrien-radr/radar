@@ -84,55 +84,27 @@ void main()
 
     // Parameters
     float nSnell = 1.34f;
-    float exp_fog_range = 0.0006;
-    float reflect_ratio = 0.45;
-    vec4 fog_color = vec4(0.30, 0.4, 0.45, 1.0);
-    vec4 sky_color = vec4(0.59, 0.70, 0.75, 1.0);
+    float exp_fog_range = 0.0008;
+    float reflect_ratio = 0.25;
+    vec4 fog_color = vec4(0.20, 0.30, 0.40, 1.0);
+    vec4 sky_color = vec4(0.35, 0.50, 0.65, 1.0);
     vec4 water_color = vec4(0.01, 0.19, 0.31, 1.0);
-    vec4 sss_color = vec4(0.4, 0.8, 0.05, 1.0);
+    vec4 sss_color = vec4(0.4, 0.9, 0.05, 1.0);
+    //vec4 sss_color = vec4(0.4, 0.8, 0.05, 1.0);
     vec4 specular_color = vec4(1,1,1,1);
     vec4 reflect_color = texture(Skybox, R);
 
 
     float dist = exp(-exp_fog_range * dCP);
     vec4 reflection = (1 - reflect_ratio) * vec4(1) + reflect_ratio * reflect_color;
-    vec3 Fresnel = FresnelSchlick(water_color.xyz, reflection.xyz * sky_color.xyz/nSnell, pow(NdotV,0.75));
+    vec3 Fresnel = FresnelSchlick(water_color.xyz, reflection.xyz * sky_color.xyz/nSnell, NdotV);
+    float SSS = max(0, 0.5-max(0,dot(V,vec3(0,1,0)))) * NdotV;
+    float Specular = NdotL * pow(VdotR, 240.0); 
 
-    frag_color = (1 - dist) * reflection * fog_color;                                               // Fog
-    frag_color += dist * (vec4(Fresnel, 1.0) +                                                      // Fresnel term
-                          reflection  * VdotInvL2 * (NdotInvL * NdotV * sss_color +                 // Subsurface Scattering Hack
-                                                     NdotL * pow(VdotR, 120.0) * specular_color));  // Specular reflection
+    frag_color = (1 - dist) * reflection * fog_color;                           // Fog
+    frag_color += dist * (vec4(Fresnel, 1.0) +                                  // Fresnel term
+                          VdotInvL2 * (SSS * sss_color +                        // Subsurface Scattering Hack
+                                       Specular * reflection * specular_color));// Specular reflection
     frag_color.a = 1.0;
-    
-#if 0
-    vec4 emissive_color = vec4(0.0, 1.0, 0.5,  1.0);
-	vec4 ambient_color  = vec4(0.0, 0.35, 0.45, 1.0);
-	vec4 diffuse_color  = vec4(0.1, 0.45, 0.55, 1.0);
-	vec4 specular_color = vec4(0.4, 0.4, 0.4,  1.0);
-
-	float emissive_contribution = 0.35;
-	float ambient_contribution  = 0.20;
-	float diffuse_contribution  = 1.00;
-	float specular_contribution = 0.10;
-
-    float roughness = 0.01;
-
-    if(NdotL > 0.0)
-    {
-
-        vec4 Fd = diffuse_color * diffuse_contribution * DiffuseBurley(NdotL, NdotV, LdotH, roughness);
-        //vec4 Fr = specular_color * specular_contribution * pow(max(0.0, NdotH), 1.0/(roughness*roughness));
-        //vec4 Fr = GGX(NdotL, NdotV, NdotH, LdotH, roughness, specular_contribution * specular_color.xyz);
-        vec4 Fr = vec4(0,0,0,0);//reflect_color;
-
-        //lighting += LightColor * (Fd + Fr) * NdotL;
-    }
-
-    //frag_color = emissive_color * emissive_contribution * reflect_color * (1- max(0.0, min(1.0, 0.75+d))) +
-                 //ambient_color * ambient_contribution * reflect_color +
-                 //diffuse_color * diffuse_contribution * reflect_color * max(0.0, d);// +
-                 //(facing ? specular_color * specular_contribution * reflect_color * max(0.0, pow(dot(H, N), 120.0)):
-                 //vec4(0.0, 0.0, 0.0, 0.0));
-#endif
 }
 
