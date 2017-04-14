@@ -62,58 +62,46 @@ float DiffuseBurley(in float NdotL, in float NdotV, in float LdotH, in float rou
 
 void main()
 {
-    vec3 N = normalize(v_normal);
-    vec3 L = normalize(v_sundirection);
     float dCP = length(CameraPos - v_position);
     if(dCP == 0) discard;
+
+    vec3 N = normalize(v_normal);
+    vec3 L = normalize(v_sundirection);
     vec3 V = (CameraPos - v_position) / dCP;
     vec3 H = normalize(V + L);
+    vec3 R = reflect(V, N);
 
-
-    vec3 reflect_vec = reflect(V, N);
-    vec4 reflect_color = texture(Skybox, reflect_vec);
 
     float NdotL = max(0.0, dot(N, L));
     float NdotH = max(0.0, dot(N, H));
     float NdotV = max(0.0, dot(N, V));
     float LdotH = max(0.0, dot(L, H));
+    float VdotR = max(0.0, dot(V, R));
+    float VdotInvL = max(0.0, dot(-L, V));
+    float NdotInvL = max(0.0, dot(-L, N));
+    float VdotInvL2 = pow(VdotInvL,2);
 
-    vec4 lighting = vec4(0, 0, 0, 0);
 
-    float exp_fog_range = 0.0020;
-    vec4 fog_color = vec4(0.60, 0.6, 0.55, 1.0);
-    vec4 sky_color = vec4(0.49, 0.60, 0.85, 1.0);
-    vec4 water = vec4(0.0, 0.2, 0.3, 1.0);
+    // Parameters
     float nSnell = 1.34f;
+    float exp_fog_range = 0.0006;
+    float reflect_ratio = 0.45;
+    vec4 fog_color = vec4(0.30, 0.4, 0.45, 1.0);
+    vec4 sky_color = vec4(0.59, 0.70, 0.75, 1.0);
+    vec4 water_color = vec4(0.01, 0.19, 0.31, 1.0);
+    vec4 sss_color = vec4(0.4, 0.8, 0.05, 1.0);
+    vec4 specular_color = vec4(1,1,1,1);
+    vec4 reflect_color = texture(Skybox, R);
 
-    float dist = exp_fog_range * dCP;
-    dist = exp(-dist);
 
-    float reflectivity = 0.0;
-
-    float costheta_V = NdotV;
-    float theta_V = acos(NdotV);
-    float sintheta_T = sin(theta_V) / nSnell;
-    float theta_T = asin(sintheta_T);
-    if(theta_V == 0.0)
-    {
-        reflectivity = (nSnell - 1) / (nSnell + 1);
-        reflectivity = reflectivity * reflectivity;
-    }
-    else
-    {
-        float fs = sin(theta_T - theta_V) / sin(theta_T + theta_V);
-        float ts = tan(theta_T - theta_V) / tan(theta_T + theta_V);
-        reflectivity = 0.5 * (fs * fs + ts * ts);
-    }
-
-    float reflect_ratio = 0.55;
+    float dist = exp(-exp_fog_range * dCP);
     vec4 reflection = (1 - reflect_ratio) * vec4(1) + reflect_ratio * reflect_color;
+    vec3 Fresnel = FresnelSchlick(water_color.xyz, reflection.xyz * sky_color.xyz/nSnell, pow(NdotV,0.75));
 
-    lighting = (1 - dist) * fog_color;
-    lighting += dist * vec4(FresnelSchlick(water.xyz, reflection.xyz * sky_color.xyz/nSnell, NdotV), 1.0);
-
-    frag_color = lighting;
+    frag_color = (1 - dist) * reflection * fog_color;                                               // Fog
+    frag_color += dist * (vec4(Fresnel, 1.0) +                                                      // Fresnel term
+                          reflection  * VdotInvL2 * (NdotInvL * NdotV * sss_color +                 // Subsurface Scattering Hack
+                                                     NdotL * pow(VdotR, 120.0) * specular_color));  // Specular reflection
     frag_color.a = 1.0;
     
 #if 0
