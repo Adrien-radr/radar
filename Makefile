@@ -68,9 +68,9 @@ radar: $(GLEW_TARGET) $(CJSON_TARGET)
 ##################################################
 else # GCC
 GLEW_OBJECT=ext/glew/glew.o
-GLEW_TARGET=ext/glew/libglew.lib
+GLEW_TARGET=ext/glew/libglew.a
 CJSON_OBJECT=ext/cjson/cJSON.o
-CJSON_TARGET=ext/cjson/libcJSON.lib
+CJSON_TARGET=ext/cjson/libcJSON.a
 OPENAL_LIB=ext/openal-soft/build
 GLFW_LIB=ext/glfw/build/src
 
@@ -78,7 +78,7 @@ CC=g++
 CFLAGS=-g -Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS
 DEBUG_FLAGS=-DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
-VERSION_FLAGS=$(RELEASE_FLAGS)
+VERSION_FLAGS=$(DEBUG_FLAGS)
 
 LIB_FLAGS=-L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -lcJSON -lglfw3 -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -ldl -lpthread
@@ -93,7 +93,7 @@ $(GLEW_TARGET):
 	@rm $(GLEW_OBJECT)
 
 $(CJSON_TARGET):
-	@echo "AR $(GLEW_TARGET)"
+	@echo "AR $(CJSON_TARGET)"
 	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -I$(CJSON_INCLUDE) -c ext/cjson/cJSON.c -o $(CJSON_OBJECT)
 	@ar rcs $(CJSON_TARGET) $(CJSON_OBJECT) 
 	@rm $(CJSON_OBJECT)
@@ -104,7 +104,7 @@ lib:
 
 radar: $(GLEW_TARGET) $(CJSON_TARGET)
 	@echo "CC $(TARGET)"
-	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LIB_FLAGS) -o $(TARGET)
+	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LIB_FLAGS) -o $(TARGET)
 
 endif
 #$(error OS not compatible. Only Win32 and Linux for now.)
