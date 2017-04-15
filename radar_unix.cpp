@@ -27,11 +27,14 @@ bool GetExecutablePath(path Path)
 
     pid_t pid = getpid();
     snprintf(StatProc, MAX_PATH, "/proc/%d/exe", pid);
-    if(-1 == readlink(StatProc, Path, MAX_PATH))
+    ssize_t BytesRead = readlink(StatProc, Path, MAX_PATH);
+    if(-1 == BytesRead)
     {
         printf("Fatal Error : Can't query Executable path.\n");
         return false;
     }
+
+    Path[BytesRead] = 0;
 
     char *LastPos = strrchr(Path, '/');
     unsigned int NumChar = (unsigned int)(LastPos - Path) + 1;
