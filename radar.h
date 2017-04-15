@@ -75,7 +75,7 @@ struct console_log
 
 // NOTE - Tmp storage here
 // Beaufort Level : WidthScale, WaveScale, Choppiness
-// Beaufort    12 :          4,         1,          1
+// Beaufort    12 :          4,         1,        0.8
 // Beaufort     7 :          3,       0.5,        0.3
 // Beaufort     3 :          3,       0.1,        0.1
 // Beaufort     1 :          3,      0.05,      0.005

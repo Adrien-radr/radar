@@ -68,9 +68,9 @@ radar: $(GLEW_TARGET) $(CJSON_TARGET)
 ##################################################
 else # GCC
 GLEW_OBJECT=ext/glew/glew.o
-GLEW_TARGET=ext/glew/libglew.lib
+GLEW_TARGET=ext/glew/libglew.a
 CJSON_OBJECT=ext/cjson/cJSON.o
-CJSON_TARGET=ext/cjson/libcJSON.lib
+CJSON_TARGET=ext/cjson/libcJSON.a
 OPENAL_LIB=ext/openal-soft/build
 GLFW_LIB=ext/glfw/build/src
 
@@ -104,7 +104,7 @@ lib:
 
 radar: $(GLEW_TARGET) $(CJSON_TARGET)
 	@echo "CC $(TARGET)"
-	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LIB_FLAGS) -o $(TARGET)
+	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LIB_FLAGS) -o $(TARGET)
 
 endif
 #$(error OS not compatible. Only Win32 and Linux for now.)
