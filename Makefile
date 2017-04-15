@@ -93,7 +93,7 @@ $(GLEW_TARGET):
 	@rm $(GLEW_OBJECT)
 
 $(CJSON_TARGET):
-	@echo "AR $(GLEW_TARGET)"
+	@echo "AR $(CJSON_TARGET)"
 	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -I$(CJSON_INCLUDE) -c ext/cjson/cJSON.c -o $(CJSON_OBJECT)
 	@ar rcs $(CJSON_TARGET) $(CJSON_OBJECT) 
 	@rm $(CJSON_OBJECT)
