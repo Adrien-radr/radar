@@ -15,16 +15,16 @@
 
 /// Common functions & math
 #ifndef M_PI
-#define M_PI 3.14159265358979323846264338327f
+#define M_PI 3.14159265358
 #endif
 #ifndef M_PI_OVER_TWO
-#define M_PI_OVER_TWO 1.5707963267948966192313216916398f
+#define M_PI_OVER_TWO 1.5707963267
 #endif
-#define M_TWO_PI 2.f * M_PI
+#define M_TWO_PI 6.28318530718
 // deg 2 rad : d * PI / 180
-#define deg2rad(d) ((d)*0.01745329252f)
+#define deg2rad(d) ((d)*0.01745329252)
 // rad 2 deg : d * 180 / PI
-#define rad2deg(r) ((r)*57.2957795f)
+#define rad2deg(r) ((r)*57.2957795)
 
 #ifndef min
 #define min(a,b) ((a) <= (b) ? (a) : (b))

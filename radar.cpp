@@ -344,7 +344,7 @@ game_context InitContext(game_memory *Memory)
                 printf("GL Max Array Layers : %d\n", MaxLayers);
 
                 Context.ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
-                        Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 1000.f);
+                        Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 10000.f);
                 Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
                 Context.WireframeMode = false;
@@ -624,7 +624,11 @@ int RadarMain(int argc, char **argv)
         mesh Sphere = MakeUnitSphere();
         mesh UnderPlane = Make3DPlane(vec2i(1.3*g_WaterWidth, 1.3*g_WaterWidth), 1, 10);
 
+#if 1 // Skybox 1
+        vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
+#else // Skybox 2
         vec3f SunDirection = Normalize(vec3f(0.7, 1.2, -0.7));
+#endif
 
         // Cubemaps Test
         path CubemapPaths[6];
@@ -640,12 +644,12 @@ int RadarMain(int argc, char **argv)
             };
 #else
             path CubemapNames[6] = {
-                "data/Skybox/2/right.png",
-                "data/Skybox/2/left.png",
-                "data/Skybox/2/bottom.png",
-                "data/Skybox/2/top.png",
-                "data/Skybox/2/back.png",
-                "data/Skybox/2/front.png",
+                "data/Skybox/1/right.png",
+                "data/Skybox/1/left.png",
+                "data/Skybox/1/bottom.png",
+                "data/Skybox/1/top.png",
+                "data/Skybox/1/back.png",
+                "data/Skybox/1/front.png",
             };
 #endif
             for(uint32 i = 0; i < 6; ++i)
@@ -661,7 +665,7 @@ int RadarMain(int argc, char **argv)
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
-        mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+        //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
 
 #if 0
         frame_buffer FBOPass1 = MakeFBO(1, vec2i(Config.WindowWidth, Config.WindowHeight));
@@ -777,16 +781,43 @@ int RadarMain(int argc, char **argv)
                 glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
 
                 real32 hW = 1.3f*g_WaterWidth/2.f;
-                ModelMatrix.SetTranslation(vec3f(-hW, -8.f, -hW));
+                ModelMatrix.SetTranslation(vec3f(-hW, -7.f, -hW));
                 SendMat4(Loc, ModelMatrix);
                 glBindVertexArray(UnderPlane.VAO);
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
+            }
+
+            { // NOTE - Skybox Rendering Test, put somewhere else
+                glDisable(GL_CULL_FACE);
+                glDepthFunc(GL_LEQUAL);
+                CheckGLError("Skybox");
+
+                glUseProgram(ProgramSkybox);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ProjMatrix");
+                    SendMat4(Loc, Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix Skybox");
+
+                    // NOTE - remove translation component from the ViewMatrix for the skybox
+                    mat4f SkyViewMatrix = ViewMatrix;
+                    SkyViewMatrix.SetTranslation(vec3f(0.f));
+                    Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
+                    SendMat4(Loc, SkyViewMatrix);
+                    CheckGLError("ViewMatrix Skybox");
+                }
+                glBindVertexArray(SkyboxCube.VAO);
+                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+
+                glDepthFunc(GL_LESS);
+                glEnable(GL_CULL_FACE);
             }
 
 #if 1
             UpdateWaterMesh(&Memory);
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
+                glDisable(GL_CULL_FACE);
                 // TODO - ProjMatrix updated only when resize happen
                 {
                     uint32 Loc = glGetUniformLocation(ProgramWater, "ProjMatrix");
@@ -804,55 +835,53 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(ProgramWater, "SunDirection");
                 SendVec3(Loc, SunDirection);
 
+                water_system *WaterSystem = System->WaterSystem;
+
                 real32 hW = g_WaterWidth/2.f;
+
+#if 0
+                vec3f *WaterPositions = (vec3f*)WaterSystem->Positions;
+                vec2f CamRel(-State->Camera.Position.x, State->Camera.Position.z);
+                CamRel += hW;
+                CamRel *= g_WaterN / (real32)g_WaterWidth;
+                vec2i iCamRel((int)floorf(CamRel.x), (int)floorf(CamRel.y));
+                CamRel -= iCamRel;
+                float WaterHeight0 = WaterPositions[iCamRel.y * g_WaterN + iCamRel.x].y;
+                float WaterHeight1 = WaterPositions[iCamRel.y * g_WaterN + iCamRel.x+1].y;
+                float WaterHeight2 = WaterPositions[(iCamRel.y+1) * g_WaterN + iCamRel.x].y;
+                float WaterHeight3 = WaterPositions[(iCamRel.y+1) * g_WaterN + iCamRel.x+1].y;
+                float WaterH0 = WaterHeight0 + CamRel.x * (WaterHeight1 - WaterHeight0);
+                float WaterH1 = WaterHeight2 + CamRel.x * (WaterHeight3 - WaterHeight2);
+                float WaterHeight = WaterH0 + CamRel.y * (WaterH1 - WaterH0);
+                printf("%d(%g) %d(%g) : %g %g\n", iCamRel.x, CamRel.x, iCamRel.y, CamRel.y, WaterHeight, State->Camera.Position.y);
+                int UnderWater = WaterHeight > State->Camera.Position.y ? 1 : 0;
+                Loc = glGetUniformLocation(ProgramWater, "UnderWater");
+                SendInt(Loc, UnderWater);
+#endif
+
                 Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
                 mat4f ModelMatrix;
-                water_system *WaterSystem = System->WaterSystem;
                 glBindVertexArray(WaterSystem->VAO);
                 //glBindBuffer(GL_ARRAY_BUFFER, WaterSystem->VBO[1]);
                 //UpdateVBO(WaterPlane.VBO[1], 0, System->WaterSystem->VertexPositionsSize, System->WaterSystem->Positions);
                 //UpdateVBO(WaterPlane.VBO[1], System->WaterSystem->VertexPositionsSize, 
                             //System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
 
-                int Repeat = 3;
+                int Repeat = 1;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
                 {
                     for(int i = 0; i < Repeat; ++i)
                     {
                         // MIDDLE
-                        ModelMatrix.SetTranslation(vec3f(g_WaterWidth * (Middle-i), -1.f, g_WaterWidth * (Middle-j)));
+                        ModelMatrix.SetTranslation(vec3f(g_WaterWidth * (Middle-i), 0.f, g_WaterWidth * (Middle-j)));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
                     }
                 }
-            }
-#endif
-
-            { // NOTE - Skybox Rendering Test, put somewhere else
-                glDisable(GL_CULL_FACE);
-                glDepthFunc(GL_LEQUAL);
-                CheckGLError("Skybox");
-
-                glUseProgram(ProgramSkybox);
-                // TODO - ProjMatrix updated only when resize happen
-                {
-                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Skybox");
-
-                    // NOTE - remove translation component from the ViewMatrix for the skybox
-                    ViewMatrix.SetTranslation(vec3f(0.f));
-                    Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
-                    SendMat4(Loc, ViewMatrix);
-                    CheckGLError("ViewMatrix Skybox");
-                }
-                glBindVertexArray(SkyboxCube.VAO);
-                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
-
-                glDepthFunc(GL_LESS);
                 glEnable(GL_CULL_FACE);
             }
+#endif
 
 
             { // NOTE - Console Msg Rendering. Put this somewhere else, contained
