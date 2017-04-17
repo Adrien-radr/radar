@@ -1,9 +1,10 @@
 ### General
 + Refactor Water code somewhere
 + Think about compiling .cpp's separately --> No
-- Fix OpenAL using Jack by default when building it on Debian, wtf is this shit.
-- Fast, Deterministic Random Variable system
++ Fix OpenAL using Jack by default when building it on Debian, wtf is this shit. Turns out it's
+just trying to connect to jack before the other drivers and jack is verbose...
 + Remove all {m,c}alloc from the code except the Pools creation
+- Fast, Deterministic Random Variable system --> SFMT, WIP
 
 ### UI
 - 2D Panel creation with custom shader
