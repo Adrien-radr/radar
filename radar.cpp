@@ -14,18 +14,12 @@ int RadarMain(int argc, char **argv);
 #endif
 
 // EXTERNAL
-#include "AL/al.h"
-#include "AL/alc.h"
-
-#include "GL/glew.h"
-#include "GLFW/glfw3.h"
-
 #include "cJSON.h"
 
-
-// //////// IMPLEMENTATION
+// IMPLEMENTATION
 #include "render.cpp"
-// ///////////////////////
+#include "sound.cpp"
+#include "water.cpp"
 
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
@@ -61,13 +55,18 @@ game_memory InitMemory()
 {
     game_memory Memory = {};
 
-    Memory.PermanentMemPoolSize = Megabytes(64);
-    Memory.ScratchMemPoolSize = Megabytes(512);
+    Memory.PermanentMemPoolSize = Megabytes(32);
+    Memory.SessionMemPoolSize = Megabytes(512);
+    Memory.ScratchMemPoolSize = Megabytes(64);
 
     Memory.PermanentMemPool = calloc(1, Memory.PermanentMemPoolSize);
+    Memory.SessionMemPool = calloc(1, Memory.SessionMemPoolSize);
     Memory.ScratchMemPool = calloc(1, Memory.ScratchMemPoolSize);
 
-    Memory.IsValid = Memory.PermanentMemPool && Memory.ScratchMemPool;
+    InitArena(&Memory.SessionArena, Memory.SessionMemPoolSize, Memory.SessionMemPool);
+    InitArena(&Memory.ScratchArena, Memory.ScratchMemPoolSize, Memory.ScratchMemPool);
+
+    Memory.IsValid = Memory.PermanentMemPool && Memory.SessionMemPool && Memory.ScratchMemPool;
     Memory.IsInitialized = false;
 
     return Memory;
@@ -78,11 +77,14 @@ void DestroyMemory(game_memory *Memory)
     if(Memory->IsValid)
     {
         free(Memory->PermanentMemPool);
+        free(Memory->SessionMemPool);
         free(Memory->ScratchMemPool);
         Memory->PermanentMemPoolSize = 0;
+        Memory->SessionMemPoolSize = 0;
         Memory->ScratchMemPoolSize = 0;
         Memory->IsValid = false;
         Memory->IsInitialized = false;
+        Memory->IsGameInitialized = false;
     }
 }
 
@@ -379,20 +381,7 @@ game_context InitContext(game_memory *Memory)
         printf("Couldn't init GLFW.\n");
     }
 
-    ALCdevice *ALDevice = alcOpenDevice(NULL);
-
-    ALValid = (NULL != ALDevice);
-    if(ALValid)
-    {
-        ALCcontext *ALContext = alcCreateContext(ALDevice, NULL);
-        alcMakeContextCurrent(ALContext);
-        alGetError(); // Clear Error Stack
-    }
-    else
-    {
-        printf("Couldn't init OpenAL.\n");
-    }
-
+    ALValid = InitAL();
 
     if(GLFWValid && GLEWValid && ALValid)
     {
@@ -406,73 +395,13 @@ game_context InitContext(game_memory *Memory)
 
 void DestroyContext(game_context *Context)
 {
-    ALCcontext *ALContext = alcGetCurrentContext();
-    if(ALContext)
-    {
-        ALCdevice *ALDevice = alcGetContextsDevice(ALContext);
-        alcMakeContextCurrent(NULL);
-        alcDestroyContext(ALContext);
-        alcCloseDevice(ALDevice);
-    }
+    DestroyAL();
 
     if(Context->Window)
     {
         glfwDestroyWindow(Context->Window);
     }
     glfwTerminate();
-}
-
-bool CheckALError()
-{
-    ALenum Error = alGetError();
-    if(Error != AL_NO_ERROR)
-    {
-        char ErrorMsg[128];
-        switch(Error)
-        {
-        case AL_INVALID_NAME:
-        {
-            snprintf(ErrorMsg, 128, "Bad Name ID passed to AL."); 
-        }break;
-        case AL_INVALID_ENUM:
-        {
-            snprintf(ErrorMsg, 128, "Invalid Enum passed to AL."); 
-        }break;
-        case AL_INVALID_VALUE:
-        {
-            snprintf(ErrorMsg, 128, "Invalid Value passed to AL."); 
-        }break;
-        case AL_INVALID_OPERATION:
-        {
-            snprintf(ErrorMsg, 128, "Invalid Operation requested to AL."); 
-        }break;
-        case AL_OUT_OF_MEMORY:
-        {
-            snprintf(ErrorMsg, 128, "Out of Memory."); 
-        }break;
-        }
-
-        printf("OpenAL Error : %s\n", ErrorMsg);
-        return false;
-    }
-    return true;
-}
-
-bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
-{
-    // Generate Buffers
-    alGenBuffers(1, Buffer);
-    if(!CheckALError()) return false;
-
-    // Generate Sources
-    alGenSources(1, Source);
-    if(!CheckALError()) return false;
-
-    // Attach Buffer to Source
-    alSourcei(*Source, AL_LOOPING, AL_TRUE);
-    if(!CheckALError()) return false;
-
-    return true;
 }
 
 uint32 Program1, Program3D, ProgramSkybox;
@@ -665,9 +594,10 @@ int RadarMain(int argc, char **argv)
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
-        //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+        WaterInitialization(&Memory, State, System);
 
 #if 0
+        //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
         frame_buffer FBOPass1 = MakeFBO(1, vec2i(Config.WindowWidth, Config.WindowHeight));
         AttachBuffer(&FBOPass1, 0, 1, GL_FLOAT); 
 #endif
@@ -814,6 +744,7 @@ int RadarMain(int argc, char **argv)
             }
 
 #if 1
+            UpdateWater(State, System, &Input);
             UpdateWaterMesh(&Memory);
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);

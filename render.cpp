@@ -1,3 +1,6 @@
+#include "GL/glew.h"
+#include "GLFW/glfw3.h"
+
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #include "ext/stb_truetype.h"

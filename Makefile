@@ -6,9 +6,11 @@ all: tags radar lib post_build
 GLFW_INCLUDE=ext/glfw/include
 OPENAL_INCLUDE=ext/openal-soft/include
 GLEW_INCLUDE=ext/glew/include
+SFMT_INCLUDE=ext/sfmt/
 CJSON_INCLUDE=ext/cjson
 GLEW_LIB=ext/glew
 CJSON_LIB=ext/cjson
+SFMT_LIB=ext/sfmt/
 
 SRCS=radar.cpp
 INCLUDES=radar.h
@@ -38,6 +40,7 @@ RELEASE_FLAGS=-O2 -Oi
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
 LIB_FLAGS=/LIBPATH:$(OPENAL_LIB) /LIBPATH:$(GLEW_LIB) /LIBPATH:$(GLFW_LIB) /LIBPATH:$(CJSON_LIB) cjson.lib OpenAL32.lib libglfw3.lib glew.lib opengl32.lib user32.lib shell32.lib gdi32.lib
+INCLUDE_FLAGS=-I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE)
 
 TARGET=bin/radar.exe
 LIB_TARGET=bin/sun.dll
@@ -73,15 +76,18 @@ CJSON_OBJECT=ext/cjson/cJSON.o
 CJSON_TARGET=ext/cjson/libcJSON.a
 OPENAL_LIB=ext/openal-soft/build
 GLFW_LIB=ext/glfw/build/src
+SFMT_OBJECT=ext/sfmt/SFMT.o
+SFMT_TARGET=ext/sfmt/libSFMT.a
 
 CC=g++
-CFLAGS=-g -Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS
+CFLAGS=-g -Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937
 DEBUG_FLAGS=-DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
-LIB_FLAGS=-L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -lcJSON -lglfw3 -lglew -lopenal \
+LIB_FLAGS=-L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -lSFMT -lcJSON -lglfw3 -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -ldl -lpthread
+INCLUDE_FLAGS=-I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE)
 
 TARGET=bin/radar
 LIB_TARGET=bin/sun.so
@@ -98,13 +104,20 @@ $(CJSON_TARGET):
 	@ar rcs $(CJSON_TARGET) $(CJSON_OBJECT) 
 	@rm $(CJSON_OBJECT)
 
+# Compile with specific flags for this one
+$(SFMT_TARGET):
+	@echo "AR $(SFMT_TARGET)"
+	@$(CC) -O3 -msse2 -fno-strict-aliasing -DHAVE_SSE2=1 -DSFMT_MEXP=19937 -c ext/sfmt/SFMT.c -o $(SFMT_OBJECT)
+	@ar rcs $(SFMT_TARGET) $(SFMT_OBJECT)
+	@rm $(SFMT_OBJECT)
+
 lib:
 	@echo "LIB $(LIB_TARGET)"
-	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -o $(LIB_TARGET)
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -I$(SFMT_INCLUDE) -o $(LIB_TARGET)
 
-radar: $(GLEW_TARGET) $(CJSON_TARGET)
+radar: $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET)
 	@echo "CC $(TARGET)"
-	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) $(LIB_FLAGS) -o $(TARGET)
+	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) $(INCLUDE_FLAGS) $(LIB_FLAGS) -o $(TARGET)
 
 endif
 #$(error OS not compatible. Only Win32 and Linux for now.)
@@ -118,6 +131,11 @@ post_build:
 clean:
 	rm $(TARGET)
 	rm $(LIB_TARGET)
+
+clean_ext:
+	rm $(CJSON_TARGET)
+	rm $(GLEW_TARGET)
+	rm $(SFMT_TARGET)
 
 tags:
 	@ctags --c++-kinds=+p --fields=+iaS --extra=+q $(SRCS) $(LIB_SRCS) $(INCLUDES) $(LIB_INCLUDES)

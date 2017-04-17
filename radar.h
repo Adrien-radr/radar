@@ -35,6 +35,25 @@ struct memory_arena
     uint64  Capacity;   // Total size of arena
 };
 
+// Memory Implementations : should be accessible from the whole DLL
+inline void InitArena(memory_arena *Arena, uint64 Capacity, void *BasePtr)
+{
+    Arena->BasePtr = (uint8*)BasePtr;
+    Arena->Capacity = Capacity;
+    Arena->Size = 0;
+}
+
+#define PushArenaStruct(Arena, Struct) _PushArenaData((Arena), sizeof(Struct))
+#define PushArenaData(Arena, Size) _PushArenaData((Arena), (Size))
+inline void *_PushArenaData(memory_arena *Arena, uint64 Size)
+{
+    Assert(Arena->Size + Size <= Arena->Capacity);
+    void *MemoryPtr = Arena->BasePtr + Arena->Size;
+    Arena->Size += Size;
+
+    return (void*)MemoryPtr;
+}
+
 #define POOL_OFFSET(Pool, Structure) ((uint8*)(Pool) + sizeof(Structure))
 // NOTE - This memory is allocated at startup
 // Each pool is then mapped according to the needed layout
@@ -43,10 +62,27 @@ struct game_memory
     game_config Config;
 
     // NOTE - For Game State.
+    // This is used for a player's game state and should contain everything
+    // that is supposed to be saved/load from disk when exiting/entering a
+    // savegame.
+    // Use cases : hit points, present entities, game timers, etc...
     void *PermanentMemPool;
     uint64 PermanentMemPoolSize;
 
-    // NOTE - For Transient/Reconstructable stuff
+    // NOTE - For Session Memory
+    // Contains everything that is constructed for a whole game session, but,
+    // contrary to the PermanentMemPool, is destructed forever when exiting
+    // the game (leaving the game, loading another savegame, etc).
+    // Use cases : game systems like the ocean, GL resources, Audio buffers, etc)
+    void *SessionMemPool;
+    uint64 SessionMemPoolSize;
+    memory_arena SessionArena;
+
+    // NOTE - For Ephemeral data
+    // This can be scratched at any frame, using it for something that will
+    // last more than 1 frame is not a good idea.
+    // Use cases : temp buffers for quick operations, vertex data before storing
+    // in managed GL VBOs or AL audio buffers.
     void *ScratchMemPool;
     uint64 ScratchMemPoolSize;
     memory_arena ScratchArena;
