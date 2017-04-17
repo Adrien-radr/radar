@@ -5,8 +5,10 @@
 #include "sun.h"
 #include "radar.h"
 
-// PLATFORM
 int RadarMain(int argc, char **argv);
+void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
+
+// PLATFORM
 #if RADAR_WIN32
 #include "radar_win32.cpp"
 #elif RADAR_UNIX
@@ -94,7 +96,7 @@ void MakeRelativePath(char *Dst, char *Path, char const *Filename)
     strncat(Dst, Filename, MAX_PATH);
 }
 
-void *ReadFileContents(char *Filename, int32 *FileSize)
+void *ReadFileContents(memory_arena *Arena, char *Filename, int32 *FileSize)
 {
     char *Contents = NULL;
     FILE *fp = fopen(Filename, "rb");
@@ -105,7 +107,7 @@ void *ReadFileContents(char *Filename, int32 *FileSize)
         {
             int32 Size = ftell(fp);
             rewind(fp);
-            Contents = (char*)malloc(Size+1);
+            Contents = (char*)PushArenaData(Arena, Size+1);
             fread(Contents, Size, 1, fp);
             Contents[Size] = 0;
             if(FileSize)
@@ -127,16 +129,11 @@ void *ReadFileContents(char *Filename, int32 *FileSize)
     return (void*)Contents;
 }
 
-void FreeFileContents(void *Contents)
-{
-    free(Contents);
-}
-
 void ParseConfig(game_memory *Memory, char *ConfigPath)
 {
     game_config &Config = Memory->Config;
 
-    void *Content = ReadFileContents(ConfigPath, 0);
+    void *Content = ReadFileContents(&Memory->ScratchArena, ConfigPath, 0);
     if(Content)
     {
         cJSON *root = cJSON_Parse((char*)Content);
@@ -168,7 +165,6 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
         {
             printf("Error parsing Config File as JSON.\n");
         }
-        FreeFileContents(Content);
     }
     else
     {
@@ -297,6 +293,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
     Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
     Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
+    Input->KeySpace = BuildKeyState(GLFW_KEY_SPACE);
     Input->KeyF1 = BuildKeyState(GLFW_KEY_F1);
     Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
 
@@ -407,32 +404,32 @@ void DestroyContext(game_context *Context)
 uint32 Program1, Program3D, ProgramSkybox;
 uint32 ProgramWater;
 
-void ReloadShaders(path ExecFullPath)
+void ReloadShaders(game_memory *Memory, path ExecFullPath)
 {
     path VSPath;
     path FSPath;
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
-    Program1 = BuildShader(VSPath, FSPath);
+    Program1 = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program1);
     SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
-    Program3D = BuildShader(VSPath, FSPath);
+    Program3D = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program3D);
     SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
     SendInt(glGetUniformLocation(Program3D, "Skybox"), 1);
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
-    ProgramSkybox = BuildShader(VSPath, FSPath);
+    ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/water_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water_frag.glsl");
-    ProgramWater = BuildShader(VSPath, FSPath);
+    ProgramWater = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
 
@@ -458,20 +455,6 @@ void InitializeFromGame(game_memory *Memory)
     Memory->IsInitialized = true;
 }
 
-void UpdateWaterMesh(game_memory *Memory)
-{
-    // Initialize Water from game Info
-    game_system *System = (game_system*)Memory->PermanentMemPool;
-    water_system *WaterSystem = System->WaterSystem;
-
-    glBindVertexArray(WaterSystem->VAO);
-    size_t VertSize = WaterSystem->VertexCount * sizeof(real32);
-    UpdateVBO(WaterSystem->VBO[1], 0, VertSize, WaterSystem->VertexData);
-    UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData + WaterSystem->VertexCount);
-    //UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData);
-
-    glBindVertexArray(0);
-}
 
 int RadarMain(int argc, char **argv)
 {
@@ -511,7 +494,7 @@ int RadarMain(int argc, char **argv)
             alSourcePlay(AudioSource);
         }
 
-        ReloadShaders(ExecFullPath);
+        ReloadShaders(&Memory, ExecFullPath);
 
         glActiveTexture(GL_TEXTURE0);
 
@@ -524,12 +507,12 @@ int RadarMain(int argc, char **argv)
 
         // Font Test
 #if RADAR_WIN32
-        font Font = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 24);
-        font ConsoleFont = LoadFont("C:/Windows/Fonts/dejavusansmono.ttf", 14);
+        font Font = LoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
+        font ConsoleFont = LoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
         //font Font = LoadFont((char*)"C:/Windows/Fonts/arial.ttf", 24);
 #else
-        font Font = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
-        font ConsoleFont = LoadFont("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
+        font Font = LoadFont(&Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+        font ConsoleFont = LoadFont(&Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
 
         // Cube Meshes Test
@@ -551,7 +534,7 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
         mesh Sphere = MakeUnitSphere();
-        mesh UnderPlane = Make3DPlane(vec2i(1.3*g_WaterWidth, 1.3*g_WaterWidth), 1, 10);
+        mesh UnderPlane = Make3DPlane(&Memory, vec2i(1.3*g_WaterWidth, 1.3*g_WaterWidth), 1, 10);
 
 #if 1 // Skybox 1
         vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
@@ -614,6 +597,10 @@ int RadarMain(int argc, char **argv)
             LastTime = CurrentTime;
             Context.EngineTime += Input.dTime;
 
+            // NOTE - Each frame, clear the Scratch Arena Data
+            // TODO - Is this too often ? Maybe let it stay several frames
+            ClearArena(&Memory.ScratchArena);
+
             GetFrameInput(&Context, &Input);        
 
 
@@ -661,7 +648,7 @@ int RadarMain(int argc, char **argv)
 
             if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
             {
-                ReloadShaders(ExecFullPath);
+                ReloadShaders(&Memory, ExecFullPath);
             }
 
             if(KEY_UP(Input.KeyF1))
@@ -745,7 +732,6 @@ int RadarMain(int argc, char **argv)
 
 #if 1
             UpdateWater(State, System, &Input);
-            UpdateWaterMesh(&Memory);
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
                 glDisable(GL_CULL_FACE);
@@ -837,7 +823,7 @@ int RadarMain(int argc, char **argv)
                         {
                             DestroyDisplayText(&Texts[Log->RenderIdx]);
                         }
-                        Texts[Log->RenderIdx] = MakeDisplayText(&ConsoleFont, Log->MsgStack[Log->RenderIdx], 
+                        Texts[Log->RenderIdx] = MakeDisplayText(&Memory, &ConsoleFont, Log->MsgStack[Log->RenderIdx], 
                                 Config.WindowWidth - 20, vec4f(0.2f, 0.2f, 0.2f, 1.f), 1.f);
                         Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
                     }
@@ -861,8 +847,6 @@ int RadarMain(int argc, char **argv)
         DestroyMesh(&Cube);
         DestroyMesh(&SkyboxCube);
         DestroyMesh(&UnderPlane);
-        DestroyFont(&Font);
-        DestroyFont(&ConsoleFont);
         glDeleteTextures(1, &Texture1);
         glDeleteProgram(Program1);
         glDeleteProgram(Program3D);

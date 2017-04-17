@@ -35,11 +35,15 @@ struct memory_arena
     uint64  Capacity;   // Total size of arena
 };
 
-// Memory Implementations : should be accessible from the whole DLL
 inline void InitArena(memory_arena *Arena, uint64 Capacity, void *BasePtr)
 {
     Arena->BasePtr = (uint8*)BasePtr;
     Arena->Capacity = Capacity;
+    Arena->Size = 0;
+}
+
+inline void ClearArena(memory_arena *Arena)
+{
     Arena->Size = 0;
 }
 
@@ -219,6 +223,7 @@ struct game_input
     key_state KeyLShift;
     key_state KeyLCtrl;
     key_state KeyLAlt;
+    key_state KeySpace;
     key_state KeyF1;
     key_state KeyF11;
 
@@ -226,9 +231,5 @@ struct game_input
     mouse_state MouseRight;
 };
 
-// NOTE - Temporary, this should be elswhere.
-// The Game shouldn't have Disk IO access at all
-void *ReadFileContents(char *Filename, int *FileSize);
-void FreeFileContents(void *Contents);
-
 #endif
+

@@ -225,16 +225,16 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, uint32 
 // TODO - Load Unicode characters
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
-font LoadFont(char *Filename, real32 PixelHeight)
+font LoadFont(game_memory *Memory, char *Filename, real32 PixelHeight)
 {
     font Font = {};
 
-    void *Contents = ReadFileContents(Filename, 0);
+    void *Contents = ReadFileContents(&Memory->ScratchArena, Filename, 0);
     if(Contents)
     {
         Font.Width = 1024;
         Font.Height = 1024;
-        Font.Buffer = (uint8*)calloc(1, Font.Width*Font.Height);
+        Font.Buffer = (uint8*)PushArenaData(&Memory->SessionArena, Font.Width*Font.Height);
 
         stbtt_fontinfo STBFont;
         stbtt_InitFont(&STBFont, (uint8*)Contents, 0);
@@ -291,23 +291,13 @@ font LoadFont(char *Filename, real32 PixelHeight)
 
         // Make Texture out of the Bitmap
         Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, 1.0f);
-
-        FreeFileContents(Contents);
     }
 
 
     return Font;
 }
 
-void DestroyFont(font *Font)
-{
-    if(Font && Font->Buffer)
-    {
-        free(Font->Buffer);
-    }
-}
-
-uint32 _CompileShader(char *Src, int Type)
+uint32 _CompileShader(game_memory *Memory, char *Src, int Type)
 {
     GLuint Shader = glCreateShader(Type);
 
@@ -322,7 +312,7 @@ uint32 _CompileShader(char *Src, int Type)
         GLint Len;
         glGetShaderiv(Shader, GL_INFO_LOG_LENGTH, &Len);
 
-        GLchar *Log = (GLchar*) malloc(Len);
+        GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
         glGetShaderInfoLog(Shader, Len, NULL, Log);
 
         printf("Shader Compilation Error\n"
@@ -330,18 +320,17 @@ uint32 _CompileShader(char *Src, int Type)
                 "%s"
                 "------------------------------------------\n", Log);
 
-        free(Log);
         Shader = 0;
     }
     return Shader;
 }
 
-uint32 BuildShader(char *VSPath, char *FSPath)
+uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
 {
     char *VSrc = NULL, *FSrc = NULL;
 
-    VSrc = (char*)ReadFileContents(VSPath, 0);
-    FSrc = (char*)ReadFileContents(FSPath, 0);
+    VSrc = (char*)ReadFileContents(&Memory->ScratchArena, VSPath, 0);
+    FSrc = (char*)ReadFileContents(&Memory->ScratchArena, FSPath, 0);
 
     uint32 ProgramID = 0;
     bool IsValid = VSrc && FSrc;
@@ -350,14 +339,14 @@ uint32 BuildShader(char *VSPath, char *FSPath)
     {
         ProgramID = glCreateProgram(); 
 
-        uint32 VShader = _CompileShader(VSrc, GL_VERTEX_SHADER);
+        uint32 VShader = _CompileShader(Memory, VSrc, GL_VERTEX_SHADER);
         if(!VShader)
         {
             printf("Failed to build %s Vertex Shader.\n", VSPath);
             glDeleteProgram(ProgramID);
             return 0;
         }
-        uint32 FShader = _CompileShader(FSrc, GL_FRAGMENT_SHADER);
+        uint32 FShader = _CompileShader(Memory, FSrc, GL_FRAGMENT_SHADER);
         if(!VShader)
         {
             printf("Failed to build %s Vertex Shader.\n", VSPath);
@@ -382,7 +371,7 @@ uint32 BuildShader(char *VSPath, char *FSPath)
             GLint Len;
             glGetProgramiv(ProgramID, GL_INFO_LOG_LENGTH, &Len);
 
-            GLchar *Log = (GLchar*) malloc(Len);
+            GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
             glGetProgramInfoLog(ProgramID, Len, NULL, Log);
 
             printf("Shader Program link error : \n"
@@ -390,14 +379,10 @@ uint32 BuildShader(char *VSPath, char *FSPath)
                     "%s"
                     "-----------------------------------------------------", Log);
 
-            free(Log);
             glDeleteProgram(ProgramID);
             return 0;
         }
     }
-
-    FreeFileContents(VSrc);
-    FreeFileContents(FSrc);
 
     return ProgramID;
 }
@@ -498,7 +483,7 @@ void DestroyMesh(mesh *Mesh)
     Mesh->IndexCount = 0;
 }
 
-display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
+display_text MakeDisplayText(game_memory *Memory, font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
 {
     display_text Text = {};
 
@@ -509,9 +494,9 @@ display_text MakeDisplayText(font *Font, char const *Msg, int MaxPixelWidth, vec
     uint32 PS = 4 * 3;
     uint32 TS = 4 * 2;
 
-    real32 *Positions = (real32*)alloca(3 * VertexCount * sizeof(real32));
-    real32 *Texcoords = (real32*)alloca(2 * VertexCount * sizeof(real32));
-    uint32 *Indices = (uint32*)alloca(IndexCount * sizeof(uint32));
+    real32 *Positions = (real32*)PushArenaData(&Memory->ScratchArena, 3 * VertexCount * sizeof(real32));
+    real32 *Texcoords = (real32*)PushArenaData(&Memory->ScratchArena, 2 * VertexCount * sizeof(real32));
+    uint32 *Indices = (uint32*)PushArenaData(&Memory->ScratchArena, IndexCount * sizeof(uint32));
 
     int X = 0, Y = 0;
     for(uint32 i = 0; i < MsgLength; ++i)
@@ -749,7 +734,7 @@ mesh Make2DQuad(vec2i Start, vec2i End)
     return Quad;
 }
 
-mesh Make3DPlane(vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic = false)
+mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic = false)
 {
     mesh Plane = {};
 
@@ -759,12 +744,10 @@ mesh Make3DPlane(vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount
     size_t TexcoordsSize = 4 * BaseSize * sizeof(vec2f);
     size_t IndicesSize = 6 * BaseSize * sizeof(uint32);
 
-    // TODO - Do we want Malloc here ? Probably not
-    // Not enough stack size for alloca for larger planes though
-    vec3f *Positions = (vec3f*)malloc(PositionsSize);
-    vec3f *Normals = (vec3f*)malloc(NormalsSize);
-    vec2f *Texcoords = (vec2f*)malloc(TexcoordsSize);
-    uint32 *Indices = (uint32*)malloc(IndicesSize);
+    vec3f *Positions = (vec3f*)PushArenaData(&Memory->ScratchArena, PositionsSize);
+    vec3f *Normals = (vec3f*)PushArenaData(&Memory->ScratchArena, NormalsSize);
+    vec2f *Texcoords = (vec2f*)PushArenaData(&Memory->ScratchArena, TexcoordsSize);
+    uint32 *Indices = (uint32*)PushArenaData(&Memory->ScratchArena, IndicesSize);
 
     vec2i SubdivDim = Dimension / Subdivisions;
     vec2f TexMax = Dimension / (real32)TextureRepeatCount;
@@ -810,10 +793,6 @@ mesh Make3DPlane(vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount
     Plane.VBO[2] = AddVBO(1, 2, GL_FLOAT, GL_STATIC_DRAW, TexcoordsSize, Texcoords);
     glBindVertexArray(0);
 
-    free(Positions);
-    free(Normals);
-    free(Texcoords);
-    free(Indices);
     return Plane;
 }
 

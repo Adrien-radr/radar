@@ -80,6 +80,8 @@ void MovePlayer(game_state *State, game_input *Input)
     if(KEY_DOWN(Input->KeyS)) CameraMove -= Camera.Forward;
     if(KEY_DOWN(Input->KeyA)) CameraMove -= Camera.Right;
     if(KEY_DOWN(Input->KeyD)) CameraMove += Camera.Right;
+    if(KEY_DOWN(Input->KeySpace)) CameraMove += Camera.Up;
+    if(KEY_DOWN(Input->KeyLAlt)) CameraMove -= Camera.Up;
 
     if(KEY_HIT(Input->KeyLShift))      Camera.SpeedMode += 1;
     else if(KEY_UP(Input->KeyLShift))  Camera.SpeedMode -= 1;

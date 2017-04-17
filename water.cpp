@@ -134,6 +134,17 @@ void FFTEvaluate(water_system *WS, complex *Input, complex *Output, int Stride, 
         Output[i * Stride + Offset] = WS->FFTC[WS->Switch][i];
 }
 
+void UpdateWaterMesh(water_system *WaterSystem)
+{
+    glBindVertexArray(WaterSystem->VAO);
+    size_t VertSize = WaterSystem->VertexCount * sizeof(real32);
+    UpdateVBO(WaterSystem->VBO[1], 0, VertSize, WaterSystem->VertexData);
+    UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData + WaterSystem->VertexCount);
+    //UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData);
+
+    glBindVertexArray(0);
+}
+
 void UpdateWater(game_state *State, game_system *System, game_input *Input)
 {
     State->WaterCounter += Input->dTime;
@@ -251,6 +262,7 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input)
             }
         }
     }
+    UpdateWaterMesh(WaterSystem);
 }
 
 void WaterInitialization(game_memory *Memory, game_state *State, game_system *System)

@@ -1,9 +1,9 @@
 ### General
-- Refactor Water code somewhere
-- Think about compiling .cpp's separately
++ Refactor Water code somewhere
++ Think about compiling .cpp's separately --> No
 - Fix OpenAL using Jack by default when building it on Debian, wtf is this shit.
 - Fast, Deterministic Random Variable system
-- Remove all {m,c}alloc from the code except the Pools creation
++ Remove all {m,c}alloc from the code except the Pools creation
 
 ### UI
 - 2D Panel creation with custom shader
