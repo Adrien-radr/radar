@@ -80,8 +80,8 @@ SFMT_OBJECT=ext/sfmt/SFMT.o
 SFMT_TARGET=ext/sfmt/libSFMT.a
 
 CC=g++
-CFLAGS=-g -Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937
-DEBUG_FLAGS=-DDEBUG -Wall -Wextra
+CFLAGS=-Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937
+DEBUG_FLAGS=-g -DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
 

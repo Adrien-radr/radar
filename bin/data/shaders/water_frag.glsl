@@ -19,8 +19,13 @@ float FresnelF0(in float n1, in float n2) {
     return f0 * f0;
 }
 
+float FresnelRatio(in float u)
+{
+    return pow(1.0 - u, 5.0);
+}
+
 vec3 FresnelSchlick(in vec3 f0, in vec3 f90, in float u) {
-    return f0 + (f90 - f0) * pow(1.0 - u, 5.0);
+    return f0 + (f90 - f0) * FresnelRatio(u);
 }
 
 vec4 GGX(in float NdotL, in float NdotV, in float NdotH, in float LdotH, in float roughness, in vec3 F0) {
@@ -95,38 +100,39 @@ void main()
     vec4 reflect_color = texture(Skybox, R);
 
     // Underwater params
-    float sigma_a_uw = 0.05;
+    float sigma_a_uw = 0.01;
     float sigma_s_uw = 0.00;
     float sigma_t_uw = sigma_a_uw + sigma_s_uw;
     vec4 uw_far_color = vec4(0.0075, 0.15, 0.23, 1.0);
-    vec4 uw_close_color = vec4(0.4, 0.8, 0.9, 1.0);
+    vec4 uw_close_color = vec4(0.2, 0.7, 0.8, 1.0);
 
     vec4 reflection = (1 - reflect_ratio) * vec4(1) + reflect_ratio * reflect_color;
-    vec3 Fresnel = FresnelSchlick(water_color.xyz, reflection.xyz * sky_color.xyz/nSnell, NdotV);
 
     if(gl_FrontFacing)
     {
         float dist = exp(-sigma_t * water_dist);
         float Specular = NdotL * pow(VdotR, 240.0); 
         float SSS = max(0, 0.5-max(0,dot(V,vec3(0,1,0)))) * NdotV;
+        vec3 Fresnel = FresnelSchlick(water_color.xyz, reflection.xyz * sky_color.xyz/nSnell, NdotV);
 
         frag_color = (1 - dist) * reflection * fog_color;                           // Fog
         frag_color += dist * (vec4(Fresnel, 1.0) +                                  // Fresnel term
                 VdotInvL2 * (SSS * sss_color +                        // Subsurface Scattering Hack
                     Specular * reflection * specular_color));// Specular reflection
-        frag_color.a = 1.0;
+        //frag_color.a = 0.9;
+        frag_color.a = 1;//-gl_FragDepth;//FresnelRatio(NdotV  * 1.0/nSnell);//0.9 + 0.1 * (1-dist);
     }
     else
     {
+        float uwNdotL = max(0, dot(L, N));
         float uwNdotV = max(0, dot(V, -N));
         float uwVdotInvL2 = pow(max(0, dot(L, -V)), 2);
 
         float dist = exp(-sigma_t_uw * water_dist);
-        float SSS = uwVdotInvL2 * uwNdotV;//max(0, 0.5-max(0,dot(V,vec3(0,-1,0)))) * uwNdotV;
 
         frag_color = (1-dist) * uw_far_color;
-        frag_color += dist * ((1-uwNdotV) * uw_far_color + uwNdotV * uw_close_color);
-        frag_color.a = 0.9 + 0.1 * (1-dist);
+        frag_color += dist * vec4(FresnelSchlick(sky_color.xyz, water_color.xyz * nSnell, uwNdotV),1);
+        frag_color.a = 0.5 + 0.5*(1-FresnelRatio(NdotV * nSnell));//0.5 + 0.5 * (1-dist);
     }
 }
 

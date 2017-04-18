@@ -24,3 +24,4 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
     - 4/5 States, with precomputed HTidle0 (and other init data)
     - Interpolation between states at runtime
 - Water / Boat / Objects collision and interactions (Gamasutra & Black Flag articles)
+- Dual Depth Peeling for water transparency

@@ -1,11 +1,11 @@
 // NOTE - Tmp storage here
 // Beaufort Level : WidthScale, WaveScale, Choppiness
-// Beaufort    12 :          4,         1,        0.8
-// Beaufort     7 :          3,       0.5,        0.3
+// Beaufort    12 :          8,       4.0,        0.2
+// Beaufort     7 :          4,       0.5,        0.3
 // Beaufort     3 :          3,       0.1,        0.1
 // Beaufort     1 :          3,      0.05,      0.005
 int32 static const g_WaterN = 64;
-int32 static const g_WaterWidth = 3*g_WaterN;
+int32 static const g_WaterWidth = 4*g_WaterN;
 
 real32 static const g_Power = 20.0;
 vec2f  static const g_WaterW = vec2f(0.5f*g_WaterN, 0.0);
