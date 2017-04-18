@@ -7,6 +7,7 @@
 
 int RadarMain(int argc, char **argv);
 void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
+void MakeRelativePath(char *Dst, char *Path, char const *Filename);
 
 // PLATFORM
 #if RADAR_WIN32
@@ -22,6 +23,7 @@ void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
 #include "render.cpp"
 #include "sound.cpp"
 #include "water.cpp"
+#include "ui.cpp"
 
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
@@ -432,6 +434,8 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     ProgramWater = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
+
+    ReloadUIShaders(Memory, ExecFullPath);
 
     glUseProgram(0);
 }

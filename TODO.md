@@ -8,7 +8,10 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 
 ### UI
 - 2D Panel creation with custom shader
-- Per-panel Text VAO/VBO.
+    - ~~1 VS / 1 FS : pos, tex, color~~
+    - 1 VAO/VBO per panel
+    - Z depth layering
+    - Transparence
 - Display textures in panel (e.g. gbuffers display)
 
 ### Water
