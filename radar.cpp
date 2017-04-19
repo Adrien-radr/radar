@@ -375,7 +375,7 @@ game_context InitContext(game_memory *Memory)
                 Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
                 Context.WireframeMode = false;
-                Context.ClearColor = vec4f(0.2f, 0.3f, 0.7f, 0.f);
+                Context.ClearColor = vec4f(0.01f, 0.19f, 0.31f, 0.f);
 
                 glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
 
@@ -757,33 +757,6 @@ int RadarMain(int argc, char **argv)
                 glBindVertexArray(UnderPlane.VAO);
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
-
-            { // NOTE - Skybox Rendering Test, put somewhere else
-                glDisable(GL_CULL_FACE);
-                glDepthFunc(GL_LEQUAL);
-                CheckGLError("Skybox");
-
-                glUseProgram(ProgramSkybox);
-                // TODO - ProjMatrix updated only when resize happen
-                {
-                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Skybox");
-
-                    // NOTE - remove translation component from the ViewMatrix for the skybox
-                    mat4f SkyViewMatrix = ViewMatrix;
-                    SkyViewMatrix.SetTranslation(vec3f(0.f));
-                    Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
-                    SendMat4(Loc, SkyViewMatrix);
-                    CheckGLError("ViewMatrix Skybox");
-                }
-                glBindVertexArray(SkyboxCube.VAO);
-                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
-
-                glDepthFunc(GL_LESS);
-                glEnable(GL_CULL_FACE);
-            }
-
 #if 1
             UpdateWater(State, System, &Input);
             { // NOTE - Water Rendering Test
@@ -853,6 +826,33 @@ int RadarMain(int argc, char **argv)
                 glEnable(GL_CULL_FACE);
             }
 #endif
+
+            { // NOTE - Skybox Rendering Test, put somewhere else
+                glDisable(GL_CULL_FACE);
+                glDepthFunc(GL_LEQUAL);
+                CheckGLError("Skybox");
+
+                glUseProgram(ProgramSkybox);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ProjMatrix");
+                    SendMat4(Loc, Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix Skybox");
+
+                    // NOTE - remove translation component from the ViewMatrix for the skybox
+                    mat4f SkyViewMatrix = ViewMatrix;
+                    SkyViewMatrix.SetTranslation(vec3f(0.f));
+                    Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
+                    SendMat4(Loc, SkyViewMatrix);
+                    CheckGLError("ViewMatrix Skybox");
+                }
+                glBindVertexArray(SkyboxCube.VAO);
+                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+
+                glDepthFunc(GL_LESS);
+                glEnable(GL_CULL_FACE);
+            }
+
 
 
             { // NOTE - Console Msg Rendering. Put this somewhere else, contained

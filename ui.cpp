@@ -3,8 +3,7 @@
 
 #define UI_STACK_SIZE Megabytes(8)
 
-// NOTE -
-// Default Font ? Font per panel ? 
+// TODO - Default Font ? Font per panel ? 
 
 struct ui_render_info
 {
@@ -102,9 +101,9 @@ void uiEndPanel()
     // TODO - Keep track of per-panel info, stacking, layout etc
 }
 
-void *RenderCmdOffset(void *CmdList, size_t *OffsetAccum, size_t Size)
+void *RenderCmdOffset(uint8 *CmdList, size_t *OffsetAccum, size_t Size)
 {
-    void* Ptr = (void*)(((uint8*)CmdList) + *OffsetAccum);
+    void* Ptr = (void*)(CmdList + *OffsetAccum);
     *OffsetAccum += Size;
     return Ptr;
 }

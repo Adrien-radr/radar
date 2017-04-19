@@ -92,6 +92,7 @@ void main()
     float sigma_s = 0.0000;
     float sigma_t = sigma_a + sigma_s;
     float reflect_ratio = 0.25;
+    float refract_ratio = 0.5;
     vec4 fog_color = vec4(0.30, 0.40, 0.50, 1.0);
     vec4 sky_color = vec4(0.35, 0.50, 0.65, 1.0);
     vec4 water_color = vec4(0.01, 0.19, 0.31, 1.0);
@@ -119,20 +120,22 @@ void main()
         frag_color += dist * (vec4(Fresnel, 1.0) +                                  // Fresnel term
                 VdotInvL2 * (SSS * sss_color +                        // Subsurface Scattering Hack
                     Specular * reflection * specular_color));// Specular reflection
-        //frag_color.a = 0.9;
-        frag_color.a = 1;//-gl_FragDepth;//FresnelRatio(NdotV  * 1.0/nSnell);//0.9 + 0.1 * (1-dist);
+        frag_color.a = 0.9 + 0.1 * FresnelRatio(NdotV  * 1.0/nSnell);//0.9 + 0.1 * (1-dist);
     }
     else
     {
         float uwNdotL = max(0, dot(L, N));
         float uwNdotV = max(0, dot(V, -N));
         float uwVdotInvL2 = pow(max(0, dot(L, -V)), 2);
+        vec3 Ri = refract(V, N, 0.99);
+        vec4 refract_color = texture(Skybox, Ri);
+        vec4 refraction = (1 - refract_ratio) * vec4(1) + refract_ratio * refract_color;
 
         float dist = exp(-sigma_t_uw * water_dist);
 
         frag_color = (1-dist) * uw_far_color;
-        frag_color += dist * vec4(FresnelSchlick(sky_color.xyz, water_color.xyz * nSnell, uwNdotV),1);
-        frag_color.a = 0.5 + 0.5*(1-FresnelRatio(NdotV * nSnell));//0.5 + 0.5 * (1-dist);
+        frag_color += dist * vec4(FresnelSchlick(refraction.xyz * sky_color.xyz, water_color.xyz * nSnell, uwNdotV),1);
+        frag_color.a = 1;//0.8 + 0.2 * (1-FresnelRatio(NdotV * nSnell));
     }
 }
 
