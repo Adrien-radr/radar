@@ -23,7 +23,8 @@ void MakeRelativePath(char *Dst, char *Path, char const *Filename);
 #include "render.cpp"
 #include "sound.cpp"
 #include "water.cpp"
-#include "ui.cpp"
+
+path ExecFullPath;
 
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
@@ -37,8 +38,10 @@ bool FrameReleasedMouseButton[8] = {};
 
 int  FrameMouseWheel = 0;
 
-int WindowWidth = 960;
-int WindowHeight = 540;
+// TODO - For resizing from GLFW callbacks. Is there a better way to do this ?
+int ResizeWidth;
+int ResizeHeight;
+bool Resized = false;
 
 struct game_context
 {
@@ -51,9 +54,18 @@ struct game_context
     bool WireframeMode;
     vec4f ClearColor;
 
+    uint32 DefaultDiffuseTexture;
+    uint32 DefaultNormalTexture;
+
+    real32 FOV;
+    int WindowWidth;
+    int WindowHeight;
+
     bool IsRunning;
     bool IsValid;
 };
+
+#include "ui.cpp"
 
 game_memory InitMemory()
 {
@@ -229,9 +241,20 @@ void ProcessMouseWheelEvent(GLFWwindow *Window, double XOffset, double YOffset)
 
 void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
 {
-    WindowWidth = Width;
-    WindowHeight = Height;
+    Resized = true;
+    ResizeWidth = Width;
+    ResizeHeight = Height;
     glViewport(0, 0, Width, Height);
+}
+
+void WindowResized(game_context *Context)
+{
+    Resized = false;
+    Context->WindowWidth = ResizeWidth;
+    Context->WindowHeight = ResizeHeight;
+    Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
+            Context->WindowWidth / (real32)Context->WindowHeight, 0.1f, 10000.f);
+    Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1000.f);
 }
 
 void ProcessErrorEvent(int Error, const char* Description)
@@ -344,12 +367,16 @@ game_context InitContext(game_memory *Memory)
                 glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
                 printf("GL Max Array Layers : %d\n", MaxLayers);
 
+                Context.WindowWidth = Config.WindowWidth;
+                Context.WindowHeight = Config.WindowHeight;
+                Context.FOV = Config.FOV;
                 Context.ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
                         Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 10000.f);
                 Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
                 Context.WireframeMode = false;
                 Context.ClearColor = vec4f(0.2f, 0.3f, 0.7f, 0.f);
+
                 glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
 
                 glDisable(GL_CULL_FACE);
@@ -364,6 +391,21 @@ game_context InitContext(game_memory *Memory)
 
                 glEnable(GL_POINT_SPRITE);
                 glEnable(GL_PROGRAM_POINT_SIZE);
+
+                {
+                    path TexPath;
+                    image Image;
+
+                    MakeRelativePath(TexPath, ExecFullPath, "data/default_diffuse.png");
+                    Image = LoadImage(TexPath);
+                    Context.DefaultDiffuseTexture = Make2DTexture(&Image, 1);
+                    DestroyImage(&Image);
+
+                    MakeRelativePath(TexPath, ExecFullPath, "data/default_normal.png");
+                    Image = LoadImage(TexPath);
+                    Context.DefaultNormalTexture = Make2DTexture(&Image, 1);
+                    DestroyImage(&Image);
+                }
             }
             else
             {
@@ -435,7 +477,7 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
 
-    ReloadUIShaders(Memory, ExecFullPath);
+    uiReloadShaders(Memory, ExecFullPath);
 
     glUseProgram(0);
 }
@@ -459,10 +501,14 @@ void InitializeFromGame(game_memory *Memory)
     Memory->IsInitialized = true;
 }
 
+void TestUI(game_memory *Memory)
+{
+    uiBeginPanel("Title", vec2i(500, 100), vec2i(200, 100));
+    uiEndPanel();
+}
 
 int RadarMain(int argc, char **argv)
 {
-    path ExecFullPath;
     path DllSrcPath;
     path DllDstPath;
 
@@ -484,6 +530,8 @@ int RadarMain(int argc, char **argv)
         real64 CurrentTime, LastTime = glfwGetTime();
         int GameRefreshHz = 60;
         real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
+
+        uiInit(&Context);
 
         game_system *System = (game_system*)Memory.PermanentMemPool;
         game_state *State = (game_state*)POOL_OFFSET(Memory.PermanentMemPool, game_system);
@@ -606,6 +654,8 @@ int RadarMain(int argc, char **argv)
             ClearArena(&Memory.ScratchArena);
 
             GetFrameInput(&Context, &Input);        
+
+            uiBeginFrame(&Memory, &Input);
 
 
             if(CheckNewDllVersion(&Game, DllSrcPath))
@@ -828,7 +878,7 @@ int RadarMain(int argc, char **argv)
                             DestroyDisplayText(&Texts[Log->RenderIdx]);
                         }
                         Texts[Log->RenderIdx] = MakeDisplayText(&Memory, &ConsoleFont, Log->MsgStack[Log->RenderIdx], 
-                                Config.WindowWidth - 20, vec4f(0.2f, 0.2f, 0.2f, 1.f), 1.f);
+                                Context.WindowWidth - 20, vec4f(0.2f, 0.2f, 0.2f, 1.f), 1.f);
                         Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
                     }
 
@@ -843,6 +893,9 @@ int RadarMain(int argc, char **argv)
                     glDrawElements(GL_TRIANGLES, Texts[RIdx].IndexCount, GL_UNSIGNED_INT, 0);
                 }
             }
+
+            TestUI(&Memory);
+            uiDraw();
 
             glfwSwapBuffers(Context.Window);
         }
