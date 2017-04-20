@@ -8,12 +8,14 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 + Add an UI watch for all pools, describing how full they are each frame
 
 ### UI
-- 2D Panel creation with custom shader
+- ~~2D Panel creation with custom shader~~
     - ~~1 VS / 1 FS : pos, tex, color~~
     - ~~1 VBO per panel~~
-    - Z depth layering
-    - Transparence
+    - ~~Z depth layering~~
+    - ~~Transparence~~
+- When word wrapping with a maxWidth for display texts : wrap at spaces, not inside words
 - Display textures in panel (e.g. gbuffers display)
+- Color theme for panels, borders, text color, ...
 
 ### Water
 - Underwater render

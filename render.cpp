@@ -483,6 +483,63 @@ void DestroyMesh(mesh *Mesh)
     Mesh->IndexCount = 0;
 }
 
+
+void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth, 
+                                real32 *VertData, uint16 *Indices)
+{
+    uint32 VertexCount = TextLength * 4;
+    uint32 IndexCount = TextLength * 6;
+
+    uint32 Stride = 5 * 4;
+
+    int X = 0, Y = 0;
+    for(uint32 i = 0; i < TextLength; ++i)
+    {
+        uint8 AsciiIdx = Text[i] - 32; // 32 is the 1st Ascii idx
+        glyph &Glyph = Font->Glyphs[AsciiIdx];
+
+        // Modify DisplayWidth to always be at least the length of each character
+        if(MaxPixelWidth < Glyph.CW)
+        {
+            MaxPixelWidth = Glyph.CW;
+        }
+
+        if(Text[i] == '\n')
+        {
+            X = 0;
+            Y -= Font->LineGap;
+            AsciiIdx = Text[++i] - 32;
+            Glyph = Font->Glyphs[AsciiIdx];
+            IndexCount -= 6;
+        }
+
+        if((X + Glyph.CW) >= MaxPixelWidth)
+        {
+            X = 0;
+            Y -= Font->LineGap;
+        }
+
+        // Position (TL, BL, BR, TR)
+        real32 BaseX = (real32)(X + Glyph.X);
+        real32 BaseY = (real32)(Y - Font->Ascent - Glyph.Y);
+        vec3f TL = Pos + vec3f(BaseX, BaseY, 0);
+        vec3f BR = TL  + vec3f(Glyph.CW, -Glyph.CH, 0);
+        VertData[i*Stride+0+0] = TL.x;         VertData[i*Stride+0+1] = TL.y;        VertData[i*Stride+0+2] = TL.z;
+        VertData[i*Stride+3+0] = Glyph.TexX0;  VertData[i*Stride+3+1] = Glyph.TexY0;
+        VertData[i*Stride+5+0] = TL.x;         VertData[i*Stride+5+1] = BR.y;        VertData[i*Stride+5+2] = TL.z;
+        VertData[i*Stride+8+0] = Glyph.TexX0;  VertData[i*Stride+8+1] = Glyph.TexY1;
+        VertData[i*Stride+10+0] = BR.x;        VertData[i*Stride+10+1] = BR.y;       VertData[i*Stride+10+2] = TL.z;
+        VertData[i*Stride+13+0] = Glyph.TexX1; VertData[i*Stride+13+1] = Glyph.TexY1;
+        VertData[i*Stride+15+0] = BR.x;        VertData[i*Stride+15+1] = TL.y;       VertData[i*Stride+15+2] = TL.z;
+        VertData[i*Stride+18+0] = Glyph.TexX1; VertData[i*Stride+18+1] = Glyph.TexY0;
+
+        Indices[i*6+0] = i*4+0;Indices[i*6+1] = i*4+1;Indices[i*6+2] = i*4+2;
+        Indices[i*6+3] = i*4+0;Indices[i*6+4] = i*4+2;Indices[i*6+5] = i*4+3;
+
+        X += Glyph.AdvX;
+    }
+
+}
 display_text MakeDisplayText(game_memory *Memory, font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
 {
     display_text Text = {};

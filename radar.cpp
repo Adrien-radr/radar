@@ -57,6 +57,9 @@ struct game_context
     uint32 DefaultDiffuseTexture;
     uint32 DefaultNormalTexture;
 
+    font   DefaultFont;
+    uint32 DefaultFontTexture;
+
     real32 FOV;
     int WindowWidth;
     int WindowHeight;
@@ -405,6 +408,12 @@ game_context InitContext(game_memory *Memory)
                     Image = LoadImage(TexPath);
                     Context.DefaultNormalTexture = Make2DTexture(&Image, 1);
                     DestroyImage(&Image);
+#if RADAR_WIN32
+                    Context.DefaultFont = LoadFont(Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
+#else
+                    Context.DefaultFont = LoadFont(Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+#endif
+                    Context.DefaultFontTexture = Context.DefaultFont.AtlasTextureID;
                 }
             }
             else
@@ -503,7 +512,10 @@ void InitializeFromGame(game_memory *Memory)
 
 void TestUI(game_memory *Memory)
 {
-    uiBeginPanel("Title", vec2i(500, 100), vec2i(200, 100));
+    uiBeginPanel("Title is a pretty long sentence", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
+    uiEndPanel();
+
+    uiBeginPanel("Title2", vec3i(600, 150, 1), vec2i(200, 100), col4f(1,0,0,0.5));
     uiEndPanel();
 }
 

@@ -555,8 +555,27 @@ inline vec4<T> Normalize(const vec4<T> &v)
 	return vec4<T>(0);
 }
 
+template<typename T>
+class col4 : public vec4<T>
+{
+public:
+	col4(T r, T g, T b, T a) : vec4<T>(r, g, b, a) {}
+	col4(vec4<T> v) : vec4<T>(v) {}
+	const T &r() const { return this->x; }
+	const T &g() const { return this->y; }
+	const T &b() const { return this->z; }
+	const T &a() const { return this->w; }
+
+	T &r() { return this->x; }
+	T &g() { return this->y; }
+	T &b() { return this->z; }
+	T &a() { return this->w; }
+
+};
+
 typedef vec4<float> vec4f;
 typedef vec4<int> vec4i;
+typedef col4<float> col4f;
 
 
 template<typename T>
