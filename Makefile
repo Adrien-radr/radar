@@ -78,6 +78,8 @@ OPENAL_LIB=ext/openal-soft/build
 GLFW_LIB=ext/glfw/build/src
 SFMT_OBJECT=ext/sfmt/SFMT.o
 SFMT_TARGET=ext/sfmt/libSFMT.a
+STB_TARGET=ext/libstb.a
+STB_OBJECT=ext/stb.o
 
 CC=g++
 CFLAGS=-Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937
@@ -85,9 +87,9 @@ DEBUG_FLAGS=-g -DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
-LIB_FLAGS=-L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -lSFMT -lcJSON -lglfw3 -lglew -lopenal \
+LIB_FLAGS=-Lext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -lSFMT -lstb -lcJSON -lglfw3 -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -ldl -lpthread
-INCLUDE_FLAGS=-I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE)
+INCLUDE_FLAGS=-Iext/ -I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE)
 
 TARGET=bin/radar
 LIB_TARGET=bin/sun.so
@@ -111,11 +113,17 @@ $(SFMT_TARGET):
 	@ar rcs $(SFMT_TARGET) $(SFMT_OBJECT)
 	@rm $(SFMT_OBJECT)
 
+$(STB_TARGET):
+	@echo "AR $(STB_TARGET)"
+	@$(CC) -O3 -fno-strict-aliasing -c ext/stb.cpp -o $(STB_OBJECT)
+	@ar rcs $(STB_TARGET) $(STB_OBJECT)
+	@rm $(STB_OBJECT)
+
 lib:
 	@echo "LIB $(LIB_TARGET)"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -I$(SFMT_INCLUDE) -o $(LIB_TARGET)
 
-radar: $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET)
+radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET)
 	@echo "CC $(TARGET)"
 	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) $(INCLUDE_FLAGS) $(LIB_FLAGS) -o $(TARGET)
 

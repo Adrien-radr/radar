@@ -5,9 +5,10 @@
 *.exp
 *.obj
 *.so
+*.o
+*.a
 bin/.vs
 bin/radar.exe
 bin/radar
 radar/
 tags
-ext/
