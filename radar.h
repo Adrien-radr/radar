@@ -108,7 +108,6 @@ struct console_log
 {
     console_log_string MsgStack[ConsoleLogCapacity];
     uint32 WriteIdx;
-    uint32 RenderIdx;
     uint32 ReadIdx;
     uint32 StringCount;
 };
@@ -144,7 +143,7 @@ struct water_system
     uint32 *Reversed;
 
     uint32 VAO;
-    uint32 VBO[2]; // 0 : vdata, 1 : idata
+    uint32 VBO[2]; // 0 : idata, 1 : vdata
 };
 
 struct game_system

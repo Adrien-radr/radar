@@ -19,6 +19,12 @@ struct ui_vertex
     vec2f Texcoord;
 };
 
+ui_vertex UIVertex(vec3f const &Position, vec2f const &Texcoord)
+{
+    ui_vertex V = { Position, Texcoord };
+    return V;
+}
+
 game_context *uiContext;
 uint32 static uiProgram;
 uint32 static uiProjMatrixUniformLoc;
@@ -74,7 +80,7 @@ void uiBeginFrame(game_memory *Memory, game_input *Input)
     uiRenderCmdCount = 0;
 }
 
-void uiMakeText(char const *Text, vec3i Position, int MaxWidth)
+void uiMakeText(char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth)
 {
     uint32 MsgLength = strlen(Text);
     uint32 VertexCount = MsgLength * 4;
@@ -88,12 +94,12 @@ void uiMakeText(char const *Text, vec3i Position, int MaxWidth)
     RenderInfo->VertexCount = VertexCount;
     RenderInfo->IndexCount = IndexCount;
     RenderInfo->TextureID = 0;
-    RenderInfo->FontTextureID = uiContext->DefaultFontTexture;
-    RenderInfo->Color = vec4f(0, 0, 0, 1);
+    RenderInfo->FontTextureID = Font->AtlasTextureID;
+    RenderInfo->Color = Color;
     RenderInfo->IsText = true;
 
     vec3i DisplayPos = vec3i(Position.x, uiContext->WindowHeight - Position.y, Position.z);
-    FillDisplayTextInterleaved(Text, MsgLength, &uiContext->DefaultFont, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+    FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
 
     ++uiRenderCmdCount;
 }
@@ -113,15 +119,15 @@ void uiBeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Colo
 
     IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
     int Y = uiContext->WindowHeight;
-    VertData[0] = ui_vertex { vec3f(Position.x,          Y - Position.y,          Position.z), vec2f(0.f, 0.f) };
-    VertData[1] = ui_vertex { vec3f(Position.x,          Y - Position.y - Size.y, Position.z), vec2f(0.f, 1.f) };
-    VertData[2] = ui_vertex { vec3f(Position.x + Size.x, Y - Position.y - Size.y, Position.z), vec2f(1.f, 1.f) };
-    VertData[3] = ui_vertex { vec3f(Position.x + Size.x, Y - Position.y,          Position.z), vec2f(1.f, 0.f) };
+    VertData[0] = UIVertex(vec3f(Position.x,          Y - Position.y,          Position.z), vec2f(0.f, 0.f));
+    VertData[1] = UIVertex(vec3f(Position.x,          Y - Position.y - Size.y, Position.z), vec2f(0.f, 1.f));
+    VertData[2] = UIVertex(vec3f(Position.x + Size.x, Y - Position.y - Size.y, Position.z), vec2f(1.f, 1.f));
+    VertData[3] = UIVertex(vec3f(Position.x + Size.x, Y - Position.y,          Position.z), vec2f(1.f, 0.f));
 
     ++uiRenderCmdCount;
 
     // Add panel title as text
-    uiMakeText(PanelTitle, Position + vec3i(5, 5, 1), Size.x - 5);
+    uiMakeText(PanelTitle, &uiContext->DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
 }
 
 void uiEndPanel()

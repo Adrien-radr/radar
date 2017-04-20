@@ -571,11 +571,8 @@ int RadarMain(int argc, char **argv)
 
         // Font Test
 #if RADAR_WIN32
-        font Font = LoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
         font ConsoleFont = LoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
-        //font Font = LoadFont((char*)"C:/Windows/Fonts/arial.ttf", 24);
 #else
-        font Font = LoadFont(&Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
         font ConsoleFont = LoadFont(&Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
 
@@ -795,33 +792,9 @@ int RadarMain(int argc, char **argv)
 
                 real32 hW = g_WaterWidth/2.f;
 
-#if 0
-                vec3f *WaterPositions = (vec3f*)WaterSystem->Positions;
-                vec2f CamRel(-State->Camera.Position.x, State->Camera.Position.z);
-                CamRel += hW;
-                CamRel *= g_WaterN / (real32)g_WaterWidth;
-                vec2i iCamRel((int)floorf(CamRel.x), (int)floorf(CamRel.y));
-                CamRel -= iCamRel;
-                float WaterHeight0 = WaterPositions[iCamRel.y * g_WaterN + iCamRel.x].y;
-                float WaterHeight1 = WaterPositions[iCamRel.y * g_WaterN + iCamRel.x+1].y;
-                float WaterHeight2 = WaterPositions[(iCamRel.y+1) * g_WaterN + iCamRel.x].y;
-                float WaterHeight3 = WaterPositions[(iCamRel.y+1) * g_WaterN + iCamRel.x+1].y;
-                float WaterH0 = WaterHeight0 + CamRel.x * (WaterHeight1 - WaterHeight0);
-                float WaterH1 = WaterHeight2 + CamRel.x * (WaterHeight3 - WaterHeight2);
-                float WaterHeight = WaterH0 + CamRel.y * (WaterH1 - WaterH0);
-                printf("%d(%g) %d(%g) : %g %g\n", iCamRel.x, CamRel.x, iCamRel.y, CamRel.y, WaterHeight, State->Camera.Position.y);
-                int UnderWater = WaterHeight > State->Camera.Position.y ? 1 : 0;
-                Loc = glGetUniformLocation(ProgramWater, "UnderWater");
-                SendInt(Loc, UnderWater);
-#endif
-
                 Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
                 mat4f ModelMatrix;
                 glBindVertexArray(WaterSystem->VAO);
-                //glBindBuffer(GL_ARRAY_BUFFER, WaterSystem->VBO[1]);
-                //UpdateVBO(WaterPlane.VBO[1], 0, System->WaterSystem->VertexPositionsSize, System->WaterSystem->Positions);
-                //UpdateVBO(WaterPlane.VBO[1], System->WaterSystem->VertexPositionsSize, 
-                            //System->WaterSystem->VertexPositionsSize, System->WaterSystem->Normals);
 
                 int Repeat = 1;
                 int Middle = (Repeat-1)/2;
@@ -865,44 +838,13 @@ int RadarMain(int argc, char **argv)
                 glEnable(GL_CULL_FACE);
             }
 
-
-
             { // NOTE - Console Msg Rendering. Put this somewhere else, contained
-                glUseProgram(Program1);
-                // TODO - ProjMatrix updated only when resize happen
-                {
-                    uint32 Loc = glGetUniformLocation(Program1, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix2D);
-                    CheckGLError("ProjMatrix Console");
-                }
-
-                uint32 Loc = glGetUniformLocation(Program1, "ModelMatrix");
-                mat4f ConsoleModelMatrix;
                 console_log *Log = System->ConsoleLog;
                 for(uint32 i = 0; i < Log->StringCount; ++i)
                 {
                     uint32 RIdx = (Log->ReadIdx + i) % ConsoleLogCapacity;
-                    if(Log->RenderIdx != Log->WriteIdx)
-                    {
-                        // NOTE - If already created in previous pass : delete it first to free GL resources
-                        if(Texts[Log->RenderIdx].IndexCount > 0)
-                        {
-                            DestroyDisplayText(&Texts[Log->RenderIdx]);
-                        }
-                        Texts[Log->RenderIdx] = MakeDisplayText(&Memory, &ConsoleFont, Log->MsgStack[Log->RenderIdx], 
-                                Context.WindowWidth - 20, vec4f(0.2f, 0.2f, 0.2f, 1.f), 1.f);
-                        Log->RenderIdx = (Log->RenderIdx + 1) % ConsoleLogCapacity;
-                    }
-
-                    ConsoleModelMatrix.SetTranslation(vec3f(10, Config.WindowHeight - 10 - i * ConsoleFont.LineGap, 0));
-                    SendMat4(Loc, ConsoleModelMatrix);
-                    CheckGLError("ModelMatrix Console");
-                    SendVec4(glGetUniformLocation(Program1, "TextColor"), Texts[RIdx].Color);
-                    CheckGLError("Color Console");
-
-                    glBindVertexArray(Texts[RIdx].VAO);
-                    glBindTexture(GL_TEXTURE_2D, Texts[RIdx].Texture);
-                    glDrawElements(GL_TRIANGLES, Texts[RIdx].IndexCount, GL_UNSIGNED_INT, 0);
+                    uiMakeText(Log->MsgStack[RIdx], &ConsoleFont, vec3f(10, 10 + i * ConsoleFont.LineGap, 0), 
+                            vec4f(0.1f, 0.1f, 0.1f, 1.f), Context.WindowWidth - 20);
                 }
             }
 

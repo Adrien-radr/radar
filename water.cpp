@@ -4,13 +4,21 @@
 // Beaufort     7 :          4,       0.5,        0.3
 // Beaufort     3 :          3,       0.1,        0.1
 // Beaufort     1 :          3,      0.05,      0.005
+real32 BeaufortParams[][3] = {
+    { 3.0, 0.05, 0.005 },
+    { 3.0,  0.1,   0.1 },
+    { 4.0,  0.5,   0.3 },
+    { 8.0,  4.0,   0.2 }
+};
+uint32 BeaufortLevel = 2;
+
 int32 static const g_WaterN = 64;
-int32 static const g_WaterWidth = 4*g_WaterN;
+int32 static const g_WaterWidth = BeaufortParams[BeaufortLevel][0]*g_WaterN;
 
 real32 static const g_Power = 20.0;
-vec2f  static const g_WaterW = vec2f(0.5f*g_WaterN, 0.0);
+vec2f  static const g_WaterW = vec2f(BeaufortParams[BeaufortLevel][1]*g_WaterN, 0.0);
 real32 static const g_G = 9.81f;
-real32 static const g_A = 0.00000025f * 0.3f * g_WaterN;
+real32 static const g_A = 0.00000025f * BeaufortParams[BeaufortLevel][2] * g_WaterN;
 
 struct wave_vector
 {
@@ -154,7 +162,6 @@ void UpdateWaterMesh(water_system *WaterSystem)
     size_t VertSize = WaterSystem->VertexCount * sizeof(real32);
     UpdateVBO(WaterSystem->VBO[1], 0, VertSize, WaterSystem->VertexData);
     UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData + WaterSystem->VertexCount);
-    //UpdateVBO(WaterSystem->VBO[1], VertSize, VertSize, WaterSystem->VertexData);
 
     glBindVertexArray(0);
 }
