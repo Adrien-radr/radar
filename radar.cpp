@@ -807,15 +807,22 @@ int RadarMain(int argc, char **argv)
                 water_beaufort_state *WaterStateA = &WaterSystem->States[State->WaterState];
                 water_beaufort_state *WaterStateB = &WaterSystem->States[State->WaterState + 1];
                 real32 dWidth = Mix((real32)WaterStateA->Width, (real32)WaterStateB->Width, State->WaterStateInterp);
+                //dWidth *= (State->WaterState+1) * 1.5;
+
+                real32 Interp = (State->WaterState+1) + State->WaterStateInterp;
                 
-                int Repeat = 3;
+                int Repeat = 31;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
                 {
                     for(int i = 0; i < Repeat; ++i)
                     {
                         // MIDDLE
-                        ModelMatrix.SetTranslation(vec3f(dWidth * (Middle-i), 0.f, dWidth * (Middle-j)));
+                        real32 PositionScale = dWidth * (Interp);
+                        vec3f Position(PositionScale * (Middle-i), 0.f, PositionScale * (Middle-j));
+                        vec3f Scale(Interp, Interp, Interp);
+                        ModelMatrix.FromTRS(Position, vec3f(0), Scale);
+
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
                     }
