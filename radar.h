@@ -125,8 +125,8 @@ struct water_beaufort_state
 
 struct water_system
 {
-    uint32 static const BeaufortStateCount = 1;
-    uint32 static const BeaufortStartingState = 0;
+    uint32 static const BeaufortStateCount = 2;
+    int    static const WaterN = 64;
 
     size_t VertexDataSize;
     size_t VertexCount;
@@ -190,7 +190,9 @@ struct game_state
     bool DisableMouse;
     vec3f PlayerPosition;
     vec4f LightColor;
+
     real64 WaterCounter;
+    real32 WaterStateInterp;
 };
 
 typedef uint8 key_state;
@@ -223,6 +225,8 @@ struct game_input
     key_state KeySpace;
     key_state KeyF1;
     key_state KeyF11;
+    key_state KeyNumPlus;
+    key_state KeyNumMinus;
 
     mouse_state MouseLeft;
     mouse_state MouseRight;

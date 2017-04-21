@@ -64,7 +64,9 @@ void GameInitialization(game_memory *Memory)
     InitCamera(&State->Camera, Memory);
 
     State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
+
     State->WaterCounter = 0.0;
+    State->WaterStateInterp = 0.f;
 
     Memory->IsInitialized = false;
     Memory->IsGameInitialized = true;
@@ -186,6 +188,15 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     Counter += Input->dTime;
 
     MovePlayer(State, Input);
+
+    if(KEY_DOWN(Input->KeyNumPlus))
+    {
+        State->WaterStateInterp = min(1.f, State->WaterStateInterp + 0.001);
+    }
+    if(KEY_DOWN(Input->KeyNumMinus))
+    {
+        State->WaterStateInterp = max(0.f, State->WaterStateInterp - 0.001);
+    }
 
     if(Counter > 0.75)
     {

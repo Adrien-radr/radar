@@ -32,6 +32,15 @@
 #ifndef max
 #define max(a,b) ((a) >= (b) ? (a) : (b))
 #endif
+#ifndef clamp
+#define clamp(v,a,b) (max((a), min((b), (v))))
+#endif
+
+template<typename T>
+inline T Mix(T A, T B, float Interp)
+{
+    return A + (B - A) * Interp;
+}
 
 /// Returns the Vertical FOV in degrees from an Horizontal FOV in degrees
 /// and a given screen aspect ratio

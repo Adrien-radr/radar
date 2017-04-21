@@ -324,6 +324,8 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeySpace = BuildKeyState(GLFW_KEY_SPACE);
     Input->KeyF1 = BuildKeyState(GLFW_KEY_F1);
     Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
+    Input->KeyNumPlus = BuildKeyState(GLFW_KEY_KP_ADD);
+    Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);
 
     Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
     Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
@@ -640,7 +642,7 @@ int RadarMain(int argc, char **argv)
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
-        WaterInitialization(&Memory, State, System);
+        WaterInitialization(&Memory, State, System, 0);
 
 #if 0
         //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
@@ -769,7 +771,7 @@ int RadarMain(int argc, char **argv)
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 #if 1
-            UpdateWater(State, System, &Input);
+            UpdateWater(State, System, &Input, 0, State->WaterStateInterp);
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
                 glDisable(GL_CULL_FACE);
@@ -798,7 +800,10 @@ int RadarMain(int argc, char **argv)
                 mat4f ModelMatrix;
                 glBindVertexArray(WaterSystem->VAO);
 
-                water_beaufort_state *WaterState = &WaterSystem->States[WaterSystem->BeaufortStartingState];
+                water_beaufort_state *WaterStateA = &WaterSystem->States[0];
+                water_beaufort_state *WaterStateB = &WaterSystem->States[1];
+                real32 dWidth = Mix(WaterStateA->Width, WaterStateB->Width, State->WaterStateInterp);
+                
                 int Repeat = 1;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
@@ -806,7 +811,7 @@ int RadarMain(int argc, char **argv)
                     for(int i = 0; i < Repeat; ++i)
                     {
                         // MIDDLE
-                        ModelMatrix.SetTranslation(vec3f(WaterState->Width * (Middle-i), 0.f, WaterState->Width * (Middle-j)));
+                        ModelMatrix.SetTranslation(vec3f(dWidth * (Middle-i), 0.f, dWidth * (Middle-j)));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
                     }

@@ -11,7 +11,6 @@ real32 BeaufortParams[][3] = {
     { 8.0,  4.0,   0.2 }
 };
 
-int32 static const g_WaterN = 64;
 real32 static const g_G = 9.81f;
 
 struct wave_vector
@@ -38,8 +37,8 @@ complex GaussianRandomVariable()
 
 real32 Phillips(water_beaufort_state *State, int n_prime, int m_prime)
 {
-    vec2f K(M_PI * (2.f * n_prime - g_WaterN) / State->Width,
-            M_PI * (2.f * m_prime - g_WaterN) / State->Width);
+    vec2f K(M_PI * (2.f * n_prime - water_system::WaterN) / State->Width,
+            M_PI * (2.f * m_prime - water_system::WaterN) / State->Width);
     real32 KLen = Length(K);
     if(KLen < 1e-6f) return 0.f;
 
@@ -61,11 +60,11 @@ real32 Phillips(water_beaufort_state *State, int n_prime, int m_prime)
     return State->Amplitude * (expf(-1.f / (KLen2 * L2)) / KLen4) * KDotW2 * expf(-KLen2 * DampL2);
 }
 
-real32 ComputeDispersion(water_beaufort_state *State, int n_prime, int m_prime)
+real32 ComputeDispersion(int Width, int n_prime, int m_prime)
 {
     real32 W0 = 2.f * M_PI / 200.f;
-    real32 Kx = M_PI * (2 * n_prime - g_WaterN) / State->Width;
-    real32 Kz = M_PI * (2 * m_prime - g_WaterN) / State->Width;
+    real32 Kx = M_PI * (2 * n_prime - water_system::WaterN) / Width;
+    real32 Kz = M_PI * (2 * m_prime - water_system::WaterN) / Width;
     return floorf(sqrtf(g_G * sqrtf(Square(Kx) + Square(Kz))) / W0) * W0;
 }
 
@@ -75,18 +74,25 @@ complex ComputeHTilde0(water_beaufort_state *State, int n_prime, int m_prime)
     return R * sqrtf(Phillips(State, n_prime, m_prime) / 2.0f);
 }
 
-complex ComputeHTilde(water_beaufort_state *State, real32 T, int n_prime, int m_prime)
+complex ComputeHTilde(water_beaufort_state *StateA, water_beaufort_state *StateB, real32 WaterInterp, 
+        real32 T, int n_prime, int m_prime)
 {
-    int NPlus1 = g_WaterN+1;
+    int NPlus1 = water_system::WaterN+1;
     int Idx = m_prime * NPlus1 + n_prime;
 
-    vec3f *HTilde0 = (vec3f*)State->HTilde0;
-    vec3f *HTilde0mk = (vec3f*)State->HTilde0mk;
-    
-    complex H0(HTilde0[Idx].x, HTilde0[Idx].y);
-    complex H0mk(HTilde0mk[Idx].x, HTilde0mk[Idx].y);
+    vec3f *HTilde0A = (vec3f*)StateA->HTilde0;
+    vec3f *HTilde0B = (vec3f*)StateB->HTilde0;
+    vec3f *HTilde0mkA = (vec3f*)StateA->HTilde0mk;
+    vec3f *HTilde0mkB = (vec3f*)StateB->HTilde0mk;
 
-    real32 OmegaT = ComputeDispersion(State, n_prime, m_prime) * T;
+    vec3f dHT0 = Mix(HTilde0A[Idx], HTilde0B[Idx], WaterInterp);
+    vec3f dHT0mk = Mix(HTilde0mkA[Idx], HTilde0mkB[Idx], WaterInterp);
+    real32 dWidth = Mix(StateA->Width, StateB->Width, WaterInterp);
+    
+    complex H0(dHT0.x, dHT0.y);
+    complex H0mk(dHT0mk.x, dHT0mk.y);
+
+    real32 OmegaT = ComputeDispersion(dWidth, n_prime, m_prime) * T;
     real32 CosOT = cosf(OmegaT);
     real32 SinOT = sinf(OmegaT);
 
@@ -160,20 +166,22 @@ void UpdateWaterMesh(water_system *WaterSystem)
     glBindVertexArray(0);
 }
 
-void UpdateWater(game_state *State, game_system *System, game_input *Input)
+void UpdateWater(game_state *State, game_system *System, game_input *Input, uint32 WaterState, real32 WaterInterp)
 {
-    // TODO - Interpolation between states
-    water_beaufort_state *WaterState = &System->WaterSystem->States[System->WaterSystem->BeaufortStartingState];
+    water_beaufort_state *WStateA = &System->WaterSystem->States[WaterState];
+    water_beaufort_state *WStateB = &System->WaterSystem->States[WaterState + 1];
+
     State->WaterCounter += Input->dTime;
 
     vec3f *WaterPositions = (vec3f*)System->WaterSystem->Positions;
     vec3f *WaterNormals = (vec3f*)System->WaterSystem->Normals;
-    vec3f *WaterOrigPositions = (vec3f*)WaterState->OrigPositions;
 
+    vec3f *WaterOrigPositionsA = (vec3f*)WStateA->OrigPositions;
+    vec3f *WaterOrigPositionsB = (vec3f*)WStateB->OrigPositions;
 
     real32 dT = (real32)State->WaterCounter;
 
-    int N = g_WaterN;
+    int N = water_system::WaterN;
     int NPlus1 = N+1;
 
     float Lambda = -1.0f;
@@ -185,17 +193,19 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input)
     complex *hTDX = (complex*)WaterSystem->hTildeDX;
     complex *hTDZ = (complex*)WaterSystem->hTildeDZ;
 
+    real32 dWidth = Mix(WStateA->Width, WStateB->Width, WaterInterp);
+
     // Prepare
     for(int m_prime = 0; m_prime < N; ++m_prime)
     {
-        real32 Kz = M_PI * (2.f * m_prime - N) / WaterState->Width;
+        real32 Kz = M_PI * (2.f * m_prime - N) / dWidth;
         for(int n_prime = 0; n_prime < N; ++n_prime)
         {
-            real32 Kx = M_PI * (2.f * n_prime - N) / WaterState->Width;
+            real32 Kx = M_PI * (2.f * n_prime - N) / dWidth;
             real32 Len = sqrtf(Square(Kx) + Square(Kz));
             int Idx = m_prime * N + n_prime;
 
-            hT[Idx] = ComputeHTilde(WaterState, dT, n_prime, m_prime);
+            hT[Idx] = ComputeHTilde(WStateA, WStateB, WaterInterp, dT, n_prime, m_prime);
             hTSX[Idx] = hT[Idx] * complex(0, Kx);
             hTSZ[Idx] = hT[Idx] * complex(0, Kz);
             if(Len < 1e-6f)
@@ -244,8 +254,11 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input)
 
             hTDX[Idx] = hTDX[Idx] * Sign;
             hTDZ[Idx] = hTDZ[Idx] * Sign;
-            WaterPositions[Idx1].x = WaterOrigPositions[Idx1].x + Lambda * hTDX[Idx].r;
-            WaterPositions[Idx1].z = WaterOrigPositions[Idx1].z + Lambda * hTDZ[Idx].r;
+            {
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1], WaterOrigPositionsB[Idx1], WaterInterp);
+                WaterPositions[Idx1].x = OP.x + Lambda * hTDX[Idx].r;
+                WaterPositions[Idx1].z = OP.z + Lambda * hTDZ[Idx].r;
+            }
 
             hTSX[Idx] = hTSX[Idx] * Sign;
             hTSZ[Idx] = hTSZ[Idx] * Sign;
@@ -255,25 +268,28 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input)
 
             if(n_prime == 0 && m_prime == 0)
             {
-                WaterPositions[Idx1 + N + NPlus1 * N].x = WaterOrigPositions[Idx1 + N + NPlus1 * N].x + Lambda * hTDX[Idx].r;
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + N + NPlus1 * N], WaterOrigPositionsB[Idx1 + N + NPlus1 * N], WaterInterp);
+                WaterPositions[Idx1 + N + NPlus1 * N].x = OP.x + Lambda * hTDX[Idx].r;
                 WaterPositions[Idx1 + N + NPlus1 * N].y = hT[Idx].r;
-                WaterPositions[Idx1 + N + NPlus1 * N].z = WaterOrigPositions[Idx1 + N + NPlus1 * N].z + Lambda * hTDZ[Idx].r;
+                WaterPositions[Idx1 + N + NPlus1 * N].z = OP.z + Lambda * hTDZ[Idx].r;
 
                 WaterNormals[Idx1 + N + NPlus1 * N] = Normal;
             }
             if(n_prime == 0)
             {
-                WaterPositions[Idx1 + N].x = WaterOrigPositions[Idx1 + N].x + Lambda * hTDX[Idx].r;
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + N], WaterOrigPositionsB[Idx1 + N], WaterInterp);
+                WaterPositions[Idx1 + N].x = OP.x + Lambda * hTDX[Idx].r;
                 WaterPositions[Idx1 + N].y = hT[Idx].r;
-                WaterPositions[Idx1 + N].z = WaterOrigPositions[Idx1 + N].z + Lambda * hTDZ[Idx].r;
+                WaterPositions[Idx1 + N].z = OP.z + Lambda * hTDZ[Idx].r;
 
                 WaterNormals[Idx1 + N] = Normal;
             }
             if(m_prime == 0)
             {
-                WaterPositions[Idx1 + NPlus1 * N].x = WaterOrigPositions[Idx1 + NPlus1 * N].x + Lambda * hTDX[Idx].r;
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + NPlus1 * N], WaterOrigPositionsB[Idx1 + NPlus1 * N], WaterInterp);
+                WaterPositions[Idx1 + NPlus1 * N].x = OP.x + Lambda * hTDX[Idx].r;
                 WaterPositions[Idx1 + NPlus1 * N].y = hT[Idx].r;
-                WaterPositions[Idx1 + NPlus1 * N].z = WaterOrigPositions[Idx1 + NPlus1 * N].z + Lambda * hTDZ[Idx].r;
+                WaterPositions[Idx1 + NPlus1 * N].z = OP.z + Lambda * hTDZ[Idx].r;
 
                 WaterNormals[Idx1 + NPlus1 * N] = Normal;
             }
@@ -285,17 +301,17 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input)
 void WaterBeaufortStateInitialize(water_system *WaterSystem, uint32 State)
 {
     water_beaufort_state *WaterState = &WaterSystem->States[State];
-    int N = g_WaterN;
+    int N = water_system::WaterN;
     int NPlus1 = N+1;
 
-    WaterState->Width = BeaufortParams[State][0] * g_WaterN;
-    WaterState->Direction = vec2f(BeaufortParams[State][1] * g_WaterN, 0.0);
-    WaterState->Amplitude = 0.00000025f * BeaufortParams[State][2] * g_WaterN;
+    WaterState->Width = BeaufortParams[State][0] * water_system::WaterN;
+    WaterState->Direction = vec2f(BeaufortParams[State][1] * water_system::WaterN, 0.0);
+    WaterState->Amplitude = 0.00000025f * BeaufortParams[State][2] * water_system::WaterN;
 
     size_t BaseOffset = 2 * WaterSystem->VertexCount;
-    WaterState->OrigPositions = WaterSystem->VertexData + BaseOffset + (State + 0) * WaterSystem->VertexCount;
-    WaterState->HTilde0 = WaterSystem->VertexData + BaseOffset + (State + 1) * WaterSystem->VertexCount;
-    WaterState->HTilde0mk = WaterSystem->VertexData + BaseOffset + (State + 2) * WaterSystem->VertexCount;
+    WaterState->OrigPositions = WaterSystem->VertexData + BaseOffset + (State * 3 + 0) * WaterSystem->VertexCount;
+    WaterState->HTilde0 = WaterSystem->VertexData + BaseOffset + (State * 3 + 1) * WaterSystem->VertexCount;
+    WaterState->HTilde0mk = WaterSystem->VertexData + BaseOffset + (State * 3 + 2) * WaterSystem->VertexCount;
 
     vec3f *OrigPositions = (vec3f*)WaterState->OrigPositions;
     vec3f *HTilde0 = (vec3f*)WaterState->HTilde0;
@@ -321,16 +337,16 @@ void WaterBeaufortStateInitialize(water_system *WaterSystem, uint32 State)
     }
 }
 
-void WaterInitialization(game_memory *Memory, game_state *State, game_system *System)
+void WaterInitialization(game_memory *Memory, game_state *State, game_system *System, uint32 BeaufortState)
 {
-    int N = g_WaterN;
+    int N = water_system::WaterN;
     int NPlus1 = N+1;
 
     water_system *WaterSystem = (water_system*)PushArenaStruct(&Memory->SessionArena, water_system);
 
     size_t WaterStateAttribs = 3 * sizeof(vec3f); // hTilde0, hTilde0mk, OrigPos
     size_t WaterAttribs = 2 * sizeof(vec3f); // Pos, Norm
-    size_t WaterVertexDataSize = Square(NPlus1) * (WaterAttribs + WaterSystem->BeaufortStateCount * WaterStateAttribs);
+    size_t WaterVertexDataSize = Square(NPlus1) * (WaterAttribs + water_system::BeaufortStateCount * WaterStateAttribs);
     size_t WaterVertexCount = 3 * Square(NPlus1); // 3 floats per attrib
     real32 *WaterVertexData = (real32*)PushArenaData(&Memory->SessionArena, WaterVertexDataSize);
 
@@ -372,13 +388,16 @@ void WaterInitialization(game_memory *Memory, game_state *State, game_system *Sy
         Pow2 *=2;
     }
     
-    WaterBeaufortStateInitialize(WaterSystem, 0);
+    for(uint32 i = 0; i < water_system::BeaufortStateCount; ++i)
+    {
+        WaterBeaufortStateInitialize(WaterSystem, i);
+    }
 
     vec3f *Positions = (vec3f*)WaterSystem->Positions;
     vec3f *Normals = (vec3f*)WaterSystem->Normals;
     uint32 *Indices = (uint32*)WaterSystem->IndexData;
 
-    vec3f *OrigPositions = (vec3f*)WaterSystem->States[WaterSystem->BeaufortStartingState].OrigPositions;
+    vec3f *OrigPositions = (vec3f*)WaterSystem->States[BeaufortState].OrigPositions;
     for(int m_prime = 0; m_prime < NPlus1; m_prime++)
     {
         for(int n_prime = 0; n_prime < NPlus1; n_prime++)
