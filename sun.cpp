@@ -67,6 +67,7 @@ void GameInitialization(game_memory *Memory)
 
     State->WaterCounter = 0.0;
     State->WaterStateInterp = 0.f;
+    State->WaterState = 1;
 
     Memory->IsInitialized = false;
     Memory->IsGameInitialized = true;
@@ -82,8 +83,8 @@ void MovePlayer(game_state *State, game_input *Input)
     if(KEY_DOWN(Input->KeyS)) CameraMove -= Camera.Forward;
     if(KEY_DOWN(Input->KeyA)) CameraMove -= Camera.Right;
     if(KEY_DOWN(Input->KeyD)) CameraMove += Camera.Right;
-    if(KEY_DOWN(Input->KeySpace)) CameraMove += Camera.Up;
-    if(KEY_DOWN(Input->KeyLAlt)) CameraMove -= Camera.Up;
+    if(KEY_DOWN(Input->KeyR)) CameraMove += Camera.Up;
+    if(KEY_DOWN(Input->KeyF)) CameraMove -= Camera.Up;
 
     if(KEY_HIT(Input->KeyLShift))      Camera.SpeedMode += 1;
     else if(KEY_UP(Input->KeyLShift))  Camera.SpeedMode -= 1;
@@ -185,18 +186,45 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-    Counter += Input->dTime;
+    Counter += Input->dTime; 
 
     MovePlayer(State, Input);
 
     if(KEY_DOWN(Input->KeyNumPlus))
     {
-        State->WaterStateInterp = min(1.f, State->WaterStateInterp + 0.001);
+        State->WaterStateInterp = State->WaterStateInterp + 0.001;
+
+        if(State->WaterState < (water_system::BeaufortStateCount - 2))
+        {
+            if(State->WaterStateInterp >= 1.f)
+            {
+                State->WaterStateInterp -= 1.f;
+                ++State->WaterState;
+            }
+        }
+        else
+        {
+            State->WaterStateInterp = min(1.f, State->WaterStateInterp);
+        }
     }
     if(KEY_DOWN(Input->KeyNumMinus))
     {
-        State->WaterStateInterp = max(0.f, State->WaterStateInterp - 0.001);
+        State->WaterStateInterp = State->WaterStateInterp - 0.001;
+
+        if(State->WaterState > 0)
+        {
+            if(State->WaterStateInterp < 0.f)
+            {
+                State->WaterStateInterp += 1.f;
+                --State->WaterState;
+            }
+        }
+        else
+        {
+            State->WaterStateInterp = max(0.f, State->WaterStateInterp);
+        }
     }
+
 
     if(Counter > 0.75)
     {

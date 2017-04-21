@@ -60,7 +60,7 @@ real32 Phillips(water_beaufort_state *State, int n_prime, int m_prime)
     return State->Amplitude * (expf(-1.f / (KLen2 * L2)) / KLen4) * KDotW2 * expf(-KLen2 * DampL2);
 }
 
-real32 ComputeDispersion(int Width, int n_prime, int m_prime)
+real32 ComputeDispersion(real32 Width, int n_prime, int m_prime)
 {
     real32 W0 = 2.f * M_PI / 200.f;
     real32 Kx = M_PI * (2 * n_prime - water_system::WaterN) / Width;
@@ -87,7 +87,7 @@ complex ComputeHTilde(water_beaufort_state *StateA, water_beaufort_state *StateB
 
     vec3f dHT0 = Mix(HTilde0A[Idx], HTilde0B[Idx], WaterInterp);
     vec3f dHT0mk = Mix(HTilde0mkA[Idx], HTilde0mkB[Idx], WaterInterp);
-    real32 dWidth = Mix(StateA->Width, StateB->Width, WaterInterp);
+    real32 dWidth = Mix((real32)StateA->Width, (real32)StateB->Width, WaterInterp);
     
     complex H0(dHT0.x, dHT0.y);
     complex H0mk(dHT0mk.x, dHT0mk.y);
@@ -193,7 +193,7 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input, uint
     complex *hTDX = (complex*)WaterSystem->hTildeDX;
     complex *hTDZ = (complex*)WaterSystem->hTildeDZ;
 
-    real32 dWidth = Mix(WStateA->Width, WStateB->Width, WaterInterp);
+    real32 dWidth = Mix((real32)WStateA->Width, (real32)WStateB->Width, WaterInterp);
 
     // Prepare
     for(int m_prime = 0; m_prime < N; ++m_prime)

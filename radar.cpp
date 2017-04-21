@@ -318,6 +318,8 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyA = BuildKeyState(GLFW_KEY_A);
     Input->KeyS = BuildKeyState(GLFW_KEY_S);
     Input->KeyD = BuildKeyState(GLFW_KEY_D);
+    Input->KeyR = BuildKeyState(GLFW_KEY_R);
+    Input->KeyF = BuildKeyState(GLFW_KEY_F);
     Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
     Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
     Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
@@ -497,8 +499,11 @@ void InitializeFromGame(game_memory *Memory)
 {
     // Initialize Water from game Info
     game_system *System = (game_system*)Memory->PermanentMemPool;
-    water_system *WaterSystem = System->WaterSystem;
+    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
+    WaterInitialization(Memory, State, System, State->WaterState);
+
+    water_system *WaterSystem = System->WaterSystem;
     WaterSystem->VAO = MakeVertexArrayObject();
     WaterSystem->VBO[0] = AddIBO(GL_STATIC_DRAW, WaterSystem->IndexCount * sizeof(uint32), WaterSystem->IndexData);
     WaterSystem->VBO[1] = AddEmptyVBO(WaterSystem->VertexDataSize, GL_STATIC_DRAW);
@@ -642,7 +647,6 @@ int RadarMain(int argc, char **argv)
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
-        WaterInitialization(&Memory, State, System, 0);
 
 #if 0
         //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
@@ -771,7 +775,7 @@ int RadarMain(int argc, char **argv)
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
             }
 #if 1
-            UpdateWater(State, System, &Input, 0, State->WaterStateInterp);
+            UpdateWater(State, System, &Input, State->WaterState, State->WaterStateInterp);
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
                 glDisable(GL_CULL_FACE);
@@ -800,11 +804,11 @@ int RadarMain(int argc, char **argv)
                 mat4f ModelMatrix;
                 glBindVertexArray(WaterSystem->VAO);
 
-                water_beaufort_state *WaterStateA = &WaterSystem->States[0];
-                water_beaufort_state *WaterStateB = &WaterSystem->States[1];
-                real32 dWidth = Mix(WaterStateA->Width, WaterStateB->Width, State->WaterStateInterp);
+                water_beaufort_state *WaterStateA = &WaterSystem->States[State->WaterState];
+                water_beaufort_state *WaterStateB = &WaterSystem->States[State->WaterState + 1];
+                real32 dWidth = Mix((real32)WaterStateA->Width, (real32)WaterStateB->Width, State->WaterStateInterp);
                 
-                int Repeat = 1;
+                int Repeat = 3;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
                 {
@@ -852,10 +856,13 @@ int RadarMain(int argc, char **argv)
                 {
                     uint32 RIdx = (Log->ReadIdx + i) % ConsoleLogCapacity;
                     uiMakeText(Log->MsgStack[RIdx], &ConsoleFont, vec3f(10, 10 + i * ConsoleFont.LineGap, 0), 
-                            vec4f(0.1f, 0.1f, 0.1f, 1.f), Context.WindowWidth - 20);
+                            vec4f(0.1f, 0.1f, 0.1f, 1.f), Context.WindowWidth - 10);
                 }
             }
 
+            char WStateText[256];
+            snprintf(WStateText, 256,"Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
+            uiMakeText(WStateText, &ConsoleFont, vec3f(500, 10, 0), vec4f(0.1, 0.1, 0.1, 1), Context.WindowWidth - 10);
             TestUI(&Memory);
             uiDraw();
 

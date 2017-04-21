@@ -125,8 +125,8 @@ struct water_beaufort_state
 
 struct water_system
 {
-    uint32 static const BeaufortStateCount = 2;
-    int    static const WaterN = 64;
+    int static const BeaufortStateCount = 4;
+    int static const WaterN = 64;
 
     size_t VertexDataSize;
     size_t VertexCount;
@@ -193,6 +193,7 @@ struct game_state
 
     real64 WaterCounter;
     real32 WaterStateInterp;
+    int    WaterState;
 };
 
 typedef uint8 key_state;
@@ -219,6 +220,8 @@ struct game_input
     key_state KeyA;
     key_state KeyS;
     key_state KeyD;
+    key_state KeyR;
+    key_state KeyF;
     key_state KeyLShift;
     key_state KeyLCtrl;
     key_state KeyLAlt;

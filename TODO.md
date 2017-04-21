@@ -32,4 +32,5 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 - ~~Water Beaufort Scale States~~
     - ~~4/5 States, with precomputed HTidle0 (and other init data)~~
     - ~~Interpolation between states at runtime~~
+    - Fix Scaling bug.
 - Water / Boat / Objects collision and interactions (Gamasutra & Black Flag articles)
