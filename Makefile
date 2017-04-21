@@ -146,4 +146,4 @@ clean_ext:
 	rm $(SFMT_TARGET)
 
 tags:
-	@ctags --c++-kinds=+p --fields=+iaS --extra=+q $(SRCS) $(LIB_SRCS) $(INCLUDES) $(LIB_INCLUDES)
+	@ctags --c++-kinds=+p --fields=+iaS --extra=+q *.cpp *.h $(LIB_INCLUDES)

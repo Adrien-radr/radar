@@ -595,7 +595,9 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
         mesh Sphere = MakeUnitSphere();
-        mesh UnderPlane = Make3DPlane(&Memory, vec2i(1.3*g_WaterWidth, 1.3*g_WaterWidth), 1, 10);
+
+        int PlaneWidth = 256;
+        mesh UnderPlane = Make3DPlane(&Memory, vec2i(PlaneWidth, PlaneWidth), 1, 10);
 
 #if 1 // Skybox 1
         vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
@@ -760,7 +762,7 @@ int RadarMain(int argc, char **argv)
                 glBindVertexArray(Sphere.VAO);
                 glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
 
-                real32 hW = 1.3f*g_WaterWidth/2.f;
+                real32 hW = PlaneWidth/2.f;
                 ModelMatrix.SetTranslation(vec3f(-hW, -7.f, -hW));
                 SendMat4(Loc, ModelMatrix);
                 glBindVertexArray(UnderPlane.VAO);
@@ -790,12 +792,13 @@ int RadarMain(int argc, char **argv)
 
                 water_system *WaterSystem = System->WaterSystem;
 
-                real32 hW = g_WaterWidth/2.f;
+                real32 hW = PlaneWidth/2.f;
 
                 Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
                 mat4f ModelMatrix;
                 glBindVertexArray(WaterSystem->VAO);
 
+                water_beaufort_state *WaterState = &WaterSystem->States[WaterSystem->BeaufortStartingState];
                 int Repeat = 1;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
@@ -803,7 +806,7 @@ int RadarMain(int argc, char **argv)
                     for(int i = 0; i < Repeat; ++i)
                     {
                         // MIDDLE
-                        ModelMatrix.SetTranslation(vec3f(g_WaterWidth * (Middle-i), 0.f, g_WaterWidth * (Middle-j)));
+                        ModelMatrix.SetTranslation(vec3f(WaterState->Width * (Middle-i), 0.f, WaterState->Width * (Middle-j)));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
                     }

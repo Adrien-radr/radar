@@ -6,6 +6,8 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 + ~~Remove all {m,c}alloc from the code except the Pools creation~~
 + Fast, Deterministic Random Variable system --> SFMT, WIP
 + Add an UI watch for all pools, describing how full they are each frame
++ Resource manager (Fonts, Images, ...)
++ Render commands from DLL to platform
 
 ### UI
 - ~~2D Panel creation with custom shader~~
@@ -16,6 +18,7 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 - When word wrapping with a maxWidth for display texts : wrap at spaces, not inside words
 - Display textures in panel (e.g. gbuffers display)
 - Color theme for panels, borders, text color, ...
+- JSON UI descriptor ?
 
 ### Water
 - Underwater render
@@ -27,7 +30,6 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
     demanding effects for far away water)
     - Screen-space quad projected onto y=0 and FFT/sim done by compute shaders ?
 - Water Beaufort Scale States
-    - 4/5 States, with precomputed HTidle0 (and other init data)
+    - ~~4/5 States, with precomputed HTidle0 (and other init data)~~
     - Interpolation between states at runtime
 - Water / Boat / Objects collision and interactions (Gamasutra & Black Flag articles)
-- Dual Depth Peeling for water transparency

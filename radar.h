@@ -112,8 +112,22 @@ struct console_log
     uint32 StringCount;
 };
 
+struct water_beaufort_state
+{
+    int Width;
+    vec2f Direction;
+    real32 Amplitude;
+
+    void *OrigPositions;
+    void *HTilde0;
+    void *HTilde0mk;
+};
+
 struct water_system
 {
+    uint32 static const BeaufortStateCount = 1;
+    uint32 static const BeaufortStartingState = 0;
+
     size_t VertexDataSize;
     size_t VertexCount;
     real32 *VertexData;
@@ -121,13 +135,11 @@ struct water_system
     uint32 IndexCount;
     uint32 *IndexData;
 
+    water_beaufort_state States[BeaufortStateCount];
+
     // NOTE - Accessor Pointers, index VertexData
     void *Positions;
     void *Normals;
-    //void *FaceNormals;
-    void *HTilde0;
-    void *HTilde0mk;
-    void *OrigPositions;
 
     complex *hTilde;
     complex *hTildeSlopeX;

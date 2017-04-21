@@ -8,9 +8,7 @@ struct ui_render_info
     uint32 VertexCount;
     uint32 IndexCount;
     uint32 TextureID;
-    uint32 FontTextureID;
     col4f  Color;
-    bool   IsText;
 };
 
 struct ui_vertex
@@ -93,10 +91,8 @@ void uiMakeText(char const *Text, font *Font, vec3i Position, col4f Color, int M
 
     RenderInfo->VertexCount = VertexCount;
     RenderInfo->IndexCount = IndexCount;
-    RenderInfo->TextureID = 0;
-    RenderInfo->FontTextureID = Font->AtlasTextureID;
+    RenderInfo->TextureID = Font->AtlasTextureID;
     RenderInfo->Color = Color;
-    RenderInfo->IsText = true;
 
     vec3i DisplayPos = vec3i(Position.x, uiContext->WindowHeight - Position.y, Position.z);
     FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
@@ -113,9 +109,7 @@ void uiBeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Colo
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
     RenderInfo->TextureID = uiContext->DefaultDiffuseTexture;
-    RenderInfo->FontTextureID = 0;
     RenderInfo->Color = Color;
-    RenderInfo->IsText = false;
 
     IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
     int Y = uiContext->WindowHeight;
@@ -166,10 +160,7 @@ void uiDraw()
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, uiVBO[0]);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderInfo->IndexCount * sizeof(uint16), (GLvoid*)IdxData, GL_STREAM_DRAW);
 
-        if(RenderInfo->IsText)
-            glBindTexture(GL_TEXTURE_2D, RenderInfo->FontTextureID);
-        else
-            glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
+        glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
 
         SendVec4(uiColorUniformLoc, RenderInfo->Color);
         glDrawElements(GL_TRIANGLES, RenderInfo->IndexCount, GL_UNSIGNED_SHORT, 0);
