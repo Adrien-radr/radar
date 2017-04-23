@@ -192,7 +192,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     if(KEY_DOWN(Input->KeyNumPlus))
     {
-        State->WaterStateInterp = State->WaterStateInterp + 0.001;
+        State->WaterStateInterp = State->WaterStateInterp + 0.01;
 
         if(State->WaterState < (water_system::BeaufortStateCount - 2))
         {
@@ -209,7 +209,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     }
     if(KEY_DOWN(Input->KeyNumMinus))
     {
-        State->WaterStateInterp = State->WaterStateInterp - 0.001;
+        State->WaterStateInterp = State->WaterStateInterp - 0.01;
 
         if(State->WaterState > 0)
         {
