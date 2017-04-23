@@ -475,8 +475,10 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
     Program3D = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program3D);
-    SendInt(glGetUniformLocation(Program3D, "DiffuseTexture"), 0);
-    SendInt(glGetUniformLocation(Program3D, "Skybox"), 1);
+    SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
+    SendInt(glGetUniformLocation(Program3D, "Metallic"), 1);
+    SendInt(glGetUniformLocation(Program3D, "Roughness"), 2);
+    SendInt(glGetUniformLocation(Program3D, "Skybox"), 3);
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
@@ -574,6 +576,26 @@ int RadarMain(int argc, char **argv)
         MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
         image Image = LoadImage(TexPath);
         uint32 Texture1 = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        DestroyImage(&Image);
+
+        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/albedo.png");
+        Image = LoadImage(TexPath);
+        uint32 RustedMetalAlbedo = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        DestroyImage(&Image);
+
+        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/metallic.png");
+        Image = LoadImage(TexPath);
+        uint32 RustedMetalMetallic = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        DestroyImage(&Image);
+
+        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/roughness.png");
+        Image = LoadImage(TexPath);
+        uint32 RustedMetalRoughness = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        DestroyImage(&Image);
+
+        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/normal.png");
+        Image = LoadImage(TexPath);
+        uint32 RustedMetalNormal = Make2DTexture(&Image, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         // Font Test
@@ -791,23 +813,33 @@ int RadarMain(int argc, char **argv)
                 glBindVertexArray(Sphere.VAO);
                 mat4f ModelMatrix;
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, RustedMetalAlbedo);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, RustedMetalMetallic);
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, RustedMetalRoughness);
+                glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+
                 int Count = 5;
-                uint32 AlbedoLoc = glGetUniformLocation(Program3D, "Albedo");
-                uint32 MetallicLoc = glGetUniformLocation(Program3D, "Metallic");
-                uint32 RoughnessLoc = glGetUniformLocation(Program3D, "Roughness");
-                SendVec3(AlbedoLoc, vec3f(0.5, 0, 0));
+                //uint32 AlbedoLoc = glGetUniformLocation(Program3D, "Albedo");
+                //uint32 MetallicLoc = glGetUniformLocation(Program3D, "Metallic");
+                //uint32 RoughnessLoc = glGetUniformLocation(Program3D, "Roughness");
+                //SendVec3(AlbedoLoc, vec3f(0.5, 0, 0));
                 for(int j = 0; j < Count; ++j)
                 {
-                    SendFloat(MetallicLoc, (j+1)/(real32)Count);
+                    //SendFloat(MetallicLoc, (j+1)/(real32)Count);
                     for(int i = 0; i < Count; ++i)
                     {
-                        SendFloat(RoughnessLoc, (i+1)/(real32)Count);
+                        //SendFloat(RoughnessLoc, (i+1)/(real32)Count);
                         ModelMatrix.FromTRS(vec3f(0, 3*(j+1), 3*(i+1)), vec3f(0.f), vec3f(1.f));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
                     }
                 }
+                glActiveTexture(GL_TEXTURE0);
             }
 #if 1
             UpdateWater(State, System, &Input, State->WaterState, State->WaterStateInterp);
@@ -846,7 +878,7 @@ int RadarMain(int argc, char **argv)
 
                 real32 Interp = (State->WaterState+1) + State->WaterStateInterp;
                 
-                int Repeat = 31;
+                int Repeat = 3;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
                 {
