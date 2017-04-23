@@ -405,12 +405,12 @@ game_context InitContext(game_memory *Memory)
 
                     MakeRelativePath(TexPath, ExecFullPath, "data/default_diffuse.png");
                     Image = LoadImage(TexPath);
-                    Context.DefaultDiffuseTexture = Make2DTexture(&Image, 1);
+                    Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, 1);
                     DestroyImage(&Image);
 
                     MakeRelativePath(TexPath, ExecFullPath, "data/default_normal.png");
                     Image = LoadImage(TexPath);
-                    Context.DefaultNormalTexture = Make2DTexture(&Image, 1);
+                    Context.DefaultNormalTexture = Make2DTexture(&Image, false, 1);
                     DestroyImage(&Image);
 #if RADAR_WIN32
                     Context.DefaultFont = LoadFont(Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
@@ -575,27 +575,27 @@ int RadarMain(int argc, char **argv)
         path TexPath;
         MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
         image Image = LoadImage(TexPath);
-        uint32 Texture1 = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        uint32 Texture1 = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/albedo.png");
         Image = LoadImage(TexPath);
-        uint32 RustedMetalAlbedo = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        uint32 RustedMetalAlbedo = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/metallic.png");
         Image = LoadImage(TexPath);
-        uint32 RustedMetalMetallic = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        uint32 RustedMetalMetallic = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/roughness.png");
         Image = LoadImage(TexPath);
-        uint32 RustedMetalRoughness = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        uint32 RustedMetalRoughness = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/normal.png");
         Image = LoadImage(TexPath);
-        uint32 RustedMetalNormal = Make2DTexture(&Image, Config.AnisotropicFiltering);
+        uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         // Font Test
@@ -663,7 +663,7 @@ int RadarMain(int argc, char **argv)
         }
 
         mesh SkyboxCube = MakeUnitCube(false);
-        uint32 TestCubemap = MakeCubemap(CubemapPaths);
+        uint32 TestCubemap = MakeCubemap(CubemapPaths, false);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
@@ -673,7 +673,7 @@ int RadarMain(int argc, char **argv)
 #if 0
         //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
         frame_buffer FBOPass1 = MakeFBO(1, vec2i(Config.WindowWidth, Config.WindowHeight));
-        AttachBuffer(&FBOPass1, 0, 1, GL_FLOAT); 
+        AttachBuffer(&FBOPass1, 0, 1, true); 
 #endif
 /////////////////////////
         bool LastDisableMouse = false;
@@ -815,25 +815,25 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
 
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, RustedMetalAlbedo);
+                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, RustedMetalMetallic);
+                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, RustedMetalRoughness);
+                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE3);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
 
                 int Count = 5;
-                //uint32 AlbedoLoc = glGetUniformLocation(Program3D, "Albedo");
-                //uint32 MetallicLoc = glGetUniformLocation(Program3D, "Metallic");
-                //uint32 RoughnessLoc = glGetUniformLocation(Program3D, "Roughness");
-                //SendVec3(AlbedoLoc, vec3f(0.5, 0, 0));
+                uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
+                uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
+                uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
+                SendVec3(AlbedoLoc, vec3f(0.5, 0, 0));
                 for(int j = 0; j < Count; ++j)
                 {
-                    //SendFloat(MetallicLoc, (j+1)/(real32)Count);
+                    SendFloat(MetallicLoc, (j+1)/(real32)Count);
                     for(int i = 0; i < Count; ++i)
                     {
-                        //SendFloat(RoughnessLoc, (i+1)/(real32)Count);
+                        SendFloat(RoughnessLoc, (i+1)/(real32)Count);
                         ModelMatrix.FromTRS(vec3f(0, 3*(j+1), 3*(i+1)), vec3f(0.f), vec3f(1.f));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);

@@ -50,22 +50,47 @@ void DestroyImage(image *Image)
     Image->Width = Image->Height = Image->Channels = 0;
 }
 
-void FormatFromChannels(uint32 Channels, GLint *BaseFormat, GLint *Format)
+void FormatFromChannels(uint32 Channels, bool IsFloat, GLint *BaseFormat, GLint *Format)
 {
-    switch(Channels)
+    if(IsFloat)
     {
-    case 1:
-        *BaseFormat = *Format = GL_RED; break;
-    case 2:
-        *BaseFormat = *Format = GL_RG; break;
-    case 3:
-        *BaseFormat = *Format = GL_RGB; break;
-    case 4:
-        *BaseFormat = *Format = GL_RGBA; break;
+        switch(Channels)
+        {
+            case 1:
+                *BaseFormat = GL_R32F;
+                *Format = GL_RED; 
+                break;
+            case 2:
+                *BaseFormat = GL_RG32F;
+                *Format = GL_RG; 
+                break;
+            case 3:
+                *BaseFormat = GL_RGB32F;
+                *Format = GL_RGB; 
+                break;
+            case 4:
+                *BaseFormat = GL_RGBA32F;
+                *Format = GL_RGBA; 
+                break;
+        }
+    }
+    else
+    {
+        switch(Channels)
+        {
+            case 1:
+                *BaseFormat = *Format = GL_RED; break;
+            case 2:
+                *BaseFormat = *Format = GL_RG; break;
+            case 3:
+                *BaseFormat = *Format = GL_RGB; break;
+            case 4:
+                *BaseFormat = *Format = GL_RGBA; break;
+        }
     }
 }
 
-uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels, real32 AnisotropicLevel)
+uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, real32 AnisotropicLevel)
 {
     uint32 Texture;
     glGenTextures(1, &Texture);
@@ -82,9 +107,10 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
 
     GLint BaseFormat, Format;
-    FormatFromChannels(Channels, &BaseFormat, &Format);
+    FormatFromChannels(Channels, IsFloat, &BaseFormat, &Format);
+    GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
-    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, GL_UNSIGNED_BYTE, Bitmap);
+    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, Type, Bitmap);
     glGenerateMipmap(GL_TEXTURE_2D);
 
     CheckGLError("glTexImage2D");
@@ -95,12 +121,12 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     return Texture;
 }
 
-uint32 Make2DTexture(image *Image, uint32 AnisotropicLevel)
+uint32 Make2DTexture(image *Image, bool IsFloat, uint32 AnisotropicLevel)
 {
-    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, AnisotropicLevel);
+    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, AnisotropicLevel);
 }
 
-uint32 MakeCubemap(path *Paths)
+uint32 MakeCubemap(path *Paths, bool IsFloat)
 {
     uint32 Cubemap = 0;
 
@@ -114,10 +140,11 @@ uint32 MakeCubemap(path *Paths)
         image Face = LoadImage(Paths[i]);
 
         GLint BaseFormat, Format;
-        FormatFromChannels(Face.Channels, &BaseFormat, &Format);
+        FormatFromChannels(Face.Channels, IsFloat, &BaseFormat, &Format);
+        GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face.Width, Face.Height,
-                0, Format, GL_UNSIGNED_BYTE, Face.Buffer);
+                0, Format, Type, Face.Buffer);
         CheckGLError("SkyboxFace");
 
         DestroyImage(&Face);
@@ -190,7 +217,7 @@ frame_buffer MakeFBO(uint32 NumAttachments, vec2i Size)
     return FB;
 }
 
-void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, uint32 Type)
+void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat)
 {
     Assert(Attachment < MAX_FBO_ATTACHMENTS);
 
@@ -201,9 +228,9 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, uint32 
     glBindTexture(GL_TEXTURE_2D, *BufferID);
 
     GLint BaseFormat, Format;
-    FormatFromChannels(Channels, &BaseFormat, &Format);
-    // TODO : GL_R32F should be changed to a parameter : and this for all texturing
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
+    FormatFromChannels(Channels, IsFloat, &BaseFormat, &Format);
+    GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
+    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -287,7 +314,7 @@ font LoadFont(game_memory *Memory, char *Filename, real32 PixelHeight)
         }
 
         // Make Texture out of the Bitmap
-        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, 1.0f);
+        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, false, 1.0f);
     }
 
 

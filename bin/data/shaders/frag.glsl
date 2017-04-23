@@ -10,6 +10,9 @@ in vec3 v_sundirection;
 uniform sampler2D Albedo;
 uniform sampler2D Metallic;
 uniform sampler2D Roughness;
+uniform vec3  AlbedoMult;
+uniform float MetallicMult;
+uniform float RoughnessMult;
 
 uniform samplerCube Skybox;
 
@@ -65,9 +68,9 @@ void main()
     vec3 H = normalize(V + L);
     vec3 R = reflect(V, N);
 
-    vec3 albedo = pow(texture(Albedo, v_texcoord).xyz, vec3(2.2));
-    vec3 metallic = texture(Metallic, v_texcoord).xyz;
-    vec3 roughness = texture(Roughness, v_texcoord).xyz;
+    vec3 albedo = pow(texture(Albedo, v_texcoord).xyz, vec3(2.2)) * AlbedoMult;
+    vec3 metallic = texture(Metallic, v_texcoord).xyz * MetallicMult;
+    vec3 roughness = texture(Roughness, v_texcoord).xyz * RoughnessMult;
     vec3 env_light = pow(texture(Skybox, R).xyz, vec3(2.2));
 
     float NdotV = max(0, dot(N, V));
