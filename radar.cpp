@@ -762,17 +762,52 @@ int RadarMain(int argc, char **argv)
                     glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
                 }
 
-                // Render sphere at origin
-                ModelMatrix.FromTRS(vec3f(0.f), vec3f(0.f), vec3f(1.f));
-                SendMat4(Loc, ModelMatrix);
-                glBindVertexArray(Sphere.VAO);
-                glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
-
                 real32 hW = PlaneWidth/2.f;
-                ModelMatrix.SetTranslation(vec3f(-hW, -7.f, -hW));
+                ModelMatrix.FromTRS(vec3f(-hW, -7.f, -hW), vec3f(0), vec3f(1));
                 SendMat4(Loc, ModelMatrix);
                 glBindVertexArray(UnderPlane.VAO);
                 glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
+            }
+
+            { // NOTE - Sphere Array Test for PBR
+                glUseProgram(Program3D);
+                // TODO - ProjMatrix updated only when resize happen
+                {
+                    uint32 Loc = glGetUniformLocation(Program3D, "ProjMatrix");
+                    SendMat4(Loc, Context.ProjectionMatrix3D);
+                    CheckGLError("ProjMatrix Cube");
+
+                    Loc = glGetUniformLocation(Program3D, "ViewMatrix");
+                    SendMat4(Loc, ViewMatrix);
+                    CheckGLError("ViewMatrix");
+                }
+                uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
+                SendVec4(Loc, State->LightColor);
+                Loc = glGetUniformLocation(Program3D, "SunDirection");
+                SendVec3(Loc, SunDirection);
+                Loc = glGetUniformLocation(Program3D, "CameraPos");
+                SendVec3(Loc, State->Camera.Position);
+
+                glBindVertexArray(Sphere.VAO);
+                mat4f ModelMatrix;
+                Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
+                int Count = 5;
+                uint32 AlbedoLoc = glGetUniformLocation(Program3D, "Albedo");
+                uint32 MetallicLoc = glGetUniformLocation(Program3D, "Metallic");
+                uint32 RoughnessLoc = glGetUniformLocation(Program3D, "Roughness");
+                SendVec3(AlbedoLoc, vec3f(0.5, 0, 0));
+                for(int j = 0; j < Count; ++j)
+                {
+                    SendFloat(MetallicLoc, (j+1)/(real32)Count);
+                    for(int i = 0; i < Count; ++i)
+                    {
+                        SendFloat(RoughnessLoc, (i+1)/(real32)Count);
+                        ModelMatrix.FromTRS(vec3f(0, 3*(j+1), 3*(i+1)), vec3f(0.f), vec3f(1.f));
+                        SendMat4(Loc, ModelMatrix);
+                        glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
+                    }
+                }
             }
 #if 1
             UpdateWater(State, System, &Input, State->WaterState, State->WaterStateInterp);
