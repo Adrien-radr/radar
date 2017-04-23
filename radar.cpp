@@ -250,6 +250,11 @@ void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
     glViewport(0, 0, Width, Height);
 }
 
+void ProcessErrorEvent(int Error, const char* Description)
+{
+    printf("GLFW Error : %s\n", Description);
+}
+
 void WindowResized(game_context *Context)
 {
     Resized = false;
@@ -258,11 +263,6 @@ void WindowResized(game_context *Context)
     Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
             Context->WindowWidth / (real32)Context->WindowHeight, 0.1f, 10000.f);
     Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1000.f);
-}
-
-void ProcessErrorEvent(int Error, const char* Description)
-{
-    printf("GLFW Error : %s\n", Description);
 }
 
 key_state BuildKeyState(int32 Key)
@@ -386,7 +386,7 @@ game_context InitContext(game_memory *Memory)
 
                 glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
 
-                glDisable(GL_CULL_FACE);
+                glEnable(GL_CULL_FACE);
                 glCullFace(GL_BACK);
                 glFrontFace(GL_CCW);
 
