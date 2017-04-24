@@ -126,28 +126,35 @@ uint32 Make2DTexture(image *Image, bool IsFloat, uint32 AnisotropicLevel)
     return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, AnisotropicLevel);
 }
 
-uint32 MakeCubemap(path *Paths, bool IsFloat)
+uint32 MakeCubemap(path *Paths, bool IsFloat, uint32 Width = 0, uint32 Height = 0)
 {
     uint32 Cubemap = 0;
 
     glGenTextures(1, &Cubemap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, Cubemap);
     CheckGLError("SkyboxGen");
-
-    // Load each face
+    
     for(int i = 0; i < 6; ++i)
-    {
-        image Face = LoadImage(Paths[i]);
+    { // Load each face
+        if(Paths)
+        { // For loading from texture files
+            image Face = LoadImage(Paths[i]);
 
-        GLint BaseFormat, Format;
-        FormatFromChannels(Face.Channels, IsFloat, &BaseFormat, &Format);
-        GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
+            GLint BaseFormat, Format;
+            FormatFromChannels(Face.Channels, IsFloat, &BaseFormat, &Format);
+            GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face.Width, Face.Height,
-                0, Format, Type, Face.Buffer);
-        CheckGLError("SkyboxFace");
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face.Width, Face.Height,
+                    0, Format, Type, Face.Buffer);
+            CheckGLError("SkyboxFace");
 
-        DestroyImage(&Face);
+            DestroyImage(&Face);
+        }
+        else
+        { // Empty Cubemap
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, IsFloat ? GL_RGB16F : GL_RGB16, 
+                    Width, Height, 0, GL_RGB, IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE, NULL);
+        }
     }
 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
