@@ -30,11 +30,19 @@ void CheckGLError(const char *Mark = "")
     }
 }
 
-image LoadImage(char *Filename, bool FlipY = true, int32 ForceNumChannel = 0)
+image LoadImage(char *Filename, bool IsFloat, bool FlipY = true, int32 ForceNumChannel = 0)
 {
     image Image = {};
     stbi_set_flip_vertically_on_load(FlipY ? 1 : 0); // NOTE - Flip Y so textures are Y-descending
-    Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
+
+    if(IsFloat)
+    {
+        Image.Buffer = stbi_loadf(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
+    }
+    else
+    {
+        Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
+    }
 
     if(!Image.Buffer)
     {
@@ -90,7 +98,7 @@ void FormatFromChannels(uint32 Channels, bool IsFloat, GLint *BaseFormat, GLint 
     }
 }
 
-uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, real32 AnisotropicLevel)
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, real32 AnisotropicLevel)
 {
     uint32 Texture;
     glGenTextures(1, &Texture);
@@ -99,6 +107,9 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     GLint CurrentAlignment;
     glGetIntegerv(GL_UNPACK_ALIGNMENT, &CurrentAlignment);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -110,10 +121,10 @@ uint32 Make2DTexture(uint8 *Bitmap, uint32 Width, uint32 Height, uint32 Channels
     FormatFromChannels(Channels, IsFloat, &BaseFormat, &Format);
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
-    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, Type, Bitmap);
+    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, Type, ImageBuffer);
+    CheckGLError("glTexImage2D");
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    CheckGLError("glTexImage2D");
     glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
 
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -138,7 +149,7 @@ uint32 MakeCubemap(path *Paths, bool IsFloat, uint32 Width = 0, uint32 Height = 
     { // Load each face
         if(Paths)
         { // For loading from texture files
-            image Face = LoadImage(Paths[i]);
+            image Face = LoadImage(Paths[i], IsFloat);
 
             GLint BaseFormat, Format;
             FormatFromChannels(Face.Channels, IsFloat, &BaseFormat, &Format);

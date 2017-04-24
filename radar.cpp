@@ -374,6 +374,10 @@ game_context InitContext(game_memory *Memory)
                 glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
                 printf("GL Max Array Layers : %d\n", MaxLayers);
 
+                int MaxSize;
+                glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxSize);
+                printf("GL Max Texture Width : %d\n", MaxSize);
+
                 Context.WindowWidth = Config.WindowWidth;
                 Context.WindowHeight = Config.WindowHeight;
                 Context.FOV = Config.FOV;
@@ -404,12 +408,12 @@ game_context InitContext(game_memory *Memory)
                     image Image;
 
                     MakeRelativePath(TexPath, ExecFullPath, "data/default_diffuse.png");
-                    Image = LoadImage(TexPath);
+                    Image = LoadImage(TexPath, false);
                     Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, 1);
                     DestroyImage(&Image);
 
                     MakeRelativePath(TexPath, ExecFullPath, "data/default_normal.png");
-                    Image = LoadImage(TexPath);
+                    Image = LoadImage(TexPath, false);
                     Context.DefaultNormalTexture = Make2DTexture(&Image, false, 1);
                     DestroyImage(&Image);
 #if RADAR_WIN32
@@ -471,6 +475,7 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     Program1 = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program1);
     SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
+    CheckGLError("Text Shader");
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
@@ -480,25 +485,31 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     SendInt(glGetUniformLocation(Program3D, "Metallic"), 1);
     SendInt(glGetUniformLocation(Program3D, "Roughness"), 2);
     SendInt(glGetUniformLocation(Program3D, "Skybox"), 3);
+    CheckGLError("Mesh Shader");
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
     ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+    CheckGLError("Skybox Shader");
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/water_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water_frag.glsl");
     ProgramWater = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
+    CheckGLError("Water Shader");
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/latlong2cubemap_frag.glsl");
     ProgramLatlong2Cubemap = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProgramLatlong2Cubemap);
     SendInt(glGetUniformLocation(ProgramLatlong2Cubemap, "Envmap"), 0);
+    CheckGLError("Latlong Shader");
 
     uiReloadShaders(Memory, ExecFullPath);
+    CheckGLError("UI Shader");
 
     glUseProgram(0);
 }
@@ -566,6 +577,7 @@ int RadarMain(int argc, char **argv)
     // TEMP TESTS
         display_text Texts[ConsoleLogCapacity] = {};
 
+        CheckGLError("Start");
         ALuint AudioBuffer;
         ALuint AudioSource;
         if(TempPrepareSound(&AudioBuffer, &AudioSource))
@@ -575,15 +587,18 @@ int RadarMain(int argc, char **argv)
 
         ReloadShaders(&Memory, ExecFullPath);
 
+        CheckGLError("Shaders");
         glActiveTexture(GL_TEXTURE0);
+        CheckGLError("ActiveTex");
 
         // Texture Test
         path TexPath;
         MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
-        image Image = LoadImage(TexPath);
+        image Image = LoadImage(TexPath, false);
         uint32 Texture1 = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
+#if 0
         MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/albedo.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalAlbedo = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
@@ -603,7 +618,7 @@ int RadarMain(int argc, char **argv)
         Image = LoadImage(TexPath);
         uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
-
+#endif
         // Font Test
 #if RADAR_WIN32
         font ConsoleFont = LoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
@@ -685,9 +700,9 @@ int RadarMain(int argc, char **argv)
         { // NOTE - Irradiance map creation Test
             path HDREnvmapImagePath;
             MakeRelativePath(HDREnvmapImagePath, ExecFullPath, "data/envmap_malibu.hdr");
-            image HDREnvmapImage = LoadImage(HDREnvmapImagePath);
+            image HDREnvmapImage = LoadImage(HDREnvmapImagePath, true);
             uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
-                    HDREnvmapImage.Channels, true, Config.AnisotropicFiltering);
+                    HDREnvmapImage.Channels, true, 1);
             DestroyImage(&HDREnvmapImage);
 
             HDRCubemapEnvmap = MakeCubemap(NULL, true, CubemapWidth, CubemapWidth);
@@ -710,12 +725,12 @@ int RadarMain(int argc, char **argv)
 
                 // The 6 view matrices for the 6 cubemap directions
                 mat4f ViewDirs [] = {
-                    mat4f::LookAt(vec3f(0), vec3f(1, 0, 0),  vec3f(0,-1, 0)),
-                    mat4f::LookAt(vec3f(0), vec3f(-1, 0, 0), vec3f(0,-1, 0)),
-                    mat4f::LookAt(vec3f(0), vec3f(0, 1, 0),  vec3f(0, 0, 1)),
-                    mat4f::LookAt(vec3f(0), vec3f(0,-1, 0),  vec3f(0, 0,-1)),
-                    mat4f::LookAt(vec3f(0), vec3f(0, 0, 1),  vec3f(0,-1, 0)),
-                    mat4f::LookAt(vec3f(0), vec3f(0, 0,-1),  vec3f(0,-1, 0)),
+                    mat4f::LookAt(vec3f(0), vec3f( 1, 0, 0), vec3f(0, 1, 0)),
+                    mat4f::LookAt(vec3f(0), vec3f(-1, 0, 0), vec3f(0, 1, 0)),
+                    mat4f::LookAt(vec3f(0), vec3f( 0,-1, 0), vec3f(0, 0,-1)),
+                    mat4f::LookAt(vec3f(0), vec3f( 0, 1, 0), vec3f(0, 0, 1)),
+                    mat4f::LookAt(vec3f(0), vec3f( 0, 0,-1), vec3f(0, 1, 0)),
+                    mat4f::LookAt(vec3f(0), vec3f( 0, 0, 1), vec3f(0, 1, 0))
                 };
                 uint32 ViewLoc = glGetUniformLocation(ProgramLatlong2Cubemap, "ViewMatrix");
 
@@ -890,7 +905,7 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRCubemapEnvmap);
 
                 int Count = 5;
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
