@@ -58,7 +58,7 @@ void uiInit(game_context *Context)
     glBindVertexArray(0);
 }
 
-void uiReloadShaders(game_memory *Memory, path ExecFullPath)
+void uiReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath)
 {
     path VSPath, FSPath;
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/ui_vert.glsl");
@@ -69,6 +69,8 @@ void uiReloadShaders(game_memory *Memory, path ExecFullPath)
 
     uiProjMatrixUniformLoc = glGetUniformLocation(uiProgram, "ProjMatrix");
     uiColorUniformLoc = glGetUniformLocation(uiProgram, "Color");
+
+    RegisterShader2D(Context, uiProgram);
 }
 
 void uiBeginFrame(game_memory *Memory, game_input *Input)
@@ -139,11 +141,6 @@ void *RenderCmdOffset(uint8 *CmdList, size_t *OffsetAccum, size_t Size)
 void uiDraw()
 {
     glUseProgram(uiProgram);
-    // TODO - ProjMatrix updated only when resize happen
-    {
-        SendMat4(uiProjMatrixUniformLoc, uiContext->ProjectionMatrix2D);
-        CheckGLError("ProjMatrix UI");
-    }
 
     glBindVertexArray(uiVAO);
     uint8 *Cmd = (uint8*)uiRenderCmd;

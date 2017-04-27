@@ -4,6 +4,7 @@
 
 #include "sun.h"
 #include "radar.h"
+#include "render.h"
 
 int RadarMain(int argc, char **argv);
 void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
@@ -16,8 +17,42 @@ void MakeRelativePath(char *Dst, char *Path, char const *Filename);
 #include "radar_unix.cpp"
 #endif
 
+#define MAX_SHADERS 32
+
 // EXTERNAL
 #include "cJSON.h"
+#include "GL/glew.h"
+#include "GLFW/glfw3.h"
+
+struct game_context
+{
+    GLFWwindow *Window;
+    real64 EngineTime;
+
+    mat4f ProjectionMatrix3D;
+    mat4f ProjectionMatrix2D;
+
+    bool WireframeMode;
+    vec4f ClearColor;
+
+    uint32 DefaultDiffuseTexture;
+    uint32 DefaultNormalTexture;
+
+    font   DefaultFont;
+    uint32 DefaultFontTexture;
+
+    real32 FOV;
+    int WindowWidth;
+    int WindowHeight;
+
+    uint32 Shaders3D[MAX_SHADERS];
+    uint32 Shaders3DCount;
+    uint32 Shaders2D[MAX_SHADERS];
+    uint32 Shaders2DCount;
+
+    bool IsRunning;
+    bool IsValid;
+};
 
 // IMPLEMENTATION
 #include "render.cpp"
@@ -41,32 +76,26 @@ int  FrameMouseWheel = 0;
 // TODO - For resizing from GLFW callbacks. Is there a better way to do this ?
 int ResizeWidth;
 int ResizeHeight;
-bool Resized = false;
+bool Resized = true;
 
-struct game_context
+
+void RegisterShader3D(game_context *Context, uint32 ProgramID)
 {
-    GLFWwindow *Window;
-    real64 EngineTime;
+    Assert(Context->Shaders3DCount < MAX_SHADERS);
+    Context->Shaders3D[Context->Shaders3DCount++] = ProgramID;
+}
 
-    mat4f ProjectionMatrix3D;
-    mat4f ProjectionMatrix2D;
+void RegisterShader2D(game_context *Context, uint32 ProgramID)
+{
+    Assert(Context->Shaders2DCount < MAX_SHADERS);
+    Context->Shaders2D[Context->Shaders2DCount++] = ProgramID;
+}
 
-    bool WireframeMode;
-    vec4f ClearColor;
-
-    uint32 DefaultDiffuseTexture;
-    uint32 DefaultNormalTexture;
-
-    font   DefaultFont;
-    uint32 DefaultFontTexture;
-
-    real32 FOV;
-    int WindowWidth;
-    int WindowHeight;
-
-    bool IsRunning;
-    bool IsValid;
-};
+void RegisteredShaderClear(game_context *Context)
+{
+    Context->Shaders3DCount = 0;
+    Context->Shaders2DCount = 0;
+}
 
 #include "ui.cpp"
 
@@ -247,7 +276,6 @@ void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
     Resized = true;
     ResizeWidth = Width;
     ResizeHeight = Height;
-    glViewport(0, 0, Width, Height);
 }
 
 void ProcessErrorEvent(int Error, const char* Description)
@@ -258,11 +286,26 @@ void ProcessErrorEvent(int Error, const char* Description)
 void WindowResized(game_context *Context)
 {
     Resized = false;
+
+    glViewport(0, 0, ResizeWidth, ResizeHeight);
     Context->WindowWidth = ResizeWidth;
     Context->WindowHeight = ResizeHeight;
     Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
             Context->WindowWidth / (real32)Context->WindowHeight, 0.1f, 10000.f);
     Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1000.f);
+
+    // Notify the shaders that uses it
+    for(uint32 i = 0; i < Context->Shaders3DCount; ++i)
+    {
+        glUseProgram(Context->Shaders3D[i]);
+        SendMat4(glGetUniformLocation(Context->Shaders3D[i], "ProjMatrix"), Context->ProjectionMatrix3D);
+    }
+
+    for(uint32 i = 0; i < Context->Shaders2DCount; ++i)
+    {
+        glUseProgram(Context->Shaders2D[i]);
+        SendMat4(glGetUniformLocation(Context->Shaders2D[i], "ProjMatrix"), Context->ProjectionMatrix2D);
+    }
 }
 
 key_state BuildKeyState(int32 Key)
@@ -379,6 +422,8 @@ game_context InitContext(game_memory *Memory)
                 glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxSize);
                 printf("GL Max Texture Width : %d\n", MaxSize);
 
+                ResizeWidth = Config.WindowWidth;
+                ResizeHeight = Config.WindowHeight;
                 Context.WindowWidth = Config.WindowWidth;
                 Context.WindowHeight = Config.WindowHeight;
                 Context.FOV = Config.FOV;
@@ -466,8 +511,10 @@ void DestroyContext(game_context *Context)
 uint32 Program1, Program3D, ProgramSkybox;
 uint32 ProgramWater;
 
-void ReloadShaders(game_memory *Memory, path ExecFullPath)
+void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath)
 {
+    RegisteredShaderClear(Context);
+
     path VSPath;
     path FSPath;
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
@@ -476,6 +523,8 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     glUseProgram(Program1);
     SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
     CheckGLError("Text Shader");
+
+    RegisterShader2D(Context, Program1);
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
@@ -487,12 +536,16 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     SendInt(glGetUniformLocation(Program3D, "Skybox"), 3);
     CheckGLError("Mesh Shader");
 
+    RegisterShader3D(Context, Program3D);
+
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
     ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
     CheckGLError("Skybox Shader");
+
+    RegisterShader3D(Context, ProgramSkybox);
 
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/water_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water_frag.glsl");
@@ -501,7 +554,9 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
     CheckGLError("Water Shader");
 
-    uiReloadShaders(Memory, ExecFullPath);
+    RegisterShader3D(Context, ProgramWater);
+
+    uiReloadShaders(Memory, Context, ExecFullPath);
     CheckGLError("UI Shader");
 
     glUseProgram(0);
@@ -578,11 +633,9 @@ int RadarMain(int argc, char **argv)
             alSourcePlay(AudioSource);
         }
 
-        ReloadShaders(&Memory, ExecFullPath);
+        ReloadShaders(&Memory, &Context, ExecFullPath);
 
-        CheckGLError("Shaders");
         glActiveTexture(GL_TEXTURE0);
-        CheckGLError("ActiveTex");
 
         // Texture Test
         path TexPath;
@@ -683,15 +736,10 @@ int RadarMain(int argc, char **argv)
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
-
-        // TODO - This should replace the above in the end
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
         ComputeIrradianceCubemap(&Memory, ExecFullPath, "data/envmap_arch.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
         uint32 EnvmapToUse = HDRCubemapEnvmap; 
 
-        // TODO - This is because ComputeIrradianceCubemap changes it. But it's probably better to put this somewhere more streamlined
-        glViewport(0, 0, Context.WindowWidth, Context.WindowHeight);
-/////////////////////////
         bool LastDisableMouse = false;
 
         while(Context.IsRunning)
@@ -710,6 +758,12 @@ int RadarMain(int argc, char **argv)
 
             GetFrameInput(&Context, &Input);        
 
+            if(Resized)
+            {
+                WindowResized(&Context);
+            }
+
+            ///////////////////////////////////////////
             uiBeginFrame(&Memory, &Input);
 
 
@@ -757,7 +811,7 @@ int RadarMain(int argc, char **argv)
 
             if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
             {
-                ReloadShaders(&Memory, ExecFullPath);
+                ReloadShaders(&Memory, &Context, ExecFullPath);
             }
 
             if(KEY_UP(Input.KeyF1))
@@ -780,13 +834,9 @@ int RadarMain(int argc, char **argv)
 
             { // NOTE - CUBE DRAWING Test Put somewhere else
                 glUseProgram(Program3D);
-                // TODO - ProjMatrix updated only when resize happen
                 {
-                    uint32 Loc = glGetUniformLocation(Program3D, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Cube");
 
-                    Loc = glGetUniformLocation(Program3D, "ViewMatrix");
+                    uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
                     SendMat4(Loc, ViewMatrix);
                     CheckGLError("ViewMatrix");
                 }
@@ -818,13 +868,8 @@ int RadarMain(int argc, char **argv)
 
             { // NOTE - Sphere Array Test for PBR
                 glUseProgram(Program3D);
-                // TODO - ProjMatrix updated only when resize happen
                 {
-                    uint32 Loc = glGetUniformLocation(Program3D, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Cube");
-
-                    Loc = glGetUniformLocation(Program3D, "ViewMatrix");
+                    uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
                     SendMat4(Loc, ViewMatrix);
                     CheckGLError("ViewMatrix");
                 }
@@ -871,13 +916,8 @@ int RadarMain(int argc, char **argv)
             { // NOTE - Water Rendering Test
                 glUseProgram(ProgramWater);
                 glDisable(GL_CULL_FACE);
-                // TODO - ProjMatrix updated only when resize happen
                 {
-                    uint32 Loc = glGetUniformLocation(ProgramWater, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Cube");
-
-                    Loc = glGetUniformLocation(ProgramWater, "ViewMatrix");
+                    uint32 Loc = glGetUniformLocation(ProgramWater, "ViewMatrix");
                     SendMat4(Loc, ViewMatrix);
                     CheckGLError("ViewMatrix");
                 }
@@ -929,16 +969,11 @@ int RadarMain(int argc, char **argv)
                 CheckGLError("Skybox");
 
                 glUseProgram(ProgramSkybox);
-                // TODO - ProjMatrix updated only when resize happen
                 {
-                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ProjMatrix");
-                    SendMat4(Loc, Context.ProjectionMatrix3D);
-                    CheckGLError("ProjMatrix Skybox");
-
                     // NOTE - remove translation component from the ViewMatrix for the skybox
                     mat4f SkyViewMatrix = ViewMatrix;
                     SkyViewMatrix.SetTranslation(vec3f(0.f));
-                    Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
+                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
                     SendMat4(Loc, SkyViewMatrix);
                     CheckGLError("ViewMatrix Skybox");
                 }

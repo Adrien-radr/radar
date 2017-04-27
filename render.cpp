@@ -1,9 +1,5 @@
-#include "GL/glew.h"
-#include "GLFW/glfw3.h"
 #include "stb_image.h"
 #include "stb_truetype.h"
-
-#include "render.h"
 
 void CheckGLError(const char *Mark = "")
 {

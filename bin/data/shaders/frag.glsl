@@ -22,9 +22,9 @@ uniform vec3 CameraPos;
 
 out vec4 frag_color;
 
-vec3 FresnelSchlick(float HdotV, vec3 F0)
+vec3 FresnelSchlick(float HdotV, vec3 F0, float roughness)
 {
-    return F0 + (1 - F0) * pow(1 - HdotV, 5);
+    return F0 + (max(vec3(1 - roughness), F0) - F0) * pow(1 - HdotV, 5);
 }
 
 float DistributionGGX(float NdotH, float roughness)
@@ -82,7 +82,7 @@ void main()
     f0 = mix(f0, albedo, metallic.x);
 
     // Specular part
-    vec3 F = FresnelSchlick(HdotV, f0);
+    vec3 F = FresnelSchlick(HdotV, f0, roughness.x);
     float G = GeometrySmith(NdotV, NdotL, roughness.x);
     float D = DistributionGGX(NdotH, roughness.x);
 
