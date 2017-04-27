@@ -58,26 +58,26 @@ void DestroyImage(image *Image)
     Image->Width = Image->Height = Image->Channels = 0;
 }
 
-void FormatFromChannels(uint32 Channels, bool IsFloat, GLint *BaseFormat, GLint *Format)
+void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, GLint *BaseFormat, GLint *Format)
 {
     if(IsFloat)
     {
         switch(Channels)
         {
             case 1:
-                *BaseFormat = GL_R32F;
+                *BaseFormat = FloatHalfPrecision ? GL_R16F : GL_R32F;
                 *Format = GL_RED; 
                 break;
             case 2:
-                *BaseFormat = GL_RG32F;
+                *BaseFormat = FloatHalfPrecision ? GL_RG16F : GL_RG32F;
                 *Format = GL_RG; 
                 break;
             case 3:
-                *BaseFormat = GL_RGB32F;
+                *BaseFormat = FloatHalfPrecision ? GL_RGB16F : GL_RGB32F;
                 *Format = GL_RGB; 
                 break;
             case 4:
-                *BaseFormat = GL_RGBA32F;
+                *BaseFormat = FloatHalfPrecision ? GL_RGBA16F : GL_RGBA32F;
                 *Format = GL_RGBA; 
                 break;
         }
@@ -98,7 +98,7 @@ void FormatFromChannels(uint32 Channels, bool IsFloat, GLint *BaseFormat, GLint 
     }
 }
 
-uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, real32 AnisotropicLevel)
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, real32 AnisotropicLevel)
 {
     uint32 Texture;
     glGenTextures(1, &Texture);
@@ -118,7 +118,7 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
 
     GLint BaseFormat, Format;
-    FormatFromChannels(Channels, IsFloat, &BaseFormat, &Format);
+    FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, Type, ImageBuffer);
@@ -132,12 +132,12 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
     return Texture;
 }
 
-uint32 Make2DTexture(image *Image, bool IsFloat, uint32 AnisotropicLevel)
+uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel)
 {
-    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, AnisotropicLevel);
+    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, FloatHalfPrecision, AnisotropicLevel);
 }
 
-uint32 MakeCubemap(path *Paths, bool IsFloat, uint32 Width = 0, uint32 Height = 0)
+uint32 MakeCubemap(path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height)
 {
     uint32 Cubemap = 0;
 
@@ -152,7 +152,7 @@ uint32 MakeCubemap(path *Paths, bool IsFloat, uint32 Width = 0, uint32 Height = 
             image Face = LoadImage(Paths[i], IsFloat);
 
             GLint BaseFormat, Format;
-            FormatFromChannels(Face.Channels, IsFloat, &BaseFormat, &Format);
+            FormatFromChannels(Face.Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
             GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face.Width, Face.Height,
@@ -163,7 +163,8 @@ uint32 MakeCubemap(path *Paths, bool IsFloat, uint32 Width = 0, uint32 Height = 
         }
         else
         { // Empty Cubemap
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, IsFloat ? GL_RGB16F : GL_RGB16, 
+            GLint BaseFormat = IsFloat ? (FloatHalfPrecision ? GL_RGB16F : GL_RGB32F) : GL_RGB16;
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, 
                     Width, Height, 0, GL_RGB, IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE, NULL);
         }
     }
@@ -195,7 +196,7 @@ struct frame_buffer
     uint32 BufferIDs[MAX_FBO_ATTACHMENTS];
 };
 
-void DestroyFrameBuffer(frame_buffer *FB)
+void DestroyFramebuffer(frame_buffer *FB)
 {
     glDeleteTextures(MAX_FBO_ATTACHMENTS, FB->BufferIDs);
     glDeleteRenderbuffers(1, &FB->DepthBufferID);
@@ -206,7 +207,7 @@ void DestroyFrameBuffer(frame_buffer *FB)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-frame_buffer MakeFBO(uint32 NumAttachments, vec2i Size)
+frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size)
 {
     Assert(NumAttachments <= MAX_FBO_ATTACHMENTS);
 
@@ -224,7 +225,7 @@ frame_buffer MakeFBO(uint32 NumAttachments, vec2i Size)
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
         printf("Framebuffer creation error : not complete.\n");
-        DestroyFrameBuffer(&FB);
+        DestroyFramebuffer(&FB);
     }
 
     FB.Size = Size;
@@ -235,7 +236,7 @@ frame_buffer MakeFBO(uint32 NumAttachments, vec2i Size)
     return FB;
 }
 
-void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat)
+void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision)
 {
     Assert(Attachment < MAX_FBO_ATTACHMENTS);
 
@@ -246,7 +247,7 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
     glBindTexture(GL_TEXTURE_2D, *BufferID);
 
     GLint BaseFormat, Format;
-    FormatFromChannels(Channels, IsFloat, &BaseFormat, &Format);
+    FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
 
@@ -332,7 +333,7 @@ font LoadFont(game_memory *Memory, char *Filename, real32 PixelHeight)
         }
 
         // Make Texture out of the Bitmap
-        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, false, 1.0f);
+        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, false, false, 1.0f);
     }
 
 
@@ -1002,3 +1003,120 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
     return Sphere;
 }
 
+void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const *HDREnvmapFilename, uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap)
+{
+    // TODO - Parameterize this ?
+    uint32 CubemapWidth = 512;
+    uint32 IrradianceCubemapWidth = 32;
+
+    uint32 ProgramLatlong2Cubemap;
+    uint32 ProgramCubemapConvolution;
+
+    path VSPath;
+    path FSPath;
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/latlong2cubemap_frag.glsl");
+    ProgramLatlong2Cubemap = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProgramLatlong2Cubemap);
+    SendInt(glGetUniformLocation(ProgramLatlong2Cubemap, "Envmap"), 0);
+    CheckGLError("Latlong Shader");
+
+    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/cubemapconvolution_frag.glsl");
+    ProgramCubemapConvolution = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProgramCubemapConvolution);
+    SendInt(glGetUniformLocation(ProgramCubemapConvolution, "Cubemap"), 0);
+    CheckGLError("Convolution Shader");
+
+    frame_buffer FBOEnvmap = MakeFramebuffer(1, vec2i(CubemapWidth, CubemapWidth));
+
+    path HDREnvmapImagePath;
+    MakeRelativePath(HDREnvmapImagePath, ExecFullPath, HDREnvmapFilename);
+    image HDREnvmapImage = LoadImage(HDREnvmapImagePath, true);
+    uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
+            HDREnvmapImage.Channels, true, false, 1);
+    DestroyImage(&HDREnvmapImage);
+
+    mesh SkyboxCube = MakeUnitCube(false);
+
+    *HDRCubemapEnvmap = MakeCubemap(NULL, true, true, CubemapWidth, CubemapWidth);
+    CheckGLError("Latlong2Cubmap");
+    *HDRIrradianceEnvmap = MakeCubemap(NULL, true, false, IrradianceCubemapWidth, IrradianceCubemapWidth);
+    CheckGLError("IrradianceCubemap");
+
+    glDisable(GL_CULL_FACE);
+    glDepthFunc(GL_LEQUAL);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(SkyboxCube.VAO);
+    // The 6 view matrices for the 6 cubemap directions
+    mat4f static const ViewDirs [] = {
+        mat4f::LookAt(vec3f(0), vec3f( 1, 0, 0), vec3f(0, 1, 0)),
+        mat4f::LookAt(vec3f(0), vec3f(-1, 0, 0), vec3f(0, 1, 0)),
+        mat4f::LookAt(vec3f(0), vec3f( 0,-1, 0), vec3f(0, 0,-1)),
+        mat4f::LookAt(vec3f(0), vec3f( 0, 1, 0), vec3f(0, 0, 1)),
+        mat4f::LookAt(vec3f(0), vec3f( 0, 0,-1), vec3f(0, 1, 0)),
+        mat4f::LookAt(vec3f(0), vec3f( 0, 0, 1), vec3f(0, 1, 0))
+    };
+    mat4f static const EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);
+
+    // NOTE - Latlong to Cubemap
+    glUseProgram(ProgramLatlong2Cubemap);
+    // TODO - ProjMatrix updated only when resize happen
+    {
+        uint32 Loc = glGetUniformLocation(ProgramLatlong2Cubemap, "ProjMatrix");
+        SendMat4(Loc, EnvmapProjectionMatrix);
+        CheckGLError("ProjMatrix Latlong2Cubemap");
+    }
+
+    uint32 ViewLoc = glGetUniformLocation(ProgramLatlong2Cubemap, "ViewMatrix");
+
+    glViewport(0, 0, CubemapWidth, CubemapWidth);
+    glBindTexture(GL_TEXTURE_2D, HDRLatlongEnvmap);
+    glBindFramebuffer(GL_FRAMEBUFFER, FBOEnvmap.FBO);
+    for(int i = 0; i < 6; ++i)
+    {
+        SendMat4(ViewLoc, ViewDirs[i]);
+        CheckGLError("ViewMatrix Latlong2Cubemap");
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                *HDRCubemapEnvmap, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+    }
+
+    // NOTE - Cubemap convolution
+    glUseProgram(ProgramCubemapConvolution);
+    // TODO - ProjMatrix updated only when resize happen
+    {
+        uint32 Loc = glGetUniformLocation(ProgramCubemapConvolution, "ProjMatrix");
+        mat4f EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);
+        SendMat4(Loc, EnvmapProjectionMatrix);
+        CheckGLError("ProjMatrix CubemapConvolution");
+    }
+
+    ViewLoc = glGetUniformLocation(ProgramCubemapConvolution, "ViewMatrix");
+
+    glViewport(0, 0, IrradianceCubemapWidth, IrradianceCubemapWidth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 32, 32);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, *HDRCubemapEnvmap); 
+    for(int i = 0; i < 6; ++i)
+    {
+        SendMat4(ViewLoc, ViewDirs[i]);
+        CheckGLError("ViewMatrix Cubemap Convolution");
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                *HDRIrradianceEnvmap, 0);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+
+    glDeleteTextures(1, &HDRLatlongEnvmap);
+    glDeleteProgram(ProgramLatlong2Cubemap);
+    glDeleteProgram(ProgramCubemapConvolution);
+    DestroyFramebuffer(&FBOEnvmap);
+    DestroyMesh(&SkyboxCube);
+}

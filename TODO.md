@@ -8,6 +8,7 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 + Add an UI watch for all pools, describing how full they are each frame
 + Resource manager (Fonts, Images, ...)
 + Render commands from DLL to platform
++ Fix the .HDR Envmap loading. There seem to be a mixup at the poles between the south and north.
 
 ### UI
 - ~~2D Panel creation with custom shader~~
@@ -32,5 +33,5 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 - ~~Water Beaufort Scale States~~
     - ~~4/5 States, with precomputed HTidle0 (and other init data)~~
     - ~~Interpolation between states at runtime~~
-    - Fix Scaling bug.
+    - ~~Fix Scaling bug.~~
 - Water / Boat / Objects collision and interactions (Gamasutra & Black Flag articles)

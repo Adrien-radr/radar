@@ -9,7 +9,7 @@ out vec3 v_texcoord;
 
 void main()
 {
-    v_texcoord = in_position; // unit cube positions are cartesian unit direction
+    v_texcoord = in_position; // unit cube positions are unnormalized cartesian unit direction
     vec4 pos = ProjMatrix * ViewMatrix * vec4(in_position, 1.0);
     gl_Position = pos.xyww; // always max depth
 }

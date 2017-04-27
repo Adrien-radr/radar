@@ -325,6 +325,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
     Input->KeySpace = BuildKeyState(GLFW_KEY_SPACE);
     Input->KeyF1 = BuildKeyState(GLFW_KEY_F1);
+    Input->KeyF2 = BuildKeyState(GLFW_KEY_F2);
     Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
     Input->KeyNumPlus = BuildKeyState(GLFW_KEY_KP_ADD);
     Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);
@@ -409,12 +410,12 @@ game_context InitContext(game_memory *Memory)
 
                     MakeRelativePath(TexPath, ExecFullPath, "data/default_diffuse.png");
                     Image = LoadImage(TexPath, false);
-                    Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, 1);
+                    Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
 
                     MakeRelativePath(TexPath, ExecFullPath, "data/default_normal.png");
                     Image = LoadImage(TexPath, false);
-                    Context.DefaultNormalTexture = Make2DTexture(&Image, false, 1);
+                    Context.DefaultNormalTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
 #if RADAR_WIN32
                     Context.DefaultFont = LoadFont(Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
@@ -462,7 +463,6 @@ void DestroyContext(game_context *Context)
     glfwTerminate();
 }
 
-uint32 ProgramLatlong2Cubemap;
 uint32 Program1, Program3D, ProgramSkybox;
 uint32 ProgramWater;
 
@@ -500,13 +500,6 @@ void ReloadShaders(game_memory *Memory, path ExecFullPath)
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
     CheckGLError("Water Shader");
-
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/latlong2cubemap_frag.glsl");
-    ProgramLatlong2Cubemap = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(ProgramLatlong2Cubemap);
-    SendInt(glGetUniformLocation(ProgramLatlong2Cubemap, "Envmap"), 0);
-    CheckGLError("Latlong Shader");
 
     uiReloadShaders(Memory, ExecFullPath);
     CheckGLError("UI Shader");
@@ -595,7 +588,7 @@ int RadarMain(int argc, char **argv)
         path TexPath;
         MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
         image Image = LoadImage(TexPath, false);
-        uint32 Texture1 = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
+        uint32 Texture1 = Make2DTexture(&Image, false, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
 #if 0
@@ -684,81 +677,20 @@ int RadarMain(int argc, char **argv)
         }
 
         mesh SkyboxCube = MakeUnitCube(false);
-        uint32 TestCubemap = MakeCubemap(CubemapPaths, false);
+        uint32 TestCubemap = MakeCubemap(CubemapPaths, false, false, 0, 0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
 
-        uint32 CubemapWidth = 512;
-        uint32 HDRCubemapEnvmap = 0;
+        // TODO - This should replace the above in the end
+        uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
+        ComputeIrradianceCubemap(&Memory, ExecFullPath, "data/envmap_arch.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
+        uint32 EnvmapToUse = HDRCubemapEnvmap; 
 
-        frame_buffer FBOEnvmap = MakeFBO(1, vec2i(CubemapWidth, CubemapWidth));
-        AttachBuffer(&FBOEnvmap, 0, 1, true); 
-
-        { // NOTE - Irradiance map creation Test
-            path HDREnvmapImagePath;
-            MakeRelativePath(HDREnvmapImagePath, ExecFullPath, "data/envmap_malibu.hdr");
-            image HDREnvmapImage = LoadImage(HDREnvmapImagePath, true);
-            uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
-                    HDREnvmapImage.Channels, true, 1);
-            DestroyImage(&HDREnvmapImage);
-
-            HDRCubemapEnvmap = MakeCubemap(NULL, true, CubemapWidth, CubemapWidth);
-
-            { // NOTE - Render latlong envmap as a cubemap
-                glDisable(GL_CULL_FACE);
-                glDepthFunc(GL_LEQUAL);
-                CheckGLError("Latlong2Cubmap");
-
-                glUseProgram(ProgramLatlong2Cubemap);
-                // TODO - ProjMatrix updated only when resize happen
-                {
-                    uint32 Loc = glGetUniformLocation(ProgramLatlong2Cubemap, "ProjMatrix");
-                    mat4f EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);
-                    SendMat4(Loc, EnvmapProjectionMatrix);
-                    CheckGLError("ProjMatrix Latlong2Cubemap");
-                }
-
-                glBindVertexArray(SkyboxCube.VAO);
-
-                // The 6 view matrices for the 6 cubemap directions
-                mat4f ViewDirs [] = {
-                    mat4f::LookAt(vec3f(0), vec3f( 1, 0, 0), vec3f(0, 1, 0)),
-                    mat4f::LookAt(vec3f(0), vec3f(-1, 0, 0), vec3f(0, 1, 0)),
-                    mat4f::LookAt(vec3f(0), vec3f( 0,-1, 0), vec3f(0, 0,-1)),
-                    mat4f::LookAt(vec3f(0), vec3f( 0, 1, 0), vec3f(0, 0, 1)),
-                    mat4f::LookAt(vec3f(0), vec3f( 0, 0,-1), vec3f(0, 1, 0)),
-                    mat4f::LookAt(vec3f(0), vec3f( 0, 0, 1), vec3f(0, 1, 0))
-                };
-                uint32 ViewLoc = glGetUniformLocation(ProgramLatlong2Cubemap, "ViewMatrix");
-
-                glViewport(0, 0, CubemapWidth, CubemapWidth);
-                glBindTexture(GL_TEXTURE_2D, HDRLatlongEnvmap);
-                glBindFramebuffer(GL_FRAMEBUFFER, FBOEnvmap.FBO);
-                for(int i = 0; i < 6; ++i)
-                {
-                    SendMat4(ViewLoc, ViewDirs[i]);
-                    CheckGLError("ViewMatrix Latlong2Cubemap");
-                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                            HDRCubemapEnvmap, 0);
-                    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-                    glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
-                }
-
-                glBindFramebuffer(GL_FRAMEBUFFER, 0);
-                glViewport(0, 0, Context.WindowWidth, Context.WindowHeight);
-                glDepthFunc(GL_LESS);
-                glEnable(GL_CULL_FACE);
-            }
-        }
-
-#if 0
-        //mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
-        frame_buffer FBOPass1 = MakeFBO(1, vec2i(Config.WindowWidth, Config.WindowHeight));
-        AttachBuffer(&FBOPass1, 0, 1, true); 
-#endif
+        // TODO - This is because ComputeIrradianceCubemap changes it. But it's probably better to put this somewhere more streamlined
+        glViewport(0, 0, Context.WindowWidth, Context.WindowHeight);
 /////////////////////////
         bool LastDisableMouse = false;
 
@@ -834,6 +766,15 @@ int RadarMain(int argc, char **argv)
                 glPolygonMode(GL_FRONT_AND_BACK, Context.WireframeMode ? GL_LINE : GL_FILL);
             }
 
+            if(KEY_UP(Input.KeyF2))
+            {
+                if(EnvmapToUse == HDRCubemapEnvmap)
+                    EnvmapToUse = HDRIrradianceEnvmap;
+                else
+                    EnvmapToUse = HDRCubemapEnvmap;
+            }
+
+
             game_camera &Camera = State->Camera;
             mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
@@ -905,7 +846,7 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRCubemapEnvmap);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
 
                 int Count = 5;
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
@@ -1002,7 +943,7 @@ int RadarMain(int argc, char **argv)
                     CheckGLError("ViewMatrix Skybox");
                 }
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRCubemapEnvmap);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
                 glBindVertexArray(SkyboxCube.VAO);
                 glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
 

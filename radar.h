@@ -227,6 +227,7 @@ struct game_input
     key_state KeyLAlt;
     key_state KeySpace;
     key_state KeyF1;
+    key_state KeyF2;
     key_state KeyF11;
     key_state KeyNumPlus;
     key_state KeyNumMinus;

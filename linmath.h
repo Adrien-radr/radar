@@ -386,6 +386,32 @@ inline float Luminance(const vec3f &rgb)
 	return (0.2126f*rgb.x + 0.7152f*rgb.y + 0.0722f*rgb.z);
 }
 
+template<typename T>
+class frame
+{
+    // NOTE - from [Frisvad2012]
+    // TODO - This is for Z up, make it for Y up as well
+    explicit frame(vec3<T> N)
+    {
+        vz = Normalize(N);
+        if(vz.z < -0.9999999)
+        {
+            vx = vec3<T>(0, -1, 0);
+            vy = vec3<T>(-1, 0, 0);
+        }
+        else
+        {
+            T a = T(1) / (T(1) + vz.z);
+            T b = -vz.x * vz.y * a;
+            vx = vec3<T>(T(1) - vz.x * vz.x * a, b, -vz.x);
+            vy = vec3<T>(b, T(1) - vz.y * vz.y * a, -vz.y);
+        }
+    }
+
+    vec3<T> vx;
+    vec3<T> vy;
+    vec3<T> vz;
+};
 /*
 
 void vec3_lerp(vec3 r, vec3 a, vec3 b, float t) {

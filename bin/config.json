@@ -1,13 +1,13 @@
 {
-    "iWindowWidth" : 960,
-    "iWindowHeight" : 540,
+    "iWindowWidth" : 1600,
+    "iWindowHeight" : 900,
     "iMSAA" : 0,
     "bFullScreen" : 0,
     "bVSync" : 1,
     "fFOV" : 75.0,
     "iAnisotropicFiltering" : 16,
 
-    "fCameraSpeedBase" : 20.0,
+    "fCameraSpeedBase" : 40.0,
     "fCameraSpeedMult" : 2.0,
 	"fCameraSpeedAngular" : 0.3,
     "vCameraPosition" : [30, 20, 30],
