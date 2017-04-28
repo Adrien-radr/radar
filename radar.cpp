@@ -741,7 +741,7 @@ int RadarMain(int argc, char **argv)
         glActiveTexture(GL_TEXTURE0);
 
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
-        ComputeIrradianceCubemap(&Memory, ExecFullPath, "data/envmap_malibu.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
+        ComputeIrradianceCubemap(&Memory, ExecFullPath, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
         uint32 EnvmapToUse = HDRCubemapEnvmap; 
 
         bool LastDisableMouse = false;

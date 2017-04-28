@@ -112,7 +112,7 @@ void main()
     vec3 Diffuse = irr_light * albedo;
     vec3 Ambient = kd * Diffuse;
 
-    vec3 color = Ambient + (1-kd) * Lo;
+    vec3 color = Ambient + Lo;
 
     // Gamma correction
     color = color / (color + vec3(1));
