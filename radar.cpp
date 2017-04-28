@@ -283,17 +283,8 @@ void ProcessErrorEvent(int Error, const char* Description)
     printf("GLFW Error : %s\n", Description);
 }
 
-void WindowResized(game_context *Context)
+void UpdateShaderProjection(game_context *Context)
 {
-    Resized = false;
-
-    glViewport(0, 0, ResizeWidth, ResizeHeight);
-    Context->WindowWidth = ResizeWidth;
-    Context->WindowHeight = ResizeHeight;
-    Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
-            Context->WindowWidth / (real32)Context->WindowHeight, 0.1f, 10000.f);
-    Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1000.f);
-
     // Notify the shaders that uses it
     for(uint32 i = 0; i < Context->Shaders3DCount; ++i)
     {
@@ -306,6 +297,20 @@ void WindowResized(game_context *Context)
         glUseProgram(Context->Shaders2D[i]);
         SendMat4(glGetUniformLocation(Context->Shaders2D[i], "ProjMatrix"), Context->ProjectionMatrix2D);
     }
+}
+
+void WindowResized(game_context *Context)
+{
+    Resized = false;
+
+    glViewport(0, 0, ResizeWidth, ResizeHeight);
+    Context->WindowWidth = ResizeWidth;
+    Context->WindowHeight = ResizeHeight;
+    Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
+            Context->WindowWidth / (real32)Context->WindowHeight, 0.1f, 10000.f);
+    Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1000.f);
+
+    UpdateShaderProjection(Context);
 }
 
 key_state BuildKeyState(int32 Key)
@@ -534,6 +539,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath
     SendInt(glGetUniformLocation(Program3D, "Metallic"), 1);
     SendInt(glGetUniformLocation(Program3D, "Roughness"), 2);
     SendInt(glGetUniformLocation(Program3D, "Skybox"), 3);
+    SendInt(glGetUniformLocation(Program3D, "IrradianceCubemap"), 4);
     CheckGLError("Mesh Shader");
 
     RegisterShader3D(Context, Program3D);
@@ -552,6 +558,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath
     ProgramWater = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
+    SendInt(glGetUniformLocation(ProgramWater, "IrradianceCubemap"), 1);
     CheckGLError("Water Shader");
 
     RegisterShader3D(Context, ProgramWater);
@@ -559,6 +566,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath
     uiReloadShaders(Memory, Context, ExecFullPath);
     CheckGLError("UI Shader");
 
+    UpdateShaderProjection(Context);
+    
     glUseProgram(0);
 }
 
@@ -695,11 +704,6 @@ int RadarMain(int argc, char **argv)
         int PlaneWidth = 256;
         mesh UnderPlane = Make3DPlane(&Memory, vec2i(PlaneWidth, PlaneWidth), 1, 10);
 
-#if 1 // Skybox 1
-        vec3f SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
-#else // Skybox 2
-        vec3f SunDirection = Normalize(vec3f(0.7, 1.2, -0.7));
-#endif
 
         // Cubemaps Test
         path CubemapPaths[6];
@@ -737,7 +741,7 @@ int RadarMain(int argc, char **argv)
         glActiveTexture(GL_TEXTURE0);
 
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
-        ComputeIrradianceCubemap(&Memory, ExecFullPath, "data/envmap_arch.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
+        ComputeIrradianceCubemap(&Memory, ExecFullPath, "data/envmap_malibu.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
         uint32 EnvmapToUse = HDRCubemapEnvmap; 
 
         bool LastDisableMouse = false;
@@ -844,7 +848,7 @@ int RadarMain(int argc, char **argv)
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
                 Loc = glGetUniformLocation(Program3D, "SunDirection");
-                SendVec3(Loc, SunDirection);
+                SendVec3(Loc, State->LightDirection);
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
                 glBindVertexArray(Cube.VAO);
@@ -876,7 +880,7 @@ int RadarMain(int argc, char **argv)
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
                 Loc = glGetUniformLocation(Program3D, "SunDirection");
-                SendVec3(Loc, SunDirection);
+                SendVec3(Loc, State->LightDirection);
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
 
@@ -892,12 +896,14 @@ int RadarMain(int argc, char **argv)
                 glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE3);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
+                glActiveTexture(GL_TEXTURE4);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
 
                 int Count = 5;
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-                SendVec3(AlbedoLoc, vec3f(0.5, 0, 0));
+                SendVec3(AlbedoLoc, vec3f(1));
                 for(int j = 0; j < Count; ++j)
                 {
                     SendFloat(MetallicLoc, (j+1)/(real32)Count);
@@ -926,7 +932,7 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(ProgramWater, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
                 Loc = glGetUniformLocation(ProgramWater, "SunDirection");
-                SendVec3(Loc, SunDirection);
+                SendVec3(Loc, State->LightDirection);
 
                 water_system *WaterSystem = System->WaterSystem;
 
@@ -943,6 +949,11 @@ int RadarMain(int argc, char **argv)
 
                 real32 Interp = (State->WaterState+1) + State->WaterStateInterp;
                 
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
+
                 int Repeat = 3;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)

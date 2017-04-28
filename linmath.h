@@ -19,21 +19,29 @@
 #endif
 #ifndef M_PI_OVER_TWO
 #define M_PI_OVER_TWO 1.5707963267
-#endif
+#define M_PI_OVER_FOUR 0.78539816339
+
 #define M_TWO_PI 6.28318530718
+#define M_FOUR_PI 12.5663706144
+
+#define M_INV_PI 0.31830988618
+#define M_INV_TWO_PI 0.15915494309
+#define M_INV_FOUR_PI 0.07957747154 
+#endif
 // deg 2 rad : d * PI / 180
 #define deg2rad(d) ((d)*0.01745329252)
 // rad 2 deg : d * 180 / PI
 #define rad2deg(r) ((r)*57.2957795)
 
-#ifndef min
-#define min(a,b) ((a) <= (b) ? (a) : (b))
+#define Square(num) ((num)*(num))
+#ifndef Min
+#define Min(a,b) ((a) <= (b) ? (a) : (b))
 #endif
-#ifndef max
-#define max(a,b) ((a) >= (b) ? (a) : (b))
+#ifndef Max
+#define Max(a,b) ((a) >= (b) ? (a) : (b))
 #endif
-#ifndef clamp
-#define clamp(v,a,b) (max((a), min((b), (v))))
+#ifndef Clamp
+#define Clamp(v,a,b) (max((a), min((b), (v))))
 #endif
 
 template<typename T>
@@ -42,12 +50,16 @@ inline T Mix(T A, T B, float Interp)
     return A + (B - A) * Interp;
 }
 
-/// Returns the Vertical FOV in degrees from an Horizontal FOV in degrees
-/// and a given screen aspect ratio
-inline float hfov_to_vfov(float aspect, float hfov_deg)
+template<typename T>
+T Inf()
 {
-	const float rhf = deg2rad(hfov_deg);
-	return rad2deg(2.f*atanf(tanf(rhf*.5f) / aspect));
+    return std::numeric_limits<T>::infinity();
+}
+
+inline float HFOVtoVFOV(float Aspect, float HFOV_deg)
+{
+	const float rhf = deg2rad(HFOV_deg);
+	return rad2deg(2.f*atanf(tanf(rhf*.5f) / Aspect));
 }
 
 // ----------------
@@ -1165,7 +1177,7 @@ public:
 
 	static mat4<T> Perspective(float fov_x, float aspect, float n, float f)
 	{
-		float fov_rad = deg2rad(hfov_to_vfov(aspect, fov_x));
+		float fov_rad = deg2rad(HFOVtoVFOV(aspect, fov_x));
 		float tanHalfFovy = tanf(fov_rad * 0.5f);
 
 		float sx = 1.f / (aspect * tanHalfFovy);
@@ -1485,4 +1497,17 @@ int rectangle_equal_size(const rectangle a, const rectangle b) {
 
 #undef INLINE
 */
+
+// {theta, phi} -> [x, y, z]
+inline vec3f SphericalToCartesian(float Theta, float Phi)
+{
+    float SinTheta = sinf(Theta);
+    return vec3f(SinTheta * cosf(Phi), cosf(Theta), SinTheta * sinf(Phi));
+}
+
+// [x, y, z] -> {theta, phi}
+inline vec2f CartesianToSpherical(vec3f const &V)
+{
+    return vec2f(atan2f(sqrtf(Square(V.x) + Square(V.z)), V.y), atan2f(V.z, V.x));
+}
 #endif

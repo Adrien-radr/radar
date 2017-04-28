@@ -56,6 +56,5 @@ typedef char path[MAX_PATH];
 #define Megabytes(num) (1024LL*Kilobytes(num))
 #define Gigabytes(num) (1024LL*Megabytes(num))
 
-#define Square(num) ((num)*(num))
 
 #endif

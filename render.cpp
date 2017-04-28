@@ -1047,12 +1047,12 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
     glBindVertexArray(SkyboxCube.VAO);
     // The 6 view matrices for the 6 cubemap directions
     mat4f static const ViewDirs [] = {
-        mat4f::LookAt(vec3f(0), vec3f( 1, 0, 0), vec3f(0, 1, 0)),
-        mat4f::LookAt(vec3f(0), vec3f(-1, 0, 0), vec3f(0, 1, 0)),
-        mat4f::LookAt(vec3f(0), vec3f( 0,-1, 0), vec3f(0, 0,-1)),
+        mat4f::LookAt(vec3f(0), vec3f( 1, 0, 0), vec3f(0, -1, 0)),
+        mat4f::LookAt(vec3f(0), vec3f(-1, 0, 0), vec3f(0, -1, 0)),
         mat4f::LookAt(vec3f(0), vec3f( 0, 1, 0), vec3f(0, 0, 1)),
-        mat4f::LookAt(vec3f(0), vec3f( 0, 0,-1), vec3f(0, 1, 0)),
-        mat4f::LookAt(vec3f(0), vec3f( 0, 0, 1), vec3f(0, 1, 0))
+        mat4f::LookAt(vec3f(0), vec3f( 0,-1, 0), vec3f(0, 0,-1)),
+        mat4f::LookAt(vec3f(0), vec3f( 0, 0, 1), vec3f(0, -1, 0)),
+        mat4f::LookAt(vec3f(0), vec3f( 0, 0,-1), vec3f(0, -1, 0))
     };
     mat4f static const EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);
 

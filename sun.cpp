@@ -39,9 +39,14 @@ void InitCamera(game_camera *Camera, game_memory *Memory)
     Camera->SpeedMode = 0;
     Camera->FreeflyMode = false;
 
+    vec2f Spherical = CartesianToSpherical(Camera->Forward);
+    Camera->Theta = Spherical.x;
+    Camera->Phi = Spherical.y;
+#if 0
     vec2f Azimuth = Normalize(vec2f(Camera->Forward[0], Camera->Forward[2]));
     Camera->Phi = atan2f(Azimuth.y, Azimuth.x);
     Camera->Theta = atan2f(Camera->Forward.y, sqrtf(Dot(Azimuth, Azimuth)));
+#endif
 }
 
 void GameInitialization(game_memory *Memory)
@@ -63,7 +68,28 @@ void GameInitialization(game_memory *Memory)
 
     InitCamera(&State->Camera, Memory);
 
-    State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
+    // TODO - Pack Sun color and direction from envmaps
+#if 0
+    // Arch Envmap
+    State->LightColor = vec4f(254.f/255.f, 241.f/255.f, 224.f/255.f, 1.0f);
+    State->LightDirection = SphericalToCartesian(0.365 * M_PI, M_TWO_PI * 0.065);
+#endif
+#if 1
+    // Malibu Envmap
+    State->LightColor = vec4f(255.f/255.f, 251.f/255.f, 232.f/255.f, 1.0f);
+    State->LightDirection = SphericalToCartesian(0.15 * M_PI, M_TWO_PI * 0.95);
+#endif
+#if 0
+    // Tropical Envmap
+    State->LightColor = vec4f(255.f/255.f, 252.f/255.f, 245.f/255.f, 1.0f);
+    State->LightDirection = SphericalToCartesian(0.12 * M_PI, M_TWO_PI * 0.33);
+#endif
+#if 0 // Skybox 1
+        State->LightDirection = Normalize(vec3f(0.5, 0.2, 1.0));
+#endif
+#if 0 // Skybox 2
+        State->LightDirection = Normalize(vec3f(0.7, 1.2, -0.7));
+#endif
 
     State->WaterCounter = 0.0;
     State->WaterStateInterp = 0.f;
@@ -116,16 +142,19 @@ void MovePlayer(game_state *State, game_input *Input)
         if(MouseOffset.x != 0 || MouseOffset.y != 0)
         {
             Camera.Phi += MouseOffset.x * Input->dTime * Camera.AngularSpeed;
-            Camera.Theta -= MouseOffset.y * Input->dTime * Camera.AngularSpeed;
+            Camera.Theta += MouseOffset.y * Input->dTime * Camera.AngularSpeed;
 
             if(Camera.Phi > M_TWO_PI) Camera.Phi -= M_TWO_PI;
             if(Camera.Phi < 0.0f) Camera.Phi += M_TWO_PI;
 
-            Camera.Theta = max(-M_PI_OVER_TWO + 1e-5f, min(M_PI_OVER_TWO - 1e-5f, Camera.Theta));
+            Camera.Theta = Max(1e-5f, Min(M_PI - 1e-5f, Camera.Theta));//Max(-M_PI_OVER_TWO + 1e-5f, Min(M_PI_OVER_TWO - 1e-5f, Camera.Theta));
+            Camera.Forward = SphericalToCartesian(Camera.Theta, Camera.Phi);
+#if 0
             real32 CosTheta = cosf(Camera.Theta);
             Camera.Forward.x = CosTheta * cosf(Camera.Phi);
             Camera.Forward.y = sinf(Camera.Theta);
             Camera.Forward.z = CosTheta * sinf(Camera.Phi);
+#endif
 
             Camera.Right = Normalize(Cross(Camera.Forward, vec3f(0, 1, 0)));
             Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
@@ -204,7 +233,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         }
         else
         {
-            State->WaterStateInterp = min(1.f, State->WaterStateInterp);
+            State->WaterStateInterp = Min(1.f, State->WaterStateInterp);
         }
     }
     if(KEY_DOWN(Input->KeyNumMinus))
@@ -221,7 +250,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         }
         else
         {
-            State->WaterStateInterp = max(0.f, State->WaterStateInterp);
+            State->WaterStateInterp = Max(0.f, State->WaterStateInterp);
         }
     }
 

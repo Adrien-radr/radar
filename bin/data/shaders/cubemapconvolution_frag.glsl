@@ -29,8 +29,6 @@ mat3 BasisFrisvald(vec3 N)
 void main()
 {
     vec3 N = normalize(v_texcoord);
-    N.y = -N.y;
-    N.z = -N.z;
     //mat3 L2W = BasisFrisvald(N);
 
     vec3 irradiance = vec3(0);

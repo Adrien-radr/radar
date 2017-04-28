@@ -1,7 +1,7 @@
 #version 400
 
-#define M_PI     3.14159265358
-#define M_INV_PI 0.31830988618
+#define PI     3.14159265358
+#define INV_PI 0.31830988618
 
 in vec3 v_position;
 in vec2 v_texcoord;
@@ -9,11 +9,14 @@ in vec3 v_normal;
 in vec3 v_sundirection;
 
 uniform samplerCube Skybox;
+uniform samplerCube IrradianceCubemap;
+
 uniform vec4 LightColor;
 uniform vec3 CameraPos;
 
 out vec4 frag_color;
 
+#if 0
 float FresnelF0(in float n1, in float n2) {
     float f0 = (n1 - n2)/(n1 + n2);
     return f0 * f0;
@@ -27,42 +30,44 @@ float FresnelRatio(in float u)
 vec3 FresnelSchlick(in vec3 f0, in vec3 f90, in float u) {
     return f0 + (f90 - f0) * FresnelRatio(u);
 }
+#endif
 
-vec4 GGX(in float NdotL, in float NdotV, in float NdotH, in float LdotH, in float roughness, in vec3 F0) {
-    float alpha2 = roughness * roughness;
-
-    // F 
-    vec3 F = FresnelSchlick(F0, vec3(1.0), LdotH);
-
-    // D (Trowbridge-Reitz). Divide by PI at the end
-    float denom = NdotH * NdotH * (alpha2 - 1.0) + 1.0;
-    float D = alpha2 / (M_PI * denom * denom);
-
-    // G (Smith GGX - Height-correlated)
-    float lambda_GGXV = NdotL * sqrt((-NdotV * alpha2 + NdotV) * NdotV + alpha2);
-    float lambda_GGXL = NdotV * sqrt((-NdotL * alpha2 + NdotL) * NdotL + alpha2);
-    // float G = G_schlick_GGX(k, NdotL) * G_schlick_GGX(k, NdotV);
-
-    // optimized G(NdotL) * G(NdotV) / (4 NdotV NdotL)
-    // float G = 1.0 / (4.0 * (NdotL * (1 - k) + k) * (NdotV * (1 - k) + k));
-    float G = 0.5 / (lambda_GGXL + lambda_GGXV);
-
-    return vec4(D * F * G, 1.0);
+vec3 FresnelSchlick(float HdotV, vec3 F0, vec3 F90)
+{
+    return F0 + (F90 - F0) * pow(1 - HdotV, 5);
 }
 
-float DiffuseLambert(in float NdotL) {
-    return M_INV_PI;
+float DistributionGGX(float NdotH, float roughness)
+{
+    float a      = roughness * roughness;
+    float a2     = a * a;
+    //float NdotH  = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH*NdotH;
+
+    float nom   = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return nom / denom;
 }
 
-float DiffuseBurley(in float NdotL, in float NdotV, in float LdotH, in float roughness) {
-    float energy_bias = mix(0.0, 0.5, roughness);
-    float energy_factor = mix(1.0, 1.0 / 1.51, roughness);
-    vec3 fd_90 = vec3(energy_bias + 2.0 * LdotH * LdotH * roughness);
-    vec3 f0 = vec3(1.0);
-    float light_scatter = FresnelSchlick(f0, fd_90, NdotL).r;
-    float view_scatter = FresnelSchlick(f0, fd_90, NdotV).r;
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
 
-    return light_scatter * view_scatter * energy_factor * M_INV_PI;
+    float nom   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float GeometrySmith(float NdotV, float NdotL, float roughness)
+{
+    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
 }
 
 void main()
@@ -79,63 +84,81 @@ void main()
 
     float NdotL = max(0.0, dot(N, L));
     float NdotH = max(0.0, dot(N, H));
-    float NdotV = max(0.0, dot(N, V));
+    float NdotV = max(1e-3, dot(N, V));
     float LdotH = max(0.0, dot(L, H));
+    float HdotV = max(0.0, dot(H, V));
     float VdotR = max(0.0, dot(V, R));
     float NdotInvL = max(0.0, dot(-L, N));
     float VdotInvL = max(0.0, dot(-L, V));
-    float VdotInvL2 = pow(VdotInvL,2);
+    float VdotInvL2 = pow(VdotInvL,5);
 
     // Parameters
     float nSnell = 1.34;
-    float sigma_a = 0.0008;
+    float sigma_a = 0.00005;
     float sigma_s = 0.0000;
     float sigma_t = sigma_a + sigma_s;
-    float reflect_ratio = 0.25;
+    float reflect_ratio = 0.5;
     float refract_ratio = 0.5;
-    vec4 fog_color = vec4(0.30, 0.40, 0.50, 1.0);
-    vec4 sky_color = vec4(0.35, 0.50, 0.65, 1.0);
-    vec4 water_color = vec4(0.01, 0.19, 0.31, 1.0);
-    vec4 sss_color = vec4(0.4, 0.9, 0.05, 1.0);
-    vec4 specular_color = vec4(1,1,1,1);
-    vec4 reflect_color = texture(Skybox, R);
+    vec3 fog_color = vec3(0.30, 0.40, 0.50);
+    vec3 sky_color = vec3(0.20, 0.40, 0.65);
+    vec3 water_color = vec3(0.01, 0.10, 0.31);
+    //vec3 water_color = vec3(0.001, 0.012, 0.035);
+    vec3 sss_color = vec3(0.00, 0.95, 0.9);
+    vec3 specular_color = vec3(1,1,1);
+    vec3 env_light = pow(texture(Skybox, -R).xyz, vec3(2.2));
+    vec3 irr_light = pow(texture(IrradianceCubemap, -R).xyz, vec3(2.2));
 
-    // Underwater params
-    float sigma_a_uw = 0.01;
-    float sigma_s_uw = 0.00;
-    float sigma_t_uw = sigma_a_uw + sigma_s_uw;
-    vec4 uw_far_color = vec4(0.0075, 0.15, 0.23, 1.0);
-    vec4 uw_close_color = vec4(0.2, 0.7, 0.8, 1.0);
 
-    vec4 reflection = (1 - reflect_ratio) * vec4(1) + reflect_ratio * reflect_color;
+    // TODO - Replace this with specular IBL
+    vec3 reflection = (1 - reflect_ratio) * vec3(1) + reflect_ratio * env_light;
 
+    vec3 color = vec3(0);
+
+#if 0
     if(gl_FrontFacing)
     {
+#endif
+        float roughness = 0.001;
         float dist = exp(-sigma_t * water_dist);
-        float Specular = NdotL * pow(VdotR, 240.0); 
-        float SSS = max(0, 0.5-max(0,dot(V,vec3(0,1,0)))) * NdotV;
-        vec3 Fresnel = FresnelSchlick(water_color.xyz, reflection.xyz * sky_color.xyz/nSnell, NdotV);
 
-        frag_color = (1 - dist) * reflection * fog_color;                           // Fog
-        frag_color += dist * (vec4(Fresnel, 1.0) +                                  // Fresnel term
-                VdotInvL2 * (SSS * sss_color +                        // Subsurface Scattering Hack
-                    Specular * reflection * specular_color));// Specular reflection
-        frag_color.a = 0.9 + 0.1 * FresnelRatio(NdotV  * 1.0/nSnell);//0.9 + 0.1 * (1-dist);
+        vec3 WaterColor = mix(irr_light, sss_color, max(0, 0.5-max(0,dot(V,vec3(0,1,0)))) * VdotInvL2 * NdotV);
+        vec3 F = FresnelSchlick(NdotV, water_color, reflection*sky_color / nSnell);
+        //float G = GeometrySmith(NdotV, NdotL, roughness);
+        //float D = GeometrySchlickGGX(NdotH, roughness);
+
+        color = (1 - dist) * fog_color;
+        color += dist * (F);
+        // TODO - Specular reflection on normal map
+#if 0
     }
     else
     {
+        // Underwater params
+        float sigma_a_uw = 0.01;
+        float sigma_s_uw = 0.00;
+        float sigma_t_uw = sigma_a_uw + sigma_s_uw;
+        vec3 uw_far_color = vec3(0.0075, 0.15, 0.23);
+        vec3 uw_close_color = vec3(0.2, 0.7, 0.8);
+
         float uwNdotL = max(0, dot(L, N));
         float uwNdotV = max(0, dot(V, -N));
         float uwVdotInvL2 = pow(max(0, dot(L, -V)), 2);
         vec3 Ri = refract(V, N, 0.99);
-        vec4 refract_color = texture(Skybox, Ri);
-        vec4 refraction = (1 - refract_ratio) * vec4(1) + refract_ratio * refract_color;
+        vec3 refract_color = texture(Skybox, Ri).xyz;
+        vec3 refraction = (1 - refract_ratio) * vec3(1) + refract_ratio * refract_color;
 
         float dist = exp(-sigma_t_uw * water_dist);
 
-        frag_color = (1-dist) * uw_far_color;
-        frag_color += dist * vec4(FresnelSchlick(refraction.xyz * sky_color.xyz, water_color.xyz * nSnell, uwNdotV),1);
-        frag_color.a = 1;//0.8 + 0.2 * (1-FresnelRatio(NdotV * nSnell));
+        color = (1-dist) * uw_far_color;
+        //color += dist * vec4(FresnelSchlick(refraction.xyz * sky_color.xyz, water_color.xyz * nSnell, uwNdotV),1);
+        //frag_color.a = 1.0;//0.8 + 0.2 * (1-FresnelRatio(NdotV * nSnell));
     }
+#endif
+
+    // Gamma correction
+    color = color / (color + vec3(1));
+    color = pow(color, vec3(1.0/2.2));
+
+    frag_color = vec4(color, 1);
 }
 

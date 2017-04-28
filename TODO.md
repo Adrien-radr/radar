@@ -8,10 +8,12 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 + Add an UI watch for all pools, describing how full they are each frame
 + Resource manager (Fonts, Images, ...)
 + Render commands from DLL to platform
++ 3D axis object to show the coordinate system in the scene
 
 ### Rendering
 + Fix the .HDR Envmap loading. There seem to be a mixup at the poles between the south and north.
-+ PBR using irradiance map
++ ~~PBR using irradiance map~~
++ Specular IBL
 
 ### UI
 - ~~2D Panel creation with custom shader~~

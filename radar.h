@@ -190,6 +190,7 @@ struct game_state
     bool DisableMouse;
     vec3f PlayerPosition;
     vec4f LightColor;
+    vec3f LightDirection;
 
     real64 WaterCounter;
     real32 WaterStateInterp;
