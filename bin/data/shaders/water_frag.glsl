@@ -18,10 +18,10 @@ uniform float Time;
 out vec4 frag_color;
 
 // TODO - Constants, parameterize this
-const float SigmaA = 0.000015;
+const float SigmaA = 0.00055;
 const float SigmaS = 0.0000;
 const float SigmaT = SigmaA + SigmaS;
-const vec3 FogColor = vec3(0.40, 0.50, 0.60);
+const vec3 FogColor = 0.1*vec3(0.10, 0.20, 0.35);
 const vec3 WaterColor = vec3(0.05, 0.20, 0.80);
 const vec3 SSSColor = vec3(0, 0.8, 0.5);
 const float SeaHeight = -10.0;
@@ -94,21 +94,7 @@ float GeometrySmith(float NdotV, float NdotL, float roughness)
     return ggx1 * ggx2;
 }
 
-vec3 Sky(in vec3 Rd, in vec3 L, in vec3 light_rgb)
-{
-    float amount = max(dot(Rd, L), 0.0);
-    float v = pow(1.0 - max(Rd.y, 0.0), 6.0);
-    vec3 sky = mix(vec3(.1, .2, .4), vec3(.32, .32, .32), v);
-    sky += light_rgb * amount * amount * .25 + light_rgb * min(pow(amount, 800.0)*1.5, 0.3);
-    return sky;
-}
-
-float Visibility()
-{
-    return 1;
-}
-
-vec3 Shading(vec3 Pos, vec3 Rd, vec3 N, vec3 L, vec3 light_rgb)
+vec3 Shading(vec3 Pos, vec3 Rd, vec3 N, vec3 L)
 {
     vec3 V = -Rd;
     vec3 H = normalize(V + L);
@@ -117,11 +103,11 @@ vec3 Shading(vec3 Pos, vec3 Rd, vec3 N, vec3 L, vec3 light_rgb)
     float NdotV = max(1e-3, dot(N, V));
     float NdotH = max(0.0, dot(N, H));
 
+    vec3 Envmap = pow(texture(Skybox, -R).xyz, vec3(2.2));
     vec3 Irradiance = pow(texture(IrradianceCubemap, -R).xyz, vec3(2.2));
     float spec = pow(NdotH, SpecularRoughness);
 
     float F = FresnelRatio(dot(N, V));
-    //F = mix(0, 1, min(1, F));
 
     vec3 FCol = FresnelSchlick(F, WaterColor * 0.02);
     float G = GeometrySmith(NdotV, NdotL, 0.02);
@@ -129,32 +115,19 @@ vec3 Shading(vec3 Pos, vec3 Rd, vec3 N, vec3 L, vec3 light_rgb)
 
     vec3 light = vec3(0);
 
-    //float diffuse = DiffusePart;
-    //float specular = SpecularPart * spec * (1.0 - F);
-    //vec3 light = light_rgb * (diffuse + specular);
-
     // Diffuse
     float ks = F;
     float kd = 1 - ks;
 
     if(F > 0.0)
     {
-        //vec3 env_light = mix(, pow(texture(Skybox, -R).xyz, vec3(2.2)), 0.02);
-        light += F*G*D * NdotL / (4.0 * NdotV * NdotL + 1e-4) * Irradiance;
-        light += spec * SpecularPart * kd * light_rgb;
-        //vec3 WaterColor = mix(irr_light, sss_color, max(0, 0.5-max(0,dot(V,vec3(0,1,0)))) * VdotInvL2 * NdotV);
-        //light += kd * WaterColor * DiffusePart * env_light * INV_PI;
+        vec3 env_light = mix(Irradiance, Envmap, 0.005);
+        light += F*G*D * NdotL / (4.0 * NdotV * NdotL + 1e-4) * env_light;
+        light += spec * SpecularPart * kd * LightColor.xyz;
 
         // fake SSS
         light += kd * SSSColor * NdotV * NdotV * pow(max(0.0, dot(V, -L)), 5) * max(0.0, 0.5 - max(0.0, dot(V, vec3(0, 1, 0))));
     }
-
-    //light += (1-NdotL) * WaterColor * 0.02;
-
-    //vec3 dist = Pos - CameraPos;
-    //float atten = max(1.0 - dot(dist, dist) * 0.0001, 0.0);
-    //light += WaterColor * (Pos.y - SeaHeight) * 0.10 * atten;
-    //light *= vec3(0.05,0.2,0.7); 
     return light;
 }
 
@@ -164,15 +137,29 @@ vec3 Fog(vec3 rgb, vec3 Rd, vec3 L, vec3 light_rgb, float dist, float sigma_t)
     return mix(rgb, light_rgb, fog_amount);
 }
 
-const vec2 FractDelta = vec2(0.01, 0.0);
+const vec2 FractDelta = vec2(0.003, 0.0);
 const mat2 OctaveMat = mat2(1.6, 1.2, -1.2, 1.6);
-const vec2 WindDirection = vec2(-0.2,  -2.2);
-const vec2 WindStrength = vec2(0.11, 0.11);
-const vec2 WaveInvScale = vec2(1.25, 0.25);
+const vec2 WindDirection = vec2(-0.4,  0.233);
+const vec2 WaveChopiness = vec2(0.41, 0.11);
+const vec2 WaveInvScale = vec2(0.15, 0.25);
 
 float Hash(in float n)
 {
     return fract(sin(n) * 43758.5453123);
+}
+
+void Hash2D(vec2 Cell, out vec4 Hx, out vec4 Hy)
+{ // NOTE - FAST32_hash
+    const vec2 hash_offset = vec2(26.0, 161.0);
+    const float hash_domain = 71.0;
+    const vec2 hash_large = vec2(878.124879, 588.154868);
+    vec4 P = vec4(Cell.xy, Cell.xy + 1.0);
+    P = P - floor(P * (1.0/hash_domain)) * hash_domain;
+    P += hash_offset.xyxy;
+    P *= P;
+    P = P.xzxz * P.yyww;
+    Hx = fract(P * (1.0/hash_large.x));
+    Hy = fract(P * (1.0/hash_large.y));
 }
 
 float Noise(in vec2 x)
@@ -186,21 +173,49 @@ float Noise(in vec2 x)
     return res;
 }
 
+vec2 InterpC2(vec2 x)
+{
+    return x * x * x * (x * (x * 6.0 - 15.0) + 10.0);
+}
+
+float Perlin2D(vec2 P)
+{
+    vec2 Pi = floor(P);
+    vec4 dP = P.xyxy - vec4(Pi, Pi + 1.0);
+    vec4 hx, hy;
+    Hash2D(Pi, hx, hy);
+
+    vec4 dx = hx - 0.49999;
+    vec4 dy = hy - 0.49999;
+    vec4 dr = inversesqrt(dx * dx + dy * dy) * (dx * dP.xzxz + dy * dP.yyww);
+
+    dr *= 1.4142135623730950488016887242097;
+    vec2 blend = InterpC2(dP.xy);
+    vec4 blend2 = vec4(blend, vec2(1.0 - blend));
+    return dot(dr, blend2.zxzx * blend2.wwyy);
+}
+
 float FractalNoise(in vec2 xy)
 {
-    float m = 1.5;
-    float w = 1.0;
+    float m = 1.25;
+    float w = 0.6;
     float f = 0.0;
     for(int i = 0; i < 6; ++i)
     {
-        //f += Noise(WaveInvScale.x * xy + Time * WindDirection.x) * m * WindStrength.x;
-        f += Noise(WaveInvScale.y * xy + Time * WindDirection.y) * w * WindStrength.y;
-        //f += Noise(xy.yx - Time * WindDirection.y) * w * WindStrength.y;
-        w *= 0.5;
-        m *= 0.25;
+        f += Noise(WaveInvScale.x * xy + Time * WindDirection.x) * m * WaveChopiness.x;
+        if(i < 2)
+        {
+            f += Perlin2D(WaveInvScale.y * xy.yx - Time * WindDirection.y) * w * WaveChopiness.y;
+        }
+        else
+        {
+            f += abs(Perlin2D(WaveInvScale.y * xy.yx - Time * 3 * WindDirection.y) * w * 0.25 * WaveChopiness.y) * 1.75;
+        }
+        w *= 0.45;
+        m *= 0.35;
         xy *= OctaveMat;
     }
-    return f;
+    return f * (abs(sin(1.0-Time * 0.025)) * 0.25 + 0.75);
 }
 
 float Dist(in vec3 Pos, in vec3 N)
@@ -223,16 +238,17 @@ void main()
     vec3 Rd = v_position - CameraPos;
     float water_dist = length(Rd);
     if(water_dist <= 0) discard;
-
     Rd /= water_dist;
 
-    vec3 N = normalize(v_normal);
-    vec3 FractN = GetFractalNormal(v_position, N);
     vec3 L = normalize(v_sundirection);
-    //vec3 R = reflect(V, N);
+    vec3 N = normalize(v_normal);
 
-    vec3 shading = Shading(v_position, Rd, FractN, L, LightColor.xyz);
-    vec3 color = Fog(shading, Rd, L, LightColor.xyz, water_dist, SigmaT);
+    vec3 FractN = GetFractalNormal(v_position, N);
+    FractN = mix(FractN, N, 1.0 - exp(-water_dist * 0.004));
+
+
+    vec3 shading = Shading(v_position, Rd, FractN, L);
+    vec3 color = Fog(shading, Rd, L, FogColor, water_dist, SigmaT);
 
     // Gamma correction
     color = color / (color + vec3(1));
@@ -242,43 +258,7 @@ void main()
 }
 
 #if 0
-// BACKUP
-    float NdotL = max(0.0, dot(N, L));
-    float NdotH = max(0.0, dot(N, H));
-    float NdotV = max(1e-3, dot(N, V));
-    float LdotH = max(0.0, dot(L, H));
-    float HdotV = max(0.0, dot(H, V));
-    float VdotR = max(0.0, dot(V, R));
-    float NdotInvL = max(0.0, dot(-L, N));
-    float VdotInvL = max(0.0, dot(-L, V));
-    float VdotInvL2 = pow(VdotInvL,5);
-
-    float roughness = 0.001;
-    float nSnell = 1.34;
-    float reflect_ratio = 0.5;
-    float refract_ratio = 0.5;
-    vec3 sky_color = vec3(0.20, 0.40, 0.65);
-    vec3 water_color = vec3(0.01, 0.10, 0.31);
-    //vec3 water_color = vec3(0.001, 0.012, 0.035);
-    vec3 sss_color = vec3(0.00, 0.95, 0.9);
-    vec3 specular_color = vec3(1,1,1);
-    vec3 env_light = pow(texture(Skybox, -R).xyz, vec3(2.2));
-    vec3 irr_light = pow(texture(IrradianceCubemap, -R).xyz, vec3(2.2));
-
-
-    // TODO - Replace this with specular IBL
-    vec3 reflection = (1 - reflect_ratio) * vec3(1) + reflect_ratio * env_light;
-
-    if(gl_FrontFacing)
-    {
-        //vec3 WaterColor = mix(irr_light, sss_color, max(0, 0.5-max(0,dot(V,vec3(0,1,0)))) * VdotInvL2 * NdotV);
-        //vec3 F = FresnelSchlick(NdotV, water_color, reflection*sky_color / nSnell);
-        //float G = GeometrySmith(NdotV, NdotL, roughness);
-        //float D = GeometrySchlickGGX(NdotH, roughness);
-        //color = (1 - dist) * fog_color;
-        //color += dist * (F);
-    }
-    else
+// BACKUP UNDERWATER CODE
     {
         // Underwater params
         float sigma_a_uw = 0.01;

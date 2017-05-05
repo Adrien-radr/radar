@@ -913,7 +913,7 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
 
-                int Repeat = 3;
+                int Repeat = 5;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
                 {

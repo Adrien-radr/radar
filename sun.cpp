@@ -257,6 +257,8 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         }
     }
 
+    State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
+    State->LightColor = vec4f(1.0f, 0.6, 0.2, 1.0f);
     if(Counter > 0.75)
     {
         console_log_string Msg;
