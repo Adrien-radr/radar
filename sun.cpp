@@ -72,7 +72,7 @@ void GameInitialization(game_memory *Memory)
 #if 1
     // Monument Envmap
     State->LightColor = vec4f(254.f/255.f, 238.f/255.f, 224.f/255.f, 1.0f);
-    State->LightDirection = SphericalToCartesian(0.45 * M_PI, M_TWO_PI * 0.40);
+    State->LightDirection = SphericalToCartesian(0.45 * M_PI, M_TWO_PI * 0.37);
 #endif
 #if 0
     // Arch Envmap
@@ -218,8 +218,6 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     }
 #endif
 
-    State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
-
     Counter += Input->dTime; 
 
     MovePlayer(State, Input);
@@ -258,7 +256,6 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
             State->WaterStateInterp = Max(0.f, State->WaterStateInterp);
         }
     }
-
 
     if(Counter > 0.75)
     {

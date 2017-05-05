@@ -186,6 +186,7 @@ struct game_camera
 
 struct game_state
 {
+    real64 EngineTime;
     game_camera Camera;
     bool DisableMouse;
     vec3f PlayerPosition;
@@ -237,5 +238,7 @@ struct game_input
     mouse_state MouseRight;
 };
 
+void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
+void MakeRelativePath(char *Dst, char *Path, char const *Filename);
 #endif
 
