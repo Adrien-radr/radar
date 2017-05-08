@@ -332,6 +332,8 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
     Input->KeyNumPlus = BuildKeyState(GLFW_KEY_KP_ADD);
     Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);
+    Input->KeyNumMultiply = BuildKeyState(GLFW_KEY_KP_MULTIPLY);
+    Input->KeyNumDivide = BuildKeyState(GLFW_KEY_KP_DIVIDE);
 
     Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
     Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
@@ -913,6 +915,7 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
 
+
                 int Repeat = 5;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
@@ -923,7 +926,11 @@ int RadarMain(int argc, char **argv)
                         real32 PositionScale = dWidth * (Interp);
                         vec3f Position(PositionScale * (Middle-i), 0.f, PositionScale * (Middle-j));
                         vec3f Scale(Interp, Interp, Interp);
+                        vec3f Rotation(0, State->WaterDirection, 0);
+                        mat4f RotationMatrix;
+                        RotationMatrix.FromAxisAngle(Rotation);
                         ModelMatrix.FromTRS(Position, vec3f(0), Scale);
+                        ModelMatrix = RotationMatrix * ModelMatrix;
 
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);

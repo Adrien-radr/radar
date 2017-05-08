@@ -11,8 +11,6 @@ real32 BeaufortParams[][3] = {
     { 3.0,  1.0,   1.0 }
 };
 
-real32 static const g_G = 9.81f;
-
 struct wave_vector
 {
     complex H; // Wave Height

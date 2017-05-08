@@ -1054,6 +1054,14 @@ public:
 		M[3] = vec4<T>(pos.x, pos.y, pos.z, 1.f);
 	}
 
+    void FromAxisAngle(const vec3<T> &Rot)
+    {
+        this->Identity();
+		*this = this->RotateX(Rot.x);
+		*this = this->RotateY(Rot.y);
+		*this = this->RotateZ(Rot.z);
+    }
+
 	mat4<T> Rotate(const vec3<T> &axis, float angle)
 	{
 		float s = sinf(angle);
