@@ -29,6 +29,13 @@ const float DiffusePart = 0.05;
 const float SpecularPart = 4.0;
 const float SpecularRoughness = 512;
 
+const vec2 FractDelta = vec2(0.005, 0.0);
+const mat2 OctaveMat = mat2(1.6, 1.2, -1.2, 1.6);
+const vec2 WindSpeed = vec2(0.43,  0.13);
+const vec2 WindDirection = normalize(vec2(1,0));
+const vec2 WaveChopiness = vec2(0.81, 0.13);
+const vec2 WaveInvScale = vec2(0.15, 0.25);
+
 #if 0
 float FresnelF0(in float n1, in float n2) {
     float f0 = (n1 - n2)/(n1 + n2);
@@ -137,12 +144,6 @@ vec3 Fog(vec3 rgb, vec3 Rd, vec3 L, vec3 light_rgb, float dist, float sigma_t)
     return mix(rgb, light_rgb, fog_amount);
 }
 
-const vec2 FractDelta = vec2(0.003, 0.0);
-const mat2 OctaveMat = mat2(1.6, 1.2, -1.2, 1.6);
-const vec2 WindDirection = vec2(-0.4,  0.233);
-const vec2 WaveChopiness = vec2(0.41, 0.11);
-const vec2 WaveInvScale = vec2(0.15, 0.25);
-
 float Hash(in float n)
 {
     return fract(sin(n) * 43758.5453123);
@@ -197,19 +198,20 @@ float Perlin2D(vec2 P)
 
 float FractalNoise(in vec2 xy)
 {
+    float theta = PI/2.f;
     float m = 1.25;
     float w = 0.6;
     float f = 0.0;
     for(int i = 0; i < 6; ++i)
     {
-        f += Noise(WaveInvScale.x * xy + Time * WindDirection.x) * m * WaveChopiness.x;
+        f += Noise(WaveInvScale.x * xy + Time * WindSpeed.x) * m * WaveChopiness.x;
         if(i < 2)
         {
-            f += Perlin2D(WaveInvScale.y * xy.yx - Time * WindDirection.y) * w * WaveChopiness.y;
+            //f += Perlin2D(WaveInvScale.y * xy.xy + Time * WindSpeed.y) * w * WaveChopiness.y;
         }
         else
         {
-            f += abs(Perlin2D(WaveInvScale.y * xy.yx - Time * 3 * WindDirection.y) * w * 0.25 * WaveChopiness.y) * 1.75;
+            //f += abs(Perlin2D(WaveInvScale.y * xy.xy + Time * WindSpeed.y) * w * WaveChopiness.y);
         }
         w *= 0.45;
         m *= 0.35;
@@ -244,6 +246,11 @@ void main()
     vec3 N = normalize(v_normal);
 
     vec3 FractN = GetFractalNormal(v_position, N);
+    //FractN = N;
+    
+    // Blending details into normal
+    FractN.xy += N.xy;
+    FractN = normalize(FractN);
     FractN = mix(FractN, N, 1.0 - exp(-water_dist * 0.004));
 
 
