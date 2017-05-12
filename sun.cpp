@@ -76,8 +76,8 @@ void GameInitialization(game_memory *Memory)
 #endif
 #if 0
     // Arch Envmap
-    State->LightColor = vec4f(254.f/255.f, 241.f/255.f, 224.f/255.f, 1.0f);
-    State->LightDirection = SphericalToCartesian(0.365 * M_PI, M_TWO_PI * 0.065);
+    State->LightColor = vec4f(1, 241.f/255.f, 234.f/255.f, 1.0f);
+    State->LightDirection = SphericalToCartesian(0.365 * M_PI, M_TWO_PI * 0.080);
 #endif
 #if 0
     // Malibu Envmap

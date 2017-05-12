@@ -46,7 +46,7 @@ real32 Phillips(water_beaufort_state *State, int n_prime, int m_prime)
     vec2f UnitK = Normalize(K);
     vec2f UnitW = Normalize(State->Direction);
     real32 KDotW = Dot(UnitK, UnitW);
-    real32 KDotW2 = Square(KDotW) * Square(Square(KDotW));
+    real32 KDotW2 = Square(Square(KDotW));
 
     real32 WLen = Length(State->Direction);
     real32 L = Square(WLen) / g_G;

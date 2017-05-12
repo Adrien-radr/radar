@@ -22,7 +22,8 @@ const float SigmaA = 0.00055;
 const float SigmaS = 0.0000;
 const float SigmaT = SigmaA + SigmaS;
 const vec3 FogColor = 0.1*vec3(0.10, 0.20, 0.35);
-const vec3 WaterColor = vec3(0.05, 0.20, 0.80);
+const vec3 WaterColor = 0.02 * vec3(0.05, 0.20, 0.80);
+const vec3 AmbWaterColor = vec3(0.01, 0.10, 0.20);
 const vec3 SSSColor = vec3(0, 0.8, 0.5);
 const float SeaHeight = -10.0;
 const float DiffusePart = 0.05;
@@ -101,7 +102,7 @@ float GeometrySmith(float NdotV, float NdotL, float roughness)
     return ggx1 * ggx2;
 }
 
-vec3 Shading(vec3 Pos, vec3 Rd, vec3 N, vec3 L)
+vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
 {
     vec3 V = -Rd;
     vec3 H = normalize(V + L);
@@ -116,7 +117,7 @@ vec3 Shading(vec3 Pos, vec3 Rd, vec3 N, vec3 L)
 
     float F = FresnelRatio(dot(N, V));
 
-    vec3 FCol = FresnelSchlick(F, WaterColor * 0.02);
+    vec3 FCol = FresnelSchlick(F, AmbWaterColor);
     float G = GeometrySmith(NdotV, NdotL, 0.02);
     float D = GeometrySchlickGGX(NdotH, 0.02);
 
@@ -128,12 +129,13 @@ vec3 Shading(vec3 Pos, vec3 Rd, vec3 N, vec3 L)
 
     if(F > 0.0)
     {
-        vec3 env_light = mix(Irradiance, Envmap, 0.005);
-        light += F*G*D * NdotL / (4.0 * NdotV * NdotL + 1e-4) * env_light;
+        vec3 env_light = mix(Irradiance, Envmap, 0.07 * exp(-water_dist * 0.001));//0.085);
+        light += F*G*D * NdotL / (4.0 * NdotV * NdotL + 1e-4) * env_light * FCol;
         light += spec * SpecularPart * kd * LightColor.xyz;
 
         // fake SSS
-        light += kd * SSSColor * NdotV * NdotV * pow(max(0.0, dot(V, -L)), 5) * max(0.0, 0.5 - max(0.0, dot(V, vec3(0, 1, 0))));
+        light += kd * SSSColor * NdotV * NdotV * NdotV * pow(max(0.0, dot(V, -L)), 5) * max(0.0, 0.5 - max(0.0, dot(V, vec3(0, 1, 0))));
+        light += kd * 0.04 * AmbWaterColor;
     }
     return light;
 }
@@ -246,15 +248,13 @@ void main()
     vec3 N = normalize(v_normal);
 
     vec3 FractN = GetFractalNormal(v_position, N);
-    //FractN = N;
-    
+
     // Blending details into normal
-    FractN.xy += N.xy;
+    FractN = mix(FractN, N, 1.0 - exp(-water_dist * 0.005));
     FractN = normalize(FractN);
-    FractN = mix(FractN, N, 1.0 - exp(-water_dist * 0.004));
 
 
-    vec3 shading = Shading(v_position, Rd, FractN, L);
+    vec3 shading = Shading(v_position, water_dist, Rd, FractN, L);
     vec3 color = Fog(shading, Rd, L, FogColor, water_dist, SigmaT);
 
     // Gamma correction
