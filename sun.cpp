@@ -10,6 +10,7 @@
 struct sun_storage
 {
     real64 Counter;
+    vec2f SunDir;
 };
 
 void FillAudioBuffer(tmp_sound_data *SoundData)
@@ -56,6 +57,8 @@ void InitCamera(game_camera *Camera, game_memory *Memory)
 #endif
 }
 
+
+
 void GameInitialization(game_memory *Memory)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
@@ -76,6 +79,7 @@ void GameInitialization(game_memory *Memory)
     // Monument Envmap
     State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
     State->LightColor = vec4f(1.0f, 0.6, 0.2, 1.0f);
+    ((sun_storage*)(System->DLLStorage))->SunDir = CartesianToSpherical(State->LightDirection);
 #endif
 #if 0
     // Arch Envmap
@@ -215,7 +219,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         SoundData->ReloadSoundBuffer = true;
     }
 #endif
-
+    
     Local->Counter += Input->dTime; 
 
     MovePlayer(State, Input);
@@ -273,4 +277,20 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         LogString(System->ConsoleLog, Msg);
         Local->Counter = 0.0;
     }
+
+    Local->SunDir[0] += 0.2f * M_PI * Input->dTime;
+    real32 theta, phi;
+    // Correct sun direction to get correct Cartesian coords when converting
+    if((int)floor(Local->SunDir[0] * M_INV_PI) % 2 != 0) {
+        phi = fmod(M_PI + Local->SunDir[1], 2.0f * M_PI);
+	theta = M_PI - fmod(Local->SunDir[0], M_PI);
+    }
+    else {
+	phi = Local->SunDir[1];
+	theta = fmod(Local->SunDir[0], M_PI);
+    }
+    State->LightDirection = SphericalToCartesian(theta, phi);
+    console_log_string Msg;
+    snprintf(Msg, ConsoleLogStringLen, "theta: %f, phi: %f", Local->SunDir[0] * M_INV_PI, Local->SunDir[1]);
+    LogString(System->ConsoleLog, Msg);
 }
