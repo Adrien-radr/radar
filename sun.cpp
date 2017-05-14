@@ -5,6 +5,13 @@
 
 #include "SFMT.h"
 
+// NOTE - Storage for game data local to the Sun DLL
+// This is pushed on the Session stack of the engine
+struct sun_storage
+{
+    real64 Counter;
+};
+
 void FillAudioBuffer(tmp_sound_data *SoundData)
 {
     uint32 ToneHz = 440;
@@ -49,12 +56,14 @@ void InitCamera(game_camera *Camera, game_memory *Memory)
 #endif
 }
 
-void GameInitialization(game_memory *Memory)
+sun_storage *GameInitialization(game_memory *Memory)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
     // Push Data
+    // TODO - this shouldnt be done here. The engine should allocate the Log and Sound systems.
+    // --> streamline this there
     tmp_sound_data *SoundBuffer = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
     console_log *ConsoleLog = (console_log*)PushArenaStruct(&Memory->SessionArena, console_log);
     System->ConsoleLog = ConsoleLog;
@@ -100,8 +109,13 @@ void GameInitialization(game_memory *Memory)
     State->WaterStateInterp = 0.f;
     State->WaterState = 1;
 
+    // Push Local storage at the end
+    sun_storage *LocalStorage = (sun_storage*)PushArenaStruct(&Memory->SessionArena, sun_storage);
+
     Memory->IsInitialized = false;
     Memory->IsGameInitialized = true;
+
+    return LocalStorage;
 }
 
 void MovePlayer(game_state *State, game_input *Input)
@@ -152,14 +166,8 @@ void MovePlayer(game_state *State, game_input *Input)
             if(Camera.Phi > M_TWO_PI) Camera.Phi -= M_TWO_PI;
             if(Camera.Phi < 0.0f) Camera.Phi += M_TWO_PI;
 
-            Camera.Theta = Max(1e-5f, Min(M_PI - 1e-5f, Camera.Theta));//Max(-M_PI_OVER_TWO + 1e-5f, Min(M_PI_OVER_TWO - 1e-5f, Camera.Theta));
+            Camera.Theta = Max(1e-5f, Min(M_PI - 1e-5f, Camera.Theta));
             Camera.Forward = SphericalToCartesian(Camera.Theta, Camera.Phi);
-#if 0
-            real32 CosTheta = cosf(Camera.Theta);
-            Camera.Forward.x = CosTheta * cosf(Camera.Phi);
-            Camera.Forward.y = sinf(Camera.Theta);
-            Camera.Forward.z = CosTheta * sinf(Camera.Phi);
-#endif
 
             Camera.Right = Normalize(Cross(Camera.Forward, vec3f(0, 1, 0)));
             Camera.Up = Normalize(Cross(Camera.Right, Camera.Forward));
@@ -198,12 +206,13 @@ void LogString(console_log *Log, char const *String)
     }
 }
 
-real64 Counter = 0.0;
 DLLEXPORT GAMEUPDATE(GameUpdate)
 {
+    sun_storage *Local = NULL;
+
     if(!Memory->IsGameInitialized)
     {
-        GameInitialization(Memory);
+        Local = GameInitialization(Memory);
     }
 
     game_system *System = (game_system*)Memory->PermanentMemPool;
@@ -218,9 +227,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     }
 #endif
 
-    State->LightColor = vec4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-    Counter += Input->dTime; 
+    Local->Counter += Input->dTime; 
 
     MovePlayer(State, Input);
 
@@ -241,6 +248,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
             State->WaterStateInterp = Min(1.f, State->WaterStateInterp);
         }
     }
+
     if(KEY_DOWN(Input->KeyNumMinus))
     {
         State->WaterStateInterp = State->WaterStateInterp - 0.01;
@@ -260,11 +268,11 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     }
 
 
-    if(Counter > 0.75)
+    if(Local->Counter > 0.75)
     {
         console_log_string Msg;
         snprintf(Msg, ConsoleLogStringLen, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
         LogString(System->ConsoleLog, Msg);
-        Counter = 0.0;
+        Local->Counter = 0.0;
     }
 }
