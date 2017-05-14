@@ -56,10 +56,12 @@ void InitCamera(game_camera *Camera, game_memory *Memory)
 #endif
 }
 
-sun_storage *GameInitialization(game_memory *Memory)
+void GameInitialization(game_memory *Memory)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
+
+    System->DLLStorage = PushArenaStruct(&Memory->SessionArena, sun_storage);
 
     FillAudioBuffer(System->SoundData);
     System->SoundData->ReloadSoundBuffer = true;
@@ -102,13 +104,8 @@ sun_storage *GameInitialization(game_memory *Memory)
     State->WaterState = 1;
     State->WaterDirection = 0.f;
 
-    // Push Local storage at the end
-    sun_storage *LocalStorage = (sun_storage*)PushArenaStruct(&Memory->SessionArena, sun_storage);
-
     Memory->IsInitialized = false;
     Memory->IsGameInitialized = true;
-
-    return LocalStorage;
 }
 
 void MovePlayer(game_state *State, game_input *Input)
@@ -201,15 +198,14 @@ void LogString(console_log *Log, char const *String)
 
 DLLEXPORT GAMEUPDATE(GameUpdate)
 {
-    sun_storage static *Local = NULL;
-
     if(!Memory->IsGameInitialized)
     {
-        Local = GameInitialization(Memory);
+        GameInitialization(Memory);
     }
 
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
+    sun_storage *Local = (sun_storage*)System->DLLStorage;
 
 #if 0
     if(Input->KeyReleased)
