@@ -49,6 +49,8 @@ void InitCamera(game_camera *Camera, game_memory *Memory)
 #endif
 }
 
+
+
 void GameInitialization(game_memory *Memory)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
@@ -71,6 +73,7 @@ void GameInitialization(game_memory *Memory)
     // TODO - Pack Sun color and direction from envmaps
 #if 1
     // Monument Envmap
+    //SunDirS = vec2f(0.46 * M_PI, M_TWO_PI * 0.37);
     State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
     State->LightColor = vec4f(1.0f, 0.6, 0.2, 1.0f);
 #endif
@@ -199,6 +202,7 @@ void LogString(console_log *Log, char const *String)
     }
 }
 
+
 real64 Counter = 0.0;
 DLLEXPORT GAMEUPDATE(GameUpdate)
 {
@@ -218,6 +222,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         SoundData->ReloadSoundBuffer = true;
     }
 #endif
+    static vec2f SunDirS = CartesianToSpherical(State->LightDirection);
 
     Counter += Input->dTime; 
 
@@ -275,4 +280,20 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         LogString(System->ConsoleLog, Msg);
         Counter = 0.0;
     }
+
+    SunDirS[0] += 0.2f * M_PI * Input->dTime;
+    real32 theta, phi;
+    // Correct sun direction to get correct Cartesian coords when converting
+    if((int)floor(SunDirS[0] * M_INV_PI) % 2 != 0) {
+        phi = fmod(M_PI + SunDirS[1], 2.0f * M_PI);
+	theta = M_PI - fmod(SunDirS[0], M_PI);
+    }
+    else {
+	phi = SunDirS[1];
+	theta = fmod(SunDirS[0], M_PI);
+    }
+    State->LightDirection = SphericalToCartesian(theta, phi);
+    //console_log_string Msg;
+    //snprintf(Msg, ConsoleLogStringLen, "theta: %f, phi: %f", SunDirS[0] * M_INV_PI, SunDirS[1]);
+    //LogString(System->ConsoleLog, Msg);
 }
