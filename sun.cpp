@@ -12,6 +12,9 @@ struct sun_storage
     real64 Counter;
     vec2f SunDir;
     bool IsNight;
+
+    ui_text_line FPSText;
+    ui_text_line WaterText;
 };
 
 void LogString(console_log *Log, char const *String)
@@ -19,12 +22,12 @@ void LogString(console_log *Log, char const *String)
     // NOTE - Have an exposed Queue of Console String on Platform
     // The Game sends Console Log strings to that queue
     // The platform process the queue in order each frame and draws them in console
-    memcpy(Log->MsgStack[Log->WriteIdx], String, ConsoleLogStringLen);
-    Log->WriteIdx = (Log->WriteIdx + 1) % ConsoleLogCapacity;
+    memcpy(Log->MsgStack[Log->WriteIdx], String, CONSOLE_STRINGLEN);
+    Log->WriteIdx = (Log->WriteIdx + 1) % CONSOLE_CAPACITY;
 
-    if(Log->StringCount >= ConsoleLogCapacity)
+    if(Log->StringCount >= CONSOLE_CAPACITY)
     {
-        Log->ReadIdx = (Log->ReadIdx + 1) % ConsoleLogCapacity;
+        Log->ReadIdx = (Log->ReadIdx + 1) % CONSOLE_CAPACITY;
     }
     else
     {
@@ -231,14 +234,14 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
     if(Local->IsNight && Theta < M_PI_OVER_TWO) {
         Local->IsNight = false;
         console_log_string Msg;
-        snprintf(Msg, ConsoleLogStringLen, "Day");
+        snprintf(Msg, CONSOLE_STRINGLEN, "Day");
         LogString(System->ConsoleLog, Msg);
     }
     if(!Local->IsNight && Theta >= M_PI_OVER_TWO)
     {
         Local->IsNight = true;
         console_log_string Msg;
-        snprintf(Msg, ConsoleLogStringLen, "Night");
+        snprintf(Msg, CONSOLE_STRINGLEN, "Night");
         LogString(System->ConsoleLog, Msg);
     }
 
@@ -255,6 +258,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
     sun_storage *Local = (sun_storage*)System->DLLStorage;
+    ui_frame_stack *UIStack = System->UIStack;
 
 #if 0
     if(Input->KeyReleased)
@@ -319,9 +323,17 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     if(Local->Counter > 0.75)
     {
-        console_log_string Msg;
-        snprintf(Msg, ConsoleLogStringLen, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
-        LogString(System->ConsoleLog, Msg);
+        snprintf(Local->FPSText.String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+        Local->FPSText.Position = vec3f(10, 500, 0);
+        Local->FPSText.Color = vec4f(0.9, 0.7, 0.1, 1);
+
+        snprintf(Local->WaterText.String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
+        Local->WaterText.Position = vec3f(10, 514, 0);
+        Local->WaterText.Color = vec4f(0.9, 0.7, 0.1, 1);
+
         Local->Counter = 0.0;
     }
+
+    UIStack->TextLines[UIStack->TextLineCount++] = Local->FPSText;
+    UIStack->TextLines[UIStack->TextLineCount++] = Local->WaterText;
 }

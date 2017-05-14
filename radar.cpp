@@ -550,8 +550,28 @@ void InitializeFromGame(game_memory *Memory)
     Memory->IsInitialized = true;
 }
 
-void TestUI(game_memory *Memory)
+void MakeUI(game_memory *Memory, game_context *Context, font *Font)
 {
+    vec4f uiTextColor(0.9, 0.7, 0.1, 1);
+
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+
+    console_log *Log = System->ConsoleLog;
+    for(uint32 i = 0; i < Log->StringCount; ++i)
+    {
+        uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
+        uiMakeText(Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
+                uiTextColor, Context->WindowWidth - 10);
+    }
+
+    ui_frame_stack *UIStack = System->UIStack;
+    for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
+    {
+        ui_text_line *Line = &UIStack->TextLines[i];
+        // TODO - handle different fonts
+        uiMakeText(Line->String, Font, Line->Position, Line->Color, Context->WindowWidth);
+    }
+
 #if 0
     uiBeginPanel("Title is a pretty long sentence", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
     uiEndPanel();
@@ -593,21 +613,19 @@ int RadarMain(int argc, char **argv)
         System->ConsoleLog = (console_log*)PushArenaStruct(&Memory.SessionArena, console_log);
         System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory.SessionArena, tmp_sound_data);
 
+        ReloadShaders(&Memory, &Context, ExecutableFullPath);
+        glActiveTexture(GL_TEXTURE0);
+        CheckGLError("Start");
 /////////////////////////
     // TEMP TESTS
-        display_text Texts[ConsoleLogCapacity] = {};
-
-        CheckGLError("Start");
+#if 0
         ALuint AudioBuffer;
         ALuint AudioSource;
         if(TempPrepareSound(&AudioBuffer, &AudioSource))
         {
             alSourcePlay(AudioSource);
         }
-
-        ReloadShaders(&Memory, &Context, ExecutableFullPath);
-
-        glActiveTexture(GL_TEXTURE0);
+#endif
 
         // Texture Test
         path TexPath;
@@ -725,14 +743,7 @@ int RadarMain(int argc, char **argv)
 
             GetFrameInput(&Context, &Input);        
 
-            if(Resized)
-            {
-                WindowResized(&Context);
-            }
-
-            ///////////////////////////////////////////
-            uiBeginFrame(&Memory, &Input);
-
+            if(Resized) WindowResized(&Context);
 
             if(CheckNewDllVersion(&Game, DllSrcPath))
             {
@@ -742,13 +753,14 @@ int RadarMain(int argc, char **argv)
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+            uiBeginFrame(&Memory, &Input);
             Game.GameUpdate(&Memory, &Input);
             if(!Memory.IsInitialized)
             {
                 InitializeFromGame(&Memory);
             }
 
-            {
+#if 0
                 tmp_sound_data *SoundData = System->SoundData;
                 if(SoundData->ReloadSoundBuffer)
                 {
@@ -760,20 +772,20 @@ int RadarMain(int argc, char **argv)
                     alSourcePlay(AudioSource);
                     CheckALError();
                 }
+#endif
 
-                if(LastDisableMouse != State->DisableMouse)
+            if(LastDisableMouse != State->DisableMouse)
+            {
+                if(State->DisableMouse)
                 {
-                    if(State->DisableMouse)
-                    {
-                        glfwSetInputMode(Context.Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                    }
-                    else
-                    {
-                        glfwSetInputMode(Context.Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-                    }
-
-                    LastDisableMouse = State->DisableMouse;
+                    glfwSetInputMode(Context.Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
                 }
+                else
+                {
+                    glfwSetInputMode(Context.Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+                }
+
+                LastDisableMouse = State->DisableMouse;
             }
 
             if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
@@ -967,20 +979,7 @@ int RadarMain(int argc, char **argv)
                 glEnable(GL_CULL_FACE);
             }
 
-            { // NOTE - Console Msg Rendering. Put this somewhere else, contained
-                console_log *Log = System->ConsoleLog;
-                for(uint32 i = 0; i < Log->StringCount; ++i)
-                {
-                    uint32 RIdx = (Log->ReadIdx + i) % ConsoleLogCapacity;
-                    uiMakeText(Log->MsgStack[RIdx], &ConsoleFont, vec3f(10, 10 + i * ConsoleFont.LineGap, 0), 
-                            vec4f(0.1f, 0.1f, 0.1f, 1.f), Context.WindowWidth - 10);
-                }
-            }
-
-            char WStateText[256];
-            snprintf(WStateText, 256,"Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
-            uiMakeText(WStateText, &ConsoleFont, vec3f(500, 10, 0), vec4f(0.1, 0.1, 0.1, 1), Context.WindowWidth - 10);
-            TestUI(&Memory);
+            MakeUI(&Memory, &Context, &ConsoleFont);
             uiDraw();
 
             glfwSwapBuffers(Context.Window);
