@@ -165,6 +165,7 @@ struct game_system
     console_log *ConsoleLog;
     tmp_sound_data *SoundData;
     water_system *WaterSystem;
+    void *DLLStorage;
 };
 
 struct game_camera

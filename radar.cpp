@@ -589,6 +589,10 @@ int RadarMain(int argc, char **argv)
 
         game_system *System = (game_system*)Memory.PermanentMemPool;
         game_state *State = (game_state*)POOL_OFFSET(Memory.PermanentMemPool, game_system);
+
+        System->ConsoleLog = (console_log*)PushArenaStruct(&Memory.SessionArena, console_log);
+        System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory.SessionArena, tmp_sound_data);
+
 /////////////////////////
     // TEMP TESTS
         display_text Texts[ConsoleLogCapacity] = {};
