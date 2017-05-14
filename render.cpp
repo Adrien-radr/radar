@@ -32,17 +32,26 @@ image LoadImage(char *Filename, bool IsFloat, bool FlipY = true, int32 ForceNumC
     stbi_set_flip_vertically_on_load(FlipY ? 1 : 0); // NOTE - Flip Y so textures are Y-descending
 
     if(IsFloat)
-    {
         Image.Buffer = stbi_loadf(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
-    }
     else
-    {
         Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
-    }
 
     if(!Image.Buffer)
     {
-        printf("Error loading Image from %s.\n", Filename);
+        printf("Error loading Image from %s. Loading default white texture.\n", Filename);
+        path DefaultPath;
+        MakeRelativePath(DefaultPath, ExecutableFullPath, "data/default_diffuse.png");
+        if(IsFloat)
+            Image.Buffer = stbi_loadf(DefaultPath, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
+        else
+            Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
+
+        if(!Image.Buffer)
+        {
+            printf("Can't find default white texture (data/default_diffuse.png). Aborting... \n");
+            exit(1);
+        }
+            
     }
 
     return Image;
@@ -1029,6 +1038,7 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
     path HDREnvmapImagePath;
     MakeRelativePath(HDREnvmapImagePath, ExecFullPath, HDREnvmapFilename);
     image HDREnvmapImage = LoadImage(HDREnvmapImagePath, true);
+
     uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
             HDREnvmapImage.Channels, true, false, 1);
     DestroyImage(&HDREnvmapImage);

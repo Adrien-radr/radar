@@ -80,13 +80,13 @@ sun_storage *GameInitialization(game_memory *Memory)
     // TODO - Pack Sun color and direction from envmaps
 #if 1
     // Monument Envmap
-    State->LightColor = vec4f(254.f/255.f, 238.f/255.f, 224.f/255.f, 1.0f);
-    State->LightDirection = SphericalToCartesian(0.45 * M_PI, M_TWO_PI * 0.40);
+    State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
+    State->LightColor = vec4f(1.0f, 0.6, 0.2, 1.0f);
 #endif
 #if 0
     // Arch Envmap
-    State->LightColor = vec4f(254.f/255.f, 241.f/255.f, 224.f/255.f, 1.0f);
-    State->LightDirection = SphericalToCartesian(0.365 * M_PI, M_TWO_PI * 0.065);
+    State->LightColor = vec4f(1, 241.f/255.f, 234.f/255.f, 1.0f);
+    State->LightDirection = SphericalToCartesian(0.365 * M_PI, M_TWO_PI * 0.080);
 #endif
 #if 0
     // Malibu Envmap
@@ -108,6 +108,7 @@ sun_storage *GameInitialization(game_memory *Memory)
     State->WaterCounter = 0.0;
     State->WaterStateInterp = 0.f;
     State->WaterState = 1;
+    State->WaterDirection = 0.f;
 
     // Push Local storage at the end
     sun_storage *LocalStorage = (sun_storage*)PushArenaStruct(&Memory->SessionArena, sun_storage);
@@ -267,6 +268,15 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         }
     }
 
+    if(KEY_DOWN(Input->KeyNumMultiply))
+    {
+        State->WaterDirection += Input->dTime * 0.05;
+    }
+
+    if(KEY_DOWN(Input->KeyNumDivide))
+    {
+        State->WaterDirection -= Input->dTime * 0.05;
+    }
 
     if(Local->Counter > 0.75)
     {

@@ -1,17 +1,15 @@
 // NOTE - Tmp storage here
 // Beaufort Level : WidthScale, WaveScale, Choppiness
-// Beaufort    12 :          8,       4.0,        0.2
-// Beaufort     7 :          4,       0.5,        0.3
-// Beaufort     3 :          3,       0.1,        0.1
 // Beaufort     1 :          3,      0.05,      0.005
+// Beaufort     3 :          3,       0.1,        0.1
+// Beaufort     7 :          3,       0.5,        0.5
+// Beaufort    12 :          3,       1.0,        1.0
 real32 BeaufortParams[][3] = {
     { 3.0, 0.05, 0.005 },
     { 3.0,  0.1,   0.1 },
     { 3.0,  0.5,   0.5 },
     { 3.0,  1.0,   1.0 }
 };
-
-real32 static const g_G = 9.81f;
 
 struct wave_vector
 {
@@ -48,7 +46,7 @@ real32 Phillips(water_beaufort_state *State, int n_prime, int m_prime)
     vec2f UnitK = Normalize(K);
     vec2f UnitW = Normalize(State->Direction);
     real32 KDotW = Dot(UnitK, UnitW);
-    real32 KDotW2 = Square(KDotW);
+    real32 KDotW2 = Square(Square(KDotW));
 
     real32 WLen = Length(State->Direction);
     real32 L = Square(WLen) / g_G;

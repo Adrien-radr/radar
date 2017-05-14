@@ -11,6 +11,8 @@
 #define ConsoleLogStringLen 256
 #define ConsoleLogCapacity 8
 
+real32 static const g_G = 9.807f;
+
 struct game_config
 {
     int32  WindowWidth;
@@ -186,6 +188,7 @@ struct game_camera
 
 struct game_state
 {
+    real64 EngineTime;
     game_camera Camera;
     bool DisableMouse;
     vec3f PlayerPosition;
@@ -194,6 +197,7 @@ struct game_state
 
     real64 WaterCounter;
     real32 WaterStateInterp;
+    real32 WaterDirection;
     int    WaterState;
 };
 
@@ -232,10 +236,14 @@ struct game_input
     key_state KeyF11;
     key_state KeyNumPlus;
     key_state KeyNumMinus;
+    key_state KeyNumMultiply;
+    key_state KeyNumDivide;
 
     mouse_state MouseLeft;
     mouse_state MouseRight;
 };
 
+void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
+void MakeRelativePath(char *Dst, char *Path, char const *Filename);
 #endif
 

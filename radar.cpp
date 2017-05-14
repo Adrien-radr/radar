@@ -6,18 +6,15 @@
 #include "radar.h"
 #include "render.h"
 
-int RadarMain(int argc, char **argv);
-void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
-void MakeRelativePath(char *Dst, char *Path, char const *Filename);
+#define MAX_SHADERS 32
 
 // PLATFORM
+int RadarMain(int argc, char **argv);
 #if RADAR_WIN32
 #include "radar_win32.cpp"
 #elif RADAR_UNIX
 #include "radar_unix.cpp"
 #endif
-
-#define MAX_SHADERS 32
 
 // EXTERNAL
 #include "cJSON.h"
@@ -27,7 +24,6 @@ void MakeRelativePath(char *Dst, char *Path, char const *Filename);
 struct game_context
 {
     GLFWwindow *Window;
-    real64 EngineTime;
 
     mat4f ProjectionMatrix3D;
     mat4f ProjectionMatrix2D;
@@ -54,31 +50,6 @@ struct game_context
     bool IsValid;
 };
 
-// IMPLEMENTATION
-#include "render.cpp"
-#include "sound.cpp"
-#include "water.cpp"
-
-path ExecFullPath;
-
-bool FramePressedKeys[350] = {};
-bool FrameReleasedKeys[350] = {};
-bool FrameDownKeys[350] = {};
-
-int  FrameModKeys = 0;
-
-bool FramePressedMouseButton[8] = {};
-bool FrameDownMouseButton[8] = {};
-bool FrameReleasedMouseButton[8] = {};
-
-int  FrameMouseWheel = 0;
-
-// TODO - For resizing from GLFW callbacks. Is there a better way to do this ?
-int ResizeWidth;
-int ResizeHeight;
-bool Resized = true;
-
-
 void RegisterShader3D(game_context *Context, uint32 ProgramID)
 {
     Assert(Context->Shaders3DCount < MAX_SHADERS);
@@ -96,6 +67,29 @@ void RegisteredShaderClear(game_context *Context)
     Context->Shaders3DCount = 0;
     Context->Shaders2DCount = 0;
 }
+
+// IMPLEMENTATION
+#include "utils.cpp"
+#include "render.cpp"
+#include "sound.cpp"
+#include "water.cpp"
+
+bool FramePressedKeys[350] = {};
+bool FrameReleasedKeys[350] = {};
+bool FrameDownKeys[350] = {};
+
+int  FrameModKeys = 0;
+
+bool FramePressedMouseButton[8] = {};
+bool FrameDownMouseButton[8] = {};
+bool FrameReleasedMouseButton[8] = {};
+
+int  FrameMouseWheel = 0;
+
+// TODO - For resizing from GLFW callbacks. Is there a better way to do this ?
+int ResizeWidth;
+int ResizeHeight;
+bool Resized = true;
 
 #include "ui.cpp"
 
@@ -134,45 +128,6 @@ void DestroyMemory(game_memory *Memory)
         Memory->IsInitialized = false;
         Memory->IsGameInitialized = false;
     }
-}
-
-void MakeRelativePath(char *Dst, char *Path, char const *Filename)
-{
-    strncpy(Dst, Path, MAX_PATH);
-    strncat(Dst, Filename, MAX_PATH);
-}
-
-void *ReadFileContents(memory_arena *Arena, char *Filename, int32 *FileSize)
-{
-    char *Contents = NULL;
-    FILE *fp = fopen(Filename, "rb");
-
-    if(fp)
-    {
-        if(0 == fseek(fp, 0, SEEK_END))
-        {
-            int32 Size = ftell(fp);
-            rewind(fp);
-            Contents = (char*)PushArenaData(Arena, Size+1);
-            fread(Contents, Size, 1, fp);
-            Contents[Size] = 0;
-            if(FileSize)
-            {
-                *FileSize = Size+1;
-            }
-        }
-        else
-        {
-            printf("File Open Error : fseek not 0.\n");
-        }
-        fclose(fp);
-    }
-    else
-    {
-        printf("Coudln't open file %s.\n", Filename);
-    }
-
-    return (void*)Contents;
 }
 
 void ParseConfig(game_memory *Memory, char *ConfigPath)
@@ -377,6 +332,8 @@ void GetFrameInput(game_context *Context, game_input *Input)
     Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
     Input->KeyNumPlus = BuildKeyState(GLFW_KEY_KP_ADD);
     Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);
+    Input->KeyNumMultiply = BuildKeyState(GLFW_KEY_KP_MULTIPLY);
+    Input->KeyNumDivide = BuildKeyState(GLFW_KEY_KP_DIVIDE);
 
     Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
     Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
@@ -458,12 +415,12 @@ game_context InitContext(game_memory *Memory)
                     path TexPath;
                     image Image;
 
-                    MakeRelativePath(TexPath, ExecFullPath, "data/default_diffuse.png");
+                    MakeRelativePath(TexPath, ExecutableFullPath, "data/default_diffuse.png");
                     Image = LoadImage(TexPath, false);
                     Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
 
-                    MakeRelativePath(TexPath, ExecFullPath, "data/default_normal.png");
+                    MakeRelativePath(TexPath, ExecutableFullPath, "data/default_normal.png");
                     Image = LoadImage(TexPath, false);
                     Context.DefaultNormalTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
@@ -516,14 +473,14 @@ void DestroyContext(game_context *Context)
 uint32 Program1, Program3D, ProgramSkybox;
 uint32 ProgramWater;
 
-void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath)
+void ReloadShaders(game_memory *Memory, game_context *Context, path ExecutableFullPath)
 {
     RegisteredShaderClear(Context);
 
     path VSPath;
     path FSPath;
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/text_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/text_frag.glsl");
+    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/text_vert.glsl");
+    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/text_frag.glsl");
     Program1 = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program1);
     SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
@@ -531,8 +488,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath
 
     RegisterShader2D(Context, Program1);
 
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/frag.glsl");
+    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/vert.glsl");
+    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/frag.glsl");
     Program3D = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program3D);
     SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
@@ -544,8 +501,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath
 
     RegisterShader3D(Context, Program3D);
 
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/skybox_frag.glsl");
+    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/skybox_frag.glsl");
     ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
@@ -553,8 +510,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath
 
     RegisterShader3D(Context, ProgramSkybox);
 
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/water_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/water_frag.glsl");
+    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/water_vert.glsl");
+    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/water_frag.glsl");
     ProgramWater = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramWater);
     SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
@@ -563,7 +520,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath
 
     RegisterShader3D(Context, ProgramWater);
 
-    uiReloadShaders(Memory, Context, ExecFullPath);
+    uiReloadShaders(Memory, Context, ExecutableFullPath);
     CheckGLError("UI Shader");
 
     UpdateShaderProjection(Context);
@@ -595,11 +552,13 @@ void InitializeFromGame(game_memory *Memory)
 
 void TestUI(game_memory *Memory)
 {
+#if 0
     uiBeginPanel("Title is a pretty long sentence", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
     uiEndPanel();
 
     uiBeginPanel("Title2", vec3i(600, 150, 1), vec2i(200, 100), col4f(1,0,0,0.5));
     uiEndPanel();
+#endif
 }
 
 int RadarMain(int argc, char **argv)
@@ -607,12 +566,12 @@ int RadarMain(int argc, char **argv)
     path DllSrcPath;
     path DllDstPath;
 
-    GetExecutablePath(ExecFullPath);
-    MakeRelativePath(DllSrcPath, ExecFullPath, DllName);
-    MakeRelativePath(DllDstPath, ExecFullPath, DllDynamicCopyName);
+    GetExecutablePath(ExecutableFullPath);
+    MakeRelativePath(DllSrcPath, ExecutableFullPath, DllName);
+    MakeRelativePath(DllDstPath, ExecutableFullPath, DllDynamicCopyName);
 
     path ConfigPath;
-    MakeRelativePath(ConfigPath, ExecFullPath, "config.json");
+    MakeRelativePath(ConfigPath, ExecutableFullPath, "config.json");
 
     game_memory Memory = InitMemory();
     ParseConfig(&Memory, ConfigPath);
@@ -642,34 +601,34 @@ int RadarMain(int argc, char **argv)
             alSourcePlay(AudioSource);
         }
 
-        ReloadShaders(&Memory, &Context, ExecFullPath);
+        ReloadShaders(&Memory, &Context, ExecutableFullPath);
 
         glActiveTexture(GL_TEXTURE0);
 
         // Texture Test
         path TexPath;
-        MakeRelativePath(TexPath, ExecFullPath, "data/crate1_diffuse.png");
+        MakeRelativePath(TexPath, ExecutableFullPath, "data/crate1_diffuse.png");
         image Image = LoadImage(TexPath, false);
         uint32 Texture1 = Make2DTexture(&Image, false, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
 #if 0
-        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/albedo.png");
+        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/albedo.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalAlbedo = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/metallic.png");
+        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/metallic.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalMetallic = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/roughness.png");
+        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/roughness.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalRoughness = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, ExecFullPath, "data/brick_1/normal.png");
+        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/normal.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
@@ -729,7 +688,7 @@ int RadarMain(int argc, char **argv)
 #endif
             for(uint32 i = 0; i < 6; ++i)
             {
-                MakeRelativePath(CubemapPaths[i], ExecFullPath, CubemapNames[i]);
+                MakeRelativePath(CubemapPaths[i], ExecutableFullPath, CubemapNames[i]);
             }
         }
 
@@ -741,7 +700,7 @@ int RadarMain(int argc, char **argv)
         glActiveTexture(GL_TEXTURE0);
 
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
-        ComputeIrradianceCubemap(&Memory, ExecFullPath, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
+        ComputeIrradianceCubemap(&Memory, ExecutableFullPath, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
         uint32 EnvmapToUse = HDRCubemapEnvmap; 
 
         bool LastDisableMouse = false;
@@ -754,7 +713,7 @@ int RadarMain(int argc, char **argv)
             Input.dTime = CurrentTime - LastTime;
 
             LastTime = CurrentTime;
-            Context.EngineTime += Input.dTime;
+            State->EngineTime += Input.dTime;
 
             // NOTE - Each frame, clear the Scratch Arena Data
             // TODO - Is this too often ? Maybe let it stay several frames
@@ -815,7 +774,7 @@ int RadarMain(int argc, char **argv)
 
             if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
             {
-                ReloadShaders(&Memory, &Context, ExecFullPath);
+                ReloadShaders(&Memory, &Context, ExecutableFullPath);
             }
 
             if(KEY_UP(Input.KeyF1))
@@ -933,6 +892,8 @@ int RadarMain(int argc, char **argv)
                 SendVec3(Loc, State->Camera.Position);
                 Loc = glGetUniformLocation(ProgramWater, "SunDirection");
                 SendVec3(Loc, State->LightDirection);
+                Loc = glGetUniformLocation(ProgramWater, "Time");
+                SendFloat(Loc, State->EngineTime);
 
                 water_system *WaterSystem = System->WaterSystem;
 
@@ -954,7 +915,8 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
 
-                int Repeat = 3;
+
+                int Repeat = 5;
                 int Middle = (Repeat-1)/2;
                 for(int j = 0; j < Repeat; ++j)
                 {
@@ -964,7 +926,11 @@ int RadarMain(int argc, char **argv)
                         real32 PositionScale = dWidth * (Interp);
                         vec3f Position(PositionScale * (Middle-i), 0.f, PositionScale * (Middle-j));
                         vec3f Scale(Interp, Interp, Interp);
+                        vec3f Rotation(0, State->WaterDirection, 0);
+                        mat4f RotationMatrix;
+                        RotationMatrix.FromAxisAngle(Rotation);
                         ModelMatrix.FromTRS(Position, vec3f(0), Scale);
+                        ModelMatrix = RotationMatrix * ModelMatrix;
 
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);

@@ -73,14 +73,14 @@ void main()
     vec3 metallic = texture(Metallic, v_texcoord).xyz * MetallicMult;
     vec3 roughness = texture(Roughness, v_texcoord).xyz * RoughnessMult;
     vec3 env_light = pow(texture(Skybox, R).xyz, vec3(2.2));
-    vec3 irr_light = pow(texture(IrradianceCubemap, -R).xyz, vec3(2.2));
+    vec3 irr_light = pow(texture(IrradianceCubemap, -R).xyz, vec3(1.0));
 
     float NdotV = max(1e-3, dot(N, V));
     float NdotL = max(0, dot(N, L));
     float HdotV = max(0, dot(H, V));
     float NdotH = max(0, dot(N, H));
 
-    // TODO - parameterize this
+    // TODO - This is the baseline for a dielectric material
     vec3 f0 = vec3(0.04);
 
     vec3 Lo = vec3(0);
@@ -89,7 +89,7 @@ void main()
         f0 = mix(f0, albedo, metallic.x);
 
         // Specular part
-        vec3 F = FresnelSchlick(HdotV, f0, roughness.x);
+        vec3 F = FresnelSchlick(NdotV, f0, roughness.x);
         float G = GeometrySmith(NdotV, NdotL, roughness.x);
         float D = DistributionGGX(NdotH, roughness.x);
 
@@ -106,13 +106,13 @@ void main()
     }
 
     // View Fresnel
-    vec3 ks = FresnelSchlick(NdotV, f0, roughness.x);
+    vec3 ks = FresnelSchlick(NdotV, vec3(0), roughness.x);
     vec3 kd = 1.0 - ks;
     kd *= 1 - metallic;
     vec3 Diffuse = irr_light * albedo;
     vec3 Ambient = kd * Diffuse;
 
-    vec3 color = Ambient + Lo;
+    vec3 color = Lo + kd * albedo * irr_light;//ks * albedo;//Ambient + Lo;
 
     // Gamma correction
     color = color / (color + vec3(1));
