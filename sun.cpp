@@ -61,16 +61,8 @@ sun_storage *GameInitialization(game_memory *Memory)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
-    // Push Data
-    // TODO - this shouldnt be done here. The engine should allocate the Log and Sound systems.
-    // --> streamline this there
-    tmp_sound_data *SoundBuffer = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
-    console_log *ConsoleLog = (console_log*)PushArenaStruct(&Memory->SessionArena, console_log);
-    System->ConsoleLog = ConsoleLog;
-    System->SoundData = SoundBuffer;
-
-    FillAudioBuffer(SoundBuffer);
-    SoundBuffer->ReloadSoundBuffer = true;
+    FillAudioBuffer(System->SoundData);
+    System->SoundData->ReloadSoundBuffer = true;
 
     State->DisableMouse = false;
     State->PlayerPosition = vec3f(300, 300, 0);
@@ -209,7 +201,7 @@ void LogString(console_log *Log, char const *String)
 
 DLLEXPORT GAMEUPDATE(GameUpdate)
 {
-    sun_storage *Local = NULL;
+    sun_storage static *Local = NULL;
 
     if(!Memory->IsGameInitialized)
     {
