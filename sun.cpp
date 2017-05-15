@@ -11,7 +11,29 @@ struct sun_storage
 {
     real64 Counter;
     vec2f SunDir;
+    bool IsNight;
+
+    ui_text_line FPSText;
+    ui_text_line WaterText;
 };
+
+void LogString(console_log *Log, char const *String)
+{
+    // NOTE - Have an exposed Queue of Console String on Platform
+    // The Game sends Console Log strings to that queue
+    // The platform process the queue in order each frame and draws them in console
+    memcpy(Log->MsgStack[Log->WriteIdx], String, CONSOLE_STRINGLEN);
+    Log->WriteIdx = (Log->WriteIdx + 1) % CONSOLE_CAPACITY;
+
+    if(Log->StringCount >= CONSOLE_CAPACITY)
+    {
+        Log->ReadIdx = (Log->ReadIdx + 1) % CONSOLE_CAPACITY;
+    }
+    else
+    {
+        Log->StringCount++;
+    }
+}
 
 void FillAudioBuffer(tmp_sound_data *SoundData)
 {
@@ -65,6 +87,8 @@ void GameInitialization(game_memory *Memory)
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
     System->DLLStorage = PushArenaStruct(&Memory->SessionArena, sun_storage);
+    sun_storage *Local = (sun_storage*)System->DLLStorage;
+    Local->Counter = 0.0;
 
     FillAudioBuffer(System->SoundData);
     System->SoundData->ReloadSoundBuffer = true;
@@ -79,7 +103,8 @@ void GameInitialization(game_memory *Memory)
     // Monument Envmap
     State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
     State->LightColor = vec4f(1.0f, 0.6, 0.2, 1.0f);
-    ((sun_storage*)(System->DLLStorage))->SunDir = CartesianToSpherical(State->LightDirection);
+    Local->SunDir = CartesianToSpherical(State->LightDirection);
+    Local->IsNight = Local->SunDir.x >= M_PI_OVER_TWO;
 #endif
 #if 0
     // Arch Envmap
@@ -182,22 +207,45 @@ void MovePlayer(game_state *State, game_input *Input)
     State->PlayerPosition = Move;
 }
 
-void LogString(console_log *Log, char const *String)
+void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_input *Input)
 {
-    // NOTE - Have an exposed Queue of Console String on Platform
-    // The Game sends Console Log strings to that queue
-    // The platform process the queue in order each frame and draws them in console
-    memcpy(Log->MsgStack[Log->WriteIdx], String, ConsoleLogStringLen);
-    Log->WriteIdx = (Log->WriteIdx + 1) % ConsoleLogCapacity;
+    Local->SunDir.x = fmod(Local->SunDir.x + 0.2f * M_PI * Input->dTime, 2.f * M_PI);
 
-    if(Log->StringCount >= ConsoleLogCapacity)
+    real32 Theta, Phi;
     {
-        Log->ReadIdx = (Log->ReadIdx + 1) % ConsoleLogCapacity;
+        real32 ThetaAscend = Min(M_PI, Local->SunDir.x);
+        real32 ThetaDescend = Max(0.0, Local->SunDir.x - M_PI);
+
+        if(ThetaDescend > 0.0)
+        {
+            Theta = M_PI - ThetaDescend;
+            Phi = Local->SunDir.y - M_PI;
+        }
+        else
+        {
+            Theta = ThetaAscend;
+            Phi = Local->SunDir.y;
+        }
     }
-    else
+
+    // TODO - This should just be 
+    // Local->IsNight = Theta <= M_PI_OVER_TWO;
+    // But temporarily added logging of the state change for testing
+    if(Local->IsNight && Theta < M_PI_OVER_TWO) {
+        Local->IsNight = false;
+        console_log_string Msg;
+        snprintf(Msg, CONSOLE_STRINGLEN, "Day");
+        LogString(System->ConsoleLog, Msg);
+    }
+    if(!Local->IsNight && Theta >= M_PI_OVER_TWO)
     {
-        Log->StringCount++;
+        Local->IsNight = true;
+        console_log_string Msg;
+        snprintf(Msg, CONSOLE_STRINGLEN, "Night");
+        LogString(System->ConsoleLog, Msg);
     }
+
+    State->LightDirection = SphericalToCartesian(Theta, Phi);
 }
 
 DLLEXPORT GAMEUPDATE(GameUpdate)
@@ -210,6 +258,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
     sun_storage *Local = (sun_storage*)System->DLLStorage;
+    ui_frame_stack *UIStack = System->UIStack;
 
 #if 0
     if(Input->KeyReleased)
@@ -270,27 +319,21 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         State->WaterDirection -= Input->dTime * 0.05;
     }
 
+    UpdateSky(Local, State, System, Input);
+
     if(Local->Counter > 0.75)
     {
-        console_log_string Msg;
-        snprintf(Msg, ConsoleLogStringLen, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
-        LogString(System->ConsoleLog, Msg);
+        snprintf(Local->FPSText.String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+        Local->FPSText.Position = vec3f(10, 500, 0);
+        Local->FPSText.Color = vec4f(0.9, 0.7, 0.1, 1);
+
+        snprintf(Local->WaterText.String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
+        Local->WaterText.Position = vec3f(10, 514, 0);
+        Local->WaterText.Color = vec4f(0.9, 0.7, 0.1, 1);
+
         Local->Counter = 0.0;
     }
 
-    Local->SunDir[0] += 0.2f * M_PI * Input->dTime;
-    real32 theta, phi;
-    // Correct sun direction to get correct Cartesian coords when converting
-    if((int)floor(Local->SunDir[0] * M_INV_PI) % 2 != 0) {
-        phi = fmod(M_PI + Local->SunDir[1], 2.0f * M_PI);
-	theta = M_PI - fmod(Local->SunDir[0], M_PI);
-    }
-    else {
-	phi = Local->SunDir[1];
-	theta = fmod(Local->SunDir[0], M_PI);
-    }
-    State->LightDirection = SphericalToCartesian(theta, phi);
-    console_log_string Msg;
-    snprintf(Msg, ConsoleLogStringLen, "theta: %f, phi: %f", Local->SunDir[0] * M_INV_PI, Local->SunDir[1]);
-    LogString(System->ConsoleLog, Msg);
+    UIStack->TextLines[UIStack->TextLineCount++] = Local->FPSText;
+    UIStack->TextLines[UIStack->TextLineCount++] = Local->WaterText;
 }

@@ -75,6 +75,10 @@ void uiReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPa
 
 void uiBeginFrame(game_memory *Memory, game_input *Input)
 {
+    // NOTE - reinit the frame stack for the ui
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+    System->UIStack = (ui_frame_stack*)PushArenaStruct(&Memory->ScratchArena, ui_frame_stack);
+
     uiRenderCmd = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE);    
     InitArena(&uiRenderCmdArena, UI_STACK_SIZE, uiRenderCmd);
     uiRenderCmdCount = 0;

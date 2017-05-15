@@ -8,9 +8,6 @@
 // Game DLL. Anything that isn't useful for the Game should be elsewhere.
 /////////////////////////////////////////////////////////////////////////
 
-#define ConsoleLogStringLen 256
-#define ConsoleLogCapacity 8
-
 real32 static const g_G = 9.807f;
 
 struct game_config
@@ -46,6 +43,9 @@ inline void InitArena(memory_arena *Arena, uint64 Capacity, void *BasePtr)
 
 inline void ClearArena(memory_arena *Arena)
 {
+    // TODO - Do we need to wipe this to 0 each time ? Profile it to see if its 
+    // a problem. It seems like best practice
+    memset(Arena->BasePtr, 0, sizeof(uint8) * Arena->Capacity);
     Arena->Size = 0;
 }
 
@@ -98,73 +98,17 @@ struct game_memory
     bool IsGameInitialized;
 };
 
-struct tmp_sound_data
-{
-    bool ReloadSoundBuffer;
-    uint32 SoundBufferSize;
-    uint16 SoundBuffer[Megabytes(1)];
-};
-
-typedef char console_log_string[ConsoleLogStringLen];
-struct console_log
-{
-    console_log_string MsgStack[ConsoleLogCapacity];
-    uint32 WriteIdx;
-    uint32 ReadIdx;
-    uint32 StringCount;
-};
-
-struct water_beaufort_state
-{
-    int Width;
-    vec2f Direction;
-    real32 Amplitude;
-
-    void *OrigPositions;
-    void *HTilde0;
-    void *HTilde0mk;
-};
-
-struct water_system
-{
-    int static const BeaufortStateCount = 4;
-    int static const WaterN = 64;
-
-    size_t VertexDataSize;
-    size_t VertexCount;
-    real32 *VertexData;
-    size_t IndexDataSize;
-    uint32 IndexCount;
-    uint32 *IndexData;
-
-    water_beaufort_state States[BeaufortStateCount];
-
-    // NOTE - Accessor Pointers, index VertexData
-    void *Positions;
-    void *Normals;
-
-    complex *hTilde;
-    complex *hTildeSlopeX;
-    complex *hTildeSlopeZ;
-    complex *hTildeDX;
-    complex *hTildeDZ;
-
-    // NOTE - FFT system
-    int Switch;
-    int Log2N;
-    complex *FFTC[2];
-    complex **FFTW;
-    uint32 *Reversed;
-
-    uint32 VAO;
-    uint32 VBO[2]; // 0 : idata, 1 : vdata
-};
+// NOTE - Systems declarations
+#include "sound.h"
+#include "water.h"
+#include "ui.h"
 
 struct game_system
 {
     console_log *ConsoleLog;
     tmp_sound_data *SoundData;
     water_system *WaterSystem;
+    ui_frame_stack *UIStack;
     void *DLLStorage;
 };
 
