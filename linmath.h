@@ -2,13 +2,6 @@
 #define LINMATH_H
 
 /// Mat4 are in column-major order
-#ifndef Assert
-#ifdef DEBUG
-#define Assert(expr) if(!(expr)) { *(int*)0 = 0; }
-#else
-#define Assert(expr) 
-#endif
-#endif
 
 #include <math.h>
 #include <limits>
@@ -41,7 +34,7 @@
 #define Max(a,b) ((a) >= (b) ? (a) : (b))
 #endif
 #ifndef Clamp
-#define Clamp(v,a,b) (max((a), min((b), (v))))
+#define Clamp(v,a,b) (Max((a), Min((b), (v))))
 #endif
 
 template<typename T>
@@ -169,13 +162,11 @@ public:
 
 	T& operator[](int index)
 	{
-		Assert(index < 2);
 		return *((&x) + index);
 	}
 
 	const T& operator[](int index) const
 	{
-		Assert(index < 2);
 		return *((&x) + index);
 	}
 
@@ -324,13 +315,11 @@ public:
 
 	inline T& operator[](int index)
 	{
-		Assert(index < 3);
 		return *((&x) + index);
 	}
 
 	inline const T& operator[](int index) const
 	{
-		Assert(index < 3);
 		return *((&x) + index);
 	}
 
@@ -540,13 +529,11 @@ public:
 
 	T& operator[](int index)
 	{
-		Assert(index < 4);
 		return *((&x) + index);
 	}
 
 	const T& operator[](int index) const
 	{
-		Assert(index < 4);
 		return *((&x) + index);
 	}
 
@@ -686,7 +673,6 @@ public:
 
 	vec3<T>& operator[](int index)
 	{
-		Assert(index >= 0 && index < 3);
 		return M[index];
 	}
 
@@ -879,7 +865,6 @@ public:
 
 	vec4<T>& operator[](int index)
 	{
-		Assert(index >= 0 && index < 4);
 		return M[index];
 	}
 

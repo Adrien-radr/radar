@@ -486,7 +486,7 @@ uint32 AddEmptyVBO(uint32 Size, uint32 Usage)
 }
 
 void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type,
-             size_t ByteOffset, uint32 Size, void *Data)
+             size_t ByteOffset, uint32 Size, void const *Data)
 {
     glEnableVertexAttribArray(Attrib);
     glBufferSubData(GL_ARRAY_BUFFER, ByteOffset, Size, Data);
@@ -494,7 +494,7 @@ void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type,
 }
 
 uint32 AddVBO(uint32 Attrib, uint32 AttribStride, uint32 Type, 
-              uint32 Usage, uint32 Size, void *Data)
+              uint32 Usage, uint32 Size, void const *Data)
 {
     glEnableVertexAttribArray(Attrib);
 
@@ -678,7 +678,7 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs = true)
 {
     mesh Cube = {};
 
-    static vec3f Position[24] = {
+    vec3f const Position[24] = {
         vec3f(-1, -1, -1),
         vec3f(-1, -1, 1),
         vec3f(-1, 1, 1),
@@ -710,7 +710,7 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs = true)
         vec3f(1, 1, 1)
     };
 
-    static vec2f Texcoord[24] = {
+    vec2f const Texcoord[24] = {
         vec2f(0, 1),
         vec2f(0, 0),
         vec2f(1, 0),
@@ -742,7 +742,7 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs = true)
         vec2f(1, 1),
     };
 
-    vec3f Normal[24] = {
+    vec3f const Normal[24] = {
         vec3f(-1, 0, 0),
         vec3f(-1, 0, 0),
         vec3f(-1, 0, 0),
@@ -1056,7 +1056,7 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(SkyboxCube.VAO);
     // The 6 view matrices for the 6 cubemap directions
-    mat4f static const ViewDirs [] = {
+    mat4f const ViewDirs [6] = {
         mat4f::LookAt(vec3f(0), vec3f( 1, 0, 0), vec3f(0, -1, 0)),
         mat4f::LookAt(vec3f(0), vec3f(-1, 0, 0), vec3f(0, -1, 0)),
         mat4f::LookAt(vec3f(0), vec3f( 0, 1, 0), vec3f(0, 0, 1)),
@@ -1064,7 +1064,7 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
         mat4f::LookAt(vec3f(0), vec3f( 0, 0, 1), vec3f(0, -1, 0)),
         mat4f::LookAt(vec3f(0), vec3f( 0, 0,-1), vec3f(0, -1, 0))
     };
-    mat4f static const EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);
+    mat4f const EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);
 
     // NOTE - Latlong to Cubemap
     glUseProgram(ProgramLatlong2Cubemap);

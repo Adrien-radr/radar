@@ -89,7 +89,7 @@ RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
 LIB_FLAGS=-Lext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -lSFMT -lstb -lcJSON -lglfw3 -lglew -lopenal \
-		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -ldl -lpthread
+		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -lm -ldl -lpthread
 INCLUDE_FLAGS=-Iext/ -I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE)
 
 TARGET=bin/radar
