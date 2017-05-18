@@ -41,7 +41,7 @@
 #define Max(a,b) ((a) >= (b) ? (a) : (b))
 #endif
 #ifndef Clamp
-#define Clamp(v,a,b) (max((a), min((b), (v))))
+#define Clamp(v,a,b) (Max((a), Min((b), (v))))
 #endif
 
 template<typename T>
