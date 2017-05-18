@@ -5,13 +5,22 @@
 
 #include "SFMT.h"
 
+// In meters
+const real32 EarthRadius = 6.3710088e6;
+const real32 SunDistance = 1.496e11;
+
 // NOTE - Storage for game data local to the Sun DLL
 // This is pushed on the Session stack of the engine
 struct sun_storage
 {
     real64 Counter;
-    vec2f SunDir;
     bool IsNight;
+	// DayPhase: 0 = noon, pi = midnight
+	real32 DayPhase;
+	// Varies with season
+	real32 EarthTilt;
+	// Latitude: -pi/2 = South pole, +pi/2 = North pole
+	real32 Latitude;
 
     ui_text_line FPSText;
     ui_text_line WaterText;
@@ -97,14 +106,17 @@ void GameInitialization(game_memory *Memory)
     State->PlayerPosition = vec3f(300, 300, 0);
 
     InitCamera(&State->Camera, Memory);
+	
+	// Bretagne, France
+	Local->Latitude = deg2rad(48.2020f);
+	// Summer solstice
+	Local->EarthTilt = deg2rad(23.43f);
 
     // TODO - Pack Sun color and direction from envmaps
 #if 1
     // Monument Envmap
     State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
     State->LightColor = vec4f(1.0f, 0.6, 0.2, 1.0f);
-    Local->SunDir = CartesianToSpherical(State->LightDirection);
-    Local->IsNight = Local->SunDir.x >= M_PI_OVER_TWO;
 #endif
 #if 0
     // Arch Envmap
@@ -209,43 +221,33 @@ void MovePlayer(game_state *State, game_input *Input)
 
 void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_input *Input)
 {
-    Local->SunDir.x = fmod(Local->SunDir.x + 0.2f * M_PI * Input->dTime, 2.f * M_PI);
+	Local->DayPhase = fmod(Local->DayPhase + 0.2f * M_PI * Input->dTime, 2.f * M_PI);
 
-    real32 Theta, Phi;
-    {
-        real32 ThetaAscend = Min(M_PI, Local->SunDir.x);
-        real32 ThetaDescend = Max(0.0, Local->SunDir.x - M_PI);
 
-        if(ThetaDescend > 0.0)
-        {
-            Theta = M_PI - ThetaDescend;
-            Phi = Local->SunDir.y - M_PI;
-        }
-        else
-        {
-            Theta = ThetaAscend;
-            Phi = Local->SunDir.y;
-        }
-    }
+	real32 CosET = cosf(Local->EarthTilt);
+	
+	vec3f SunPos(SunDistance * CosET * cosf(Local->DayPhase) - EarthRadius * cosf(Local->Latitude),
+				 SunDistance * sinf(Local->EarthTilt) - EarthRadius * sinf(Local->Latitude),
+				 SunDistance * CosET * sinf(Local->DayPhase));
+	mat4f Rot;
+	Rot = Rot.RotateZ(M_PI_OVER_TWO - Local->Latitude);
+	SunPos = Rot * SunPos;
+	
+	console_log_string Msg;
+	//snprintf(Msg, CONSOLE_STRINGLEN, "%e %e %e", Rot[1][1], SunPos.y, SunPos.z); 
+	//LogString(System->ConsoleLog, Msg);
 
-    // TODO - This should just be 
-    // Local->IsNight = Theta <= M_PI_OVER_TWO;
-    // But temporarily added logging of the state change for testing
-    if(Local->IsNight && Theta < M_PI_OVER_TWO) {
-        Local->IsNight = false;
-        console_log_string Msg;
-        snprintf(Msg, CONSOLE_STRINGLEN, "Day");
-        LogString(System->ConsoleLog, Msg);
-    }
-    if(!Local->IsNight && Theta >= M_PI_OVER_TWO)
-    {
-        Local->IsNight = true;
-        console_log_string Msg;
-        snprintf(Msg, CONSOLE_STRINGLEN, "Night");
-        LogString(System->ConsoleLog, Msg);
-    }
-
-    State->LightDirection = SphericalToCartesian(Theta, Phi);
+	if(Local->IsNight && SunPos.y > 0.f) {
+		Local->IsNight = false;
+		snprintf(Msg, CONSOLE_STRINGLEN, "Day");
+		LogString(System->ConsoleLog, Msg);
+	}
+	if(!Local->IsNight && SunPos.y < 0.f) {
+		Local->IsNight = true;
+		snprintf(Msg, CONSOLE_STRINGLEN, "Night");
+		LogString(System->ConsoleLog, Msg);
+	}
+	State->LightDirection = Normalize(SunPos);
 }
 
 DLLEXPORT GAMEUPDATE(GameUpdate)
