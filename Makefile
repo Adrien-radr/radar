@@ -34,7 +34,7 @@ CC=cl /nologo
 STATICLIB=lib /nologo
 LINK=/link /MACHINE:X64 -subsystem:console,5.02 /INCREMENTAL:NO
 GENERAL_CFLAGS=-Gm- -EHa- -GR- -EHsc
-CFLAGS=-MT $(GENERAL_CFLAGS)
+CFLAGS=-MT $(GENERAL_CFLAGS) -std=c++11 -pedantic
 DLL_CFLAGS=-MD $(GENERAL_CFLAGS)
 DEBUG_FLAGS=-DDEBUG -Zi -Od -W1 -wd4100 -wd4189 -wd4514
 RELEASE_FLAGS=-O2 -Oi
@@ -83,7 +83,7 @@ STB_TARGET=ext/libstb.a
 STB_OBJECT=ext/stb.o
 
 CC=g++
-CFLAGS=-Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937
+CFLAGS=-Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937 -std=c++11 -pedantic
 DEBUG_FLAGS=-g -DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)

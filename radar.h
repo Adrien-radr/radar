@@ -188,7 +188,7 @@ struct game_input
     mouse_state MouseRight;
 };
 
-void *ReadFileContents(memory_arena *Arena, char *Filename, int *FileSize);
-void MakeRelativePath(char *Dst, char *Path, char const *Filename);
+void *ReadFileContents(memory_arena *Arena, char const *Filename, int *FileSize);
+void MakeRelativePath(char *Dst, char const *Path, char const *Filename);
 #endif
 

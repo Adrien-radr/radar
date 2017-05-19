@@ -22,9 +22,9 @@
 #define M_INV_FOUR_PI 0.07957747154 
 #endif
 // deg 2 rad : d * PI / 180
-#define deg2rad(d) ((d)*0.01745329252)
+#define DEG2RAD 0.01745329252
 // rad 2 deg : d * 180 / PI
-#define rad2deg(r) ((r)*57.2957795)
+#define RAD2DEG 57.2957795
 
 #define Square(num) ((num)*(num))
 #ifndef Min
@@ -51,8 +51,8 @@ T Inf()
 
 inline float HFOVtoVFOV(float Aspect, float HFOV_deg)
 {
-	const float rhf = deg2rad(HFOV_deg);
-	return rad2deg(2.f*atanf(tanf(rhf*.5f) / Aspect));
+	const float rhf = HFOV_deg * DEG2RAD;
+	return 2.f*atanf(tanf(rhf*.5f) / Aspect) * RAD2DEG;
 }
 
 // ----------------
@@ -1170,7 +1170,7 @@ public:
 
 	static mat4<T> Perspective(float fov_x, float aspect, float n, float f)
 	{
-		float fov_rad = deg2rad(HFOVtoVFOV(aspect, fov_x));
+		float fov_rad = HFOVtoVFOV(aspect, fov_x) * DEG2RAD;
 		float tanHalfFovy = tanf(fov_rad * 0.5f);
 
 		float sx = 1.f / (aspect * tanHalfFovy);

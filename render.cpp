@@ -273,7 +273,7 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
 // TODO - Load Unicode characters
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
-font LoadFont(game_memory *Memory, char *Filename, real32 PixelHeight)
+font LoadFont(game_memory *Memory, char const *Filename, real32 PixelHeight)
 {
     font Font = {};
 

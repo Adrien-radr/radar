@@ -1,12 +1,12 @@
 path ExecutableFullPath;
 
-void MakeRelativePath(char *Dst, char *Path, char const *Filename)
+void MakeRelativePath(char *Dst, char const *Path, char const *Filename)
 {
     strncpy(Dst, Path, MAX_PATH);
     strncat(Dst, Filename, MAX_PATH);
 }
 
-void *ReadFileContents(memory_arena *Arena, char *Filename, int32 *FileSize)
+void *ReadFileContents(memory_arena *Arena, char const *Filename, int32 *FileSize)
 {
     char *Contents = NULL;
     FILE *fp = fopen(Filename, "rb");

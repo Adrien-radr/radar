@@ -108,9 +108,11 @@ void GameInitialization(game_memory *Memory)
     InitCamera(&State->Camera, Memory);
 	
 	// Bretagne, France
-	Local->Latitude = deg2rad(48.2020f);
+	Local->Latitude = 48.2020f * DEG2RAD;
+	// Abidjan, Ivory Coast
+	//Local->Latitude = 5.345317f * DEG2RAD;
 	// Summer solstice
-	Local->EarthTilt = deg2rad(23.43f);
+	Local->EarthTilt = 23.43f * DEG2RAD;
 
     // TODO - Pack Sun color and direction from envmaps
 #if 1
