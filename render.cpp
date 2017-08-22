@@ -1,5 +1,7 @@
 #include "stb_image.h"
 #include "stb_truetype.h"
+#define TINYGLTF_IMPLEMENTATION
+#include "tiny_gltf.h"
 
 void CheckGLError(const char *Mark = "")
 {
@@ -514,7 +516,7 @@ void UpdateVBO(uint32 VBO, size_t ByteOffset, uint32 Size, void *Data)
     glBufferSubData(GL_ARRAY_BUFFER, ByteOffset, Size, Data);
 }
 
-uint32 AddIBO(uint32 Usage, uint32 Size, void *Data)
+uint32 AddIBO(uint32 Usage, uint32 Size, void const *Data)
 {
     uint32 Buffer;
     glGenBuffers(1, &Buffer);

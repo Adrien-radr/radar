@@ -249,7 +249,7 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
 		snprintf(Msg, CONSOLE_STRINGLEN, "Night");
 		LogString(System->ConsoleLog, Msg);
 	}
-	State->LightDirection = Normalize(SunPos);
+	//State->LightDirection = Normalize(SunPos);
 }
 
 DLLEXPORT GAMEUPDATE(GameUpdate)

@@ -83,7 +83,7 @@ STB_TARGET=ext/libstb.a
 STB_OBJECT=ext/stb.o
 
 CC=g++
-CFLAGS=-Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -fno-exceptions -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937 -std=c++11 -pedantic
+CFLAGS=-Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937 -std=c++11 -pedantic
 DEBUG_FLAGS=-g -DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
