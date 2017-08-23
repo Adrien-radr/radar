@@ -1035,7 +1035,7 @@ int RadarMain(int argc, char **argv)
                 int AttribSize = AttribStride * acc.count * sizeof(float); 
                 if(AttribStride < 0 || AttribIdx < 0) return 1;
 
-                printf("Adding attrib at %d, with stride %d, compType %d, byteOff %lu, size %d\n", AttribIdx, AttribStride, 
+                printf("Adding attrib at %d, with stride %d, compType %d, byteOff %zu, size %d\n", AttribIdx, AttribStride, 
                         acc.componentType, acc.byteOffset, AttribSize);
 
                 FillVBO(AttribIdx, AttribStride, acc.componentType, acc.byteOffset, AttribSize, &dataBuffer.data[0] + acc.byteOffset);

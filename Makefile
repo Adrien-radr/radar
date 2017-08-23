@@ -27,6 +27,10 @@ GLEW_OBJECT=ext/glew/glew.obj
 GLEW_TARGET=ext/glew/glew.lib
 CJSON_OBJECT=ext/cjson/cjson.obj
 CJSON_TARGET=ext/cjson/cJSON.lib
+SFMT_OBJECT=ext/sfmt/SFMT.obj
+SFMT_TARGET=ext/sfmt/SFMT.lib
+STB_TARGET=ext/stb.lib
+STB_OBJECT=ext/stb.obj
 OPENAL_LIB=ext/openal-soft/build/Release
 GLFW_LIB=ext/glfw/build/x64/Release
 
@@ -34,7 +38,7 @@ CC=cl /nologo
 STATICLIB=lib /nologo
 LINK=/link /MACHINE:X64 -subsystem:console,5.02 /INCREMENTAL:NO
 GENERAL_CFLAGS=-Gm- -EHa- -GR- -EHsc
-CFLAGS=-MT $(GENERAL_CFLAGS) -std=c++11 -pedantic
+CFLAGS=-MT $(GENERAL_CFLAGS) /W1
 DLL_CFLAGS=-MD $(GENERAL_CFLAGS)
 DEBUG_FLAGS=-DDEBUG -Zi -Od -W1 -wd4100 -wd4189 -wd4514
 RELEASE_FLAGS=-O2 -Oi
@@ -59,12 +63,21 @@ $(CJSON_TARGET):
 	@$(STATICLIB) $(CJSON_OBJECT) -OUT:$(CJSON_TARGET)
 	@rm $(CJSON_OBJECT)
 
+$(SFMT_TARGET):
+	@$(CC) -O2 -Oi -DHAVE_SSE2=1 -DSFMT_MEXP=19937 -c ext/sfmt/SFMT.c -Fo$(SFMT_OBJECT)
+	@$(STATICLIB) $(SFMT_OBJECT) -OUT:$(SFMT_TARGET)
+	@rm $(SFMT_OBJECT)
+
+$(STB_TARGET):
+	@$(CC) -O2 -Oi -c ext/stb.cpp -Fo$(STB_OBJECT)
+	@$(STATICLIB) $(STB_OBJECT) -OUT:$(STB_TARGET)
+	@rm $(STB_OBJECT)
 
 lib:
 	@$(CC) $(DLL_CFLAGS) $(VERSION_FLAGS) -I$(SFMT_INCLUDE) /LD $(LIB_SRCS) $(LINK) /OUT:$(LIB_TARGET)
 	@mv *.pdb bin/
 
-radar: $(GLEW_TARGET) $(CJSON_TARGET)
+radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET)
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) -I$(STB_INCLUDE) $(LINK) $(LIB_FLAGS) /OUT:$(TARGET) /PDB:$(PDB_TARGET)
 
 ##################################################

@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include <windows.h>
 
 static path DllName = "sun.dll";
