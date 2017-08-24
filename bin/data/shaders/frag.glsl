@@ -8,8 +8,7 @@ in vec3 v_halfvector;
 in vec3 v_sundirection;
 
 uniform sampler2D Albedo;
-uniform sampler2D Metallic;
-uniform sampler2D Roughness;
+uniform sampler2D MetallicRoughness; // x is metallic, y is roughness
 uniform vec3  AlbedoMult;
 uniform float MetallicMult;
 uniform float RoughnessMult;
@@ -70,8 +69,8 @@ void main()
     vec3 R = reflect(V, N);
 
     vec3 albedo = pow(texture(Albedo, v_texcoord).xyz, vec3(2.2)) * AlbedoMult;
-    vec3 metallic = texture(Metallic, v_texcoord).xyz * MetallicMult;
-    vec3 roughness = texture(Roughness, v_texcoord).xyz * RoughnessMult;
+    float metallic = texture(MetallicRoughness, v_texcoord).x * 1;//MetallicMult;
+    float roughness = texture(MetallicRoughness, v_texcoord).y * 1;//RoughnessMult;
     vec3 env_light = pow(texture(Skybox, R).xyz, vec3(2.2));
     vec3 irr_light = pow(texture(IrradianceCubemap, -R).xyz, vec3(1.0));
 
@@ -86,12 +85,12 @@ void main()
     vec3 Lo = vec3(0);
     // Lighting
     {
-        f0 = mix(f0, albedo, metallic.x);
+        f0 = mix(f0, albedo, metallic);
 
         // Specular part
-        vec3 F = FresnelSchlick(NdotV, f0, roughness.x);
-        float G = GeometrySmith(NdotV, NdotL, roughness.x);
-        float D = DistributionGGX(NdotH, roughness.x);
+        vec3 F = FresnelSchlick(NdotV, f0, roughness);
+        float G = GeometrySmith(NdotV, NdotL, roughness);
+        float D = DistributionGGX(NdotH, roughness);
 
         vec3 nom = F * G * D;
         float denom = (4 * NdotV * NdotL + 1e-4);
@@ -106,7 +105,7 @@ void main()
     }
 
     // View Fresnel
-    vec3 ks = FresnelSchlick(NdotV, vec3(0), roughness.x);
+    vec3 ks = FresnelSchlick(NdotV, vec3(0), roughness);
     vec3 kd = 1.0 - ks;
     kd *= 1 - metallic;
     vec3 Diffuse = irr_light * albedo;
