@@ -135,9 +135,12 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
     // Load Material
     const Material &material = Mdl.materials[prim.material];
     if(material.values.size() == 0)
-    {
-        printf("no PBR\n");
-        // TODO - Default error material or something
+    { // NOTE - Default Magenta color for error
+        Model->Material.AlbedoTexture = Context.DefaultDiffuseTexture;
+        Model->Material.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
+        Model->Material.AlbedoMult = vec3f(1,0,1); // Magenta error color
+        Model->Material.RoughnessMult = 1.f;
+        Model->Material.MetallicMult = 0.f;
     }
     else
     {
@@ -159,12 +162,44 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
         {
             int TextureIndex = (int)RoughnessTexIdx->second.json_double_value.at("index");
             const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
-            Model->Material.RoughnessTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
+            Model->Material.RoughnessMetallicTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
                                                           false, false, false, Context.GameConfig->AnisotropicFiltering);
         }
         else
         { // NOTE - No diffuse texture : put in the Default
-            Model->Material.RoughnessTexture = Context.DefaultDiffuseTexture;
+            Model->Material.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
+        }
+
+        auto AlbedoMultIdx = material.values.find("roughnessFactor");
+        if(AlbedoMultIdx != material.values.end())
+        {
+            Model->Material.AlbedoMult = vec3f( AlbedoMultIdx->second.number_array[0],
+                                                AlbedoMultIdx->second.number_array[1],
+                                                AlbedoMultIdx->second.number_array[2]);
+        }
+        else
+        {
+            Model->Material.AlbedoMult = vec3f(1.f);
+        }
+
+        auto RoughnessMultIdx = material.values.find("roughnessFactor");
+        if(RoughnessMultIdx != material.values.end())
+        {
+            Model->Material.RoughnessMult = RoughnessMultIdx->second.number_array[0];
+        }
+        else
+        {
+            Model->Material.RoughnessMult = 1.f;
+        }
+
+        auto MetallicMultIdx = material.values.find("metallicFactor");
+        if(MetallicMultIdx != material.values.end())
+        {
+            Model->Material.MetallicMult = MetallicMultIdx->second.number_array[0];
+        }
+        else
+        {
+            Model->Material.MetallicMult = 1.f;
         }
     }
 

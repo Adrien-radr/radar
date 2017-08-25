@@ -61,11 +61,11 @@ struct mesh
 struct material
 {
     uint32 AlbedoTexture;
-    int AlbedoMult;
-    uint32 MetallicTexture;
-    int MetallicMult;
-    uint32 RoughnessTexture;
-    int RoughnessMult;
+    uint32 RoughnessMetallicTexture;
+
+    vec3f AlbedoMult;
+    float RoughnessMult;
+    float MetallicMult;
 };
 
 struct model

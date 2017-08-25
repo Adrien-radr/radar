@@ -838,14 +838,14 @@ int RadarMain(int argc, char **argv)
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-                SendVec3(AlbedoLoc, vec3f(1));
-                SendFloat(MetallicLoc, 0.2);
-                SendFloat(RoughnessLoc, 1);
+                SendVec3(AlbedoLoc, gltfCube.Material.AlbedoMult);
+                SendFloat(MetallicLoc, gltfCube.Material.MetallicMult);
+                SendFloat(RoughnessLoc, gltfCube.Material.RoughnessMult);
                 glBindVertexArray(gltfCube.Mesh.VAO);
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_2D, gltfCube.Material.AlbedoTexture);
                 glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, gltfCube.Material.RoughnessTexture);
+                glBindTexture(GL_TEXTURE_2D, gltfCube.Material.RoughnessMetallicTexture);
                 glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
                 glActiveTexture(GL_TEXTURE3);
