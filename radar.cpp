@@ -730,6 +730,7 @@ int RadarMain(int argc, char **argv)
 
         model gltfCube = {};
         mesh defCube = MakeUnitCube();
+        //if(!LoadGLTFModel(&gltfCube, "data/gltftest/PBRSpheres/MetalRoughSpheres.gltf", Context))
         if(!LoadGLTFModel(&gltfCube, "data/gltftest/suzanne/Suzanne.gltf", Context))
             return 1;
          
@@ -838,23 +839,28 @@ int RadarMain(int argc, char **argv)
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-                SendVec3(AlbedoLoc, gltfCube.Material.AlbedoMult);
-                SendFloat(MetallicLoc, gltfCube.Material.MetallicMult);
-                SendFloat(RoughnessLoc, gltfCube.Material.RoughnessMult);
-                glBindVertexArray(gltfCube.Mesh.VAO);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, gltfCube.Material.AlbedoTexture);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, gltfCube.Material.RoughnessMetallicTexture);
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
-                glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
-                mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
-                Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                ModelMatrix.FromTRS(vec3f(0), vec3f(0), vec3f(2));
-                SendMat4(Loc, ModelMatrix);
-                glDrawElements(GL_TRIANGLES, gltfCube.Mesh.IndexCount, gltfCube.Mesh.IndexType, 0);
+                for(uint32 i = 0; i < gltfCube.Mesh.size(); ++i)
+                {
+                    material const &Mat = gltfCube.Material[gltfCube.MaterialIdx[i]];
+
+                    SendVec3(AlbedoLoc, Mat.AlbedoMult);
+                    SendFloat(MetallicLoc, Mat.MetallicMult);
+                    SendFloat(RoughnessLoc, Mat.RoughnessMult);
+                    glBindVertexArray(gltfCube.Mesh[i].VAO);
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, Mat.AlbedoTexture);
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, Mat.RoughnessMetallicTexture);
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
+                    glActiveTexture(GL_TEXTURE3);
+                    glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
+                    mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
+                    Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                    ModelMatrix.FromTRS(vec3f(0), vec3f(0), vec3f(2));
+                    SendMat4(Loc, ModelMatrix);
+                    glDrawElements(GL_TRIANGLES, gltfCube.Mesh[i].IndexCount, gltfCube.Mesh[i].IndexType, 0);
+                }
             }
 
 #if 0

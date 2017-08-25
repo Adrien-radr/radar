@@ -70,8 +70,9 @@ struct material
 
 struct model
 {
-    mesh Mesh; // TODO - Multiple meshes ?
-    material Material;
+    std::vector<mesh> Mesh;
+    std::vector<int> MaterialIdx;
+    std::vector<material> Material;
 };
 
 #endif

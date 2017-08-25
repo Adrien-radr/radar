@@ -9,6 +9,7 @@
 
 #include "linmath.h"
 #include <string.h>
+#include <vector>
 
 #define RADAR_MAJOR 0
 #define RADAR_MINOR 0

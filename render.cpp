@@ -63,7 +63,7 @@ void DestroyImage(image *Image)
     Image->Width = Image->Height = Image->Channels = 0;
 }
 
-void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Reversed, GLint *BaseFormat, GLint *Format)
+void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, GLint *BaseFormat, GLint *Format)
 {
     if(IsFloat)
     {
@@ -96,16 +96,15 @@ void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, 
             case 2:
                 *BaseFormat = *Format = GL_RG; break;
             case 3:
-                *BaseFormat = GL_RGBA;
-                *Format = Reversed ? GL_BGR : GL_RGB; break;
+                *BaseFormat = *Format = GL_RGB; break;
             case 4:
-                *BaseFormat = GL_RGBA;
-                *Format = Reversed ? GL_BGRA : GL_RGBA; break;
+                *BaseFormat = *Format = GL_RGBA; break;
         }
     }
 }
 
-uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Reversed, real32 AnisotropicLevel)
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, real32 AnisotropicLevel,
+                     int MagFilter = GL_LINEAR, int MinFilter = GL_LINEAR_MIPMAP_LINEAR, int WrapS = GL_REPEAT, int WrapT = GL_REPEAT)
 {
     uint32 Texture;
     glGenTextures(1, &Texture);
@@ -118,19 +117,22 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
     glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
     glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, WrapS);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, WrapT);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
 
     GLint BaseFormat, Format;
-    FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, Reversed, &BaseFormat, &Format);
+    FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, Type, ImageBuffer);
     CheckGLError("glTexImage2D");
-    glGenerateMipmap(GL_TEXTURE_2D);
+    if(MinFilter >= GL_NEAREST_MIPMAP_NEAREST && MinFilter <= GL_LINEAR_MIPMAP_LINEAR)
+    { // NOTE - Generate mipmaps if mag filter ask it
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
 
@@ -141,7 +143,7 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
 
 uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel)
 {
-    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, FloatHalfPrecision, false, AnisotropicLevel);
+    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, FloatHalfPrecision, AnisotropicLevel);
 }
 
 uint32 MakeCubemap(path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height)
@@ -159,7 +161,7 @@ uint32 MakeCubemap(path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Wi
             image Face = LoadImage(Paths[i], IsFloat);
 
             GLint BaseFormat, Format;
-            FormatFromChannels(Face.Channels, IsFloat, FloatHalfPrecision, false, &BaseFormat, &Format);
+            FormatFromChannels(Face.Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
             GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face.Width, Face.Height,
@@ -254,7 +256,7 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
     glBindTexture(GL_TEXTURE_2D, *BufferID);
 
     GLint BaseFormat, Format;
-    FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, false, &BaseFormat, &Format);
+    FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
 
@@ -340,7 +342,7 @@ font LoadFont(game_memory *Memory, char const *Filename, real32 PixelHeight)
         }
 
         // Make Texture out of the Bitmap
-        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, false, false, false, 1.0f);
+        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, false, false, 1.0f);
     }
 
 
@@ -1045,7 +1047,7 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
     image HDREnvmapImage = LoadImage(HDREnvmapImagePath, true);
 
     uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
-            HDREnvmapImage.Channels, true, false, false, 1);
+            HDREnvmapImage.Channels, true, false, 1);
     DestroyImage(&HDREnvmapImage);
 
     mesh SkyboxCube = MakeUnitCube(false);

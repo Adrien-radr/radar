@@ -27,6 +27,30 @@ static int GetAttribStride(int AccessorType) {
     }
 }
 
+static size_t GetComponentSize(int ComponentType)
+{
+    switch(ComponentType)
+    {
+        case GL_BYTE :
+        case GL_UNSIGNED_BYTE:
+            return sizeof(char);
+        case GL_SHORT:
+        case GL_UNSIGNED_SHORT:
+            return sizeof(short);
+        case GL_INT:
+        case GL_UNSIGNED_INT:
+            return sizeof(int);
+        case GL_FLOAT:
+            return sizeof(float);
+        case GL_DOUBLE:
+            return sizeof(double);
+        default:
+            printf("Undefined GL Component %d\n", ComponentType);
+            return 0;
+
+    }
+}
+
 
 bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Context)
 {
@@ -36,6 +60,7 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
     
     using namespace tinygltf;
 
+    stbi_set_flip_vertically_on_load(0);
     bool Ret = Loader.LoadASCIIFromFile(&Mdl, &LoadErr, Filename.c_str());
     if(!LoadErr.empty())
     {
@@ -49,159 +74,187 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
         return false;
     }
 
-    if(Mdl.meshes.size() > 1)
-    {
-        printf("UNIMPLEMENTED : glTF model with several meshes %s (%zu)\n", Filename.c_str(), Mdl.meshes.size());
-        return false;
-    }
-    if(Mdl.meshes[0].primitives.size() > 1)
-    {
-        printf("UNIMPLEMENTED : glTF model with several primitives %s (%zu)\n", Filename.c_str(), Mdl.meshes[0].primitives.size());
-        return false;
-    }
     if(Mdl.buffers.size() > 1)
     {
         printf("UNIMPLEMENTED : glTF model with several buffers %s (%zu)\n", Filename.c_str(), Mdl.buffers.size());
         return false;
     }
-    if(Mdl.materials.size() > 1)
-    {
-        printf("UNIMPLEMENTED : glTF model with several materials %s (%zu)\n", Filename.c_str(), Mdl.materials.size());
-        return false;
-    }
 
-    // Load Mesh
 
-    const Primitive &prim = Mdl.meshes[0].primitives[0];
-    const Accessor &indices =  Mdl.accessors[prim.indices];
-    const BufferView &indicesBV = Mdl.bufferViews[indices.bufferView];
-    const Buffer &DataBuffer = Mdl.buffers[0];
-
-    Model->Mesh.IndexCount = indices.count;
-    Model->Mesh.IndexType = indices.componentType;
-    Model->Mesh.VAO = MakeVertexArrayObject();
-    Model->Mesh.VBO[0] = AddIBO(GL_STATIC_DRAW, indicesBV.byteLength, &DataBuffer.data[0] + indices.byteOffset + indicesBV.byteOffset);
-    uint32 BufferSize = DataBuffer.data.size() - indicesBV.byteLength;
-    Model->Mesh.VBO[1] = AddEmptyVBO(BufferSize, GL_STATIC_DRAW);
-
-    bool ValidMesh[3] = { false, false, false };
-    int Attrib = 0;
-    for(auto &it : prim.attributes)
-    {
-        const Accessor &acc = Mdl.accessors[it.second];
-        const BufferView & bv = Mdl.bufferViews[acc.bufferView];
-
-        int AttribIdx = GetAttribIndex(it.first);
-        int AttribStride = GetAttribStride(acc.type);
-
-        //printf("%s : Idx %d, Stride %d, Size %d\n", it.first.c_str(), AttribIdx, AttribStride, bv.byteLength);
-
-        if(AttribStride < 0 || AttribIdx < 0)
-        {
-            printf("Error loading glTF model %s : Attrib %d stride or size invalid.\n", Filename.c_str(), Attrib);
-            return false;
-        }
-
-        FillVBO(AttribIdx, AttribStride, acc.componentType, acc.byteOffset + bv.byteOffset - indicesBV.byteLength, bv.byteLength, 
-                &DataBuffer.data[0] + acc.byteOffset + bv.byteOffset);
-
-        if(AttribIdx >= 0 && AttribIdx <= 2)
-        {
-            ValidMesh[AttribIdx] = true;
-        }
-
-        Attrib++;
-    }
-
-    if(!ValidMesh[0])
-    {
-        printf("Error loading glTF model %s : Positions are not given.\n", Filename.c_str());
-        return false;
-    }
-    if(!ValidMesh[1])
-    {
-        printf("Error loading glTF model %s : Texcoords are not given.\n", Filename.c_str());
-        return false;
-    }
-    if(!ValidMesh[2])
-    {
-        printf("Error loading glTF model %s : Normals are not given.\n", Filename.c_str());
-        return false;
-    }
+    Model->Mesh.resize(Mdl.meshes.size());
+    Model->MaterialIdx.resize(Mdl.meshes.size());
+    Model->Material.resize(Mdl.materials.size());
 
     // Load Textures 
     // TODO - Load all textures first and register in a resource manager. Query it afterwards during material loading
 
     // Load Material
-    const Material &material = Mdl.materials[prim.material];
-    if(material.values.size() == 0)
-    { // NOTE - Default Magenta color for error
-        Model->Material.AlbedoTexture = Context.DefaultDiffuseTexture;
-        Model->Material.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
-        Model->Material.AlbedoMult = vec3f(1,0,1); // Magenta error color
-        Model->Material.RoughnessMult = 1.f;
-        Model->Material.MetallicMult = 0.f;
-    }
-    else
+    int iter = 0;
+    for(auto const &SrcMtl : Mdl.materials)
     {
-        auto DiffuseTexIdx = material.values.find("baseColorTexture");
-        if(DiffuseTexIdx != material.values.end())
-        {
-            int TextureIndex = (int)DiffuseTexIdx->second.json_double_value.at("index");
-            const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
-            Model->Material.AlbedoTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
-                                                          false, false, false, Context.GameConfig->AnisotropicFiltering);
-        }
-        else
-        { // NOTE - No diffuse texture : put in the Default
-            Model->Material.AlbedoTexture = Context.DefaultDiffuseTexture;
-        }
+        material &DstMtl = Model->Material[iter++];
 
-        auto RoughnessTexIdx = material.values.find("metallicRoughnessTexture");
-        if(RoughnessTexIdx != material.values.end())
-        {
-            int TextureIndex = (int)RoughnessTexIdx->second.json_double_value.at("index");
-            const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
-            Model->Material.RoughnessMetallicTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
-                                                          false, false, false, Context.GameConfig->AnisotropicFiltering);
+        if(SrcMtl.values.size() == 0)
+        { // NOTE - Default Magenta color for error
+            DstMtl.AlbedoTexture = Context.DefaultDiffuseTexture;
+            DstMtl.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
+            DstMtl.AlbedoMult = vec3f(1,0,1); // Magenta error color
+            DstMtl.RoughnessMult = 1.f;
+            DstMtl.MetallicMult = 0.f;
         }
         else
-        { // NOTE - No diffuse texture : put in the Default
-            Model->Material.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
-        }
+        {
+            auto DiffuseTexIdx = SrcMtl.values.find("baseColorTexture");
+            if(DiffuseTexIdx != SrcMtl.values.end())
+            {
+                int TextureIndex = (int)DiffuseTexIdx->second.json_double_value.at("index");
+                const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
+                const Sampler &spl = Mdl.samplers[Mdl.textures[TextureIndex].sampler];
+                DstMtl.AlbedoTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
+                        false, false, Context.GameConfig->AnisotropicFiltering,
+                        spl.magFilter, spl.minFilter, spl.wrapS, spl.wrapT);
+            }
+            else
+            { // NOTE - No diffuse texture : put in the Default
+                DstMtl.AlbedoTexture = Context.DefaultDiffuseTexture;
+            }
 
-        auto AlbedoMultIdx = material.values.find("roughnessFactor");
-        if(AlbedoMultIdx != material.values.end())
-        {
-            Model->Material.AlbedoMult = vec3f( AlbedoMultIdx->second.number_array[0],
-                                                AlbedoMultIdx->second.number_array[1],
-                                                AlbedoMultIdx->second.number_array[2]);
-        }
-        else
-        {
-            Model->Material.AlbedoMult = vec3f(1.f);
-        }
+            auto RoughnessTexIdx = SrcMtl.values.find("metallicRoughnessTexture");
+            if(RoughnessTexIdx != SrcMtl.values.end())
+            {
+                int TextureIndex = (int)RoughnessTexIdx->second.json_double_value.at("index");
+                const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
+                const Sampler &spl = Mdl.samplers[Mdl.textures[TextureIndex].sampler];
+                DstMtl.RoughnessMetallicTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
+                        false, false, Context.GameConfig->AnisotropicFiltering,
+                        spl.magFilter, spl.minFilter, spl.wrapS, spl.wrapT);
+            }
+            else
+            { // NOTE - No diffuse texture : put in the Default
+                DstMtl.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
+            }
 
-        auto RoughnessMultIdx = material.values.find("roughnessFactor");
-        if(RoughnessMultIdx != material.values.end())
-        {
-            Model->Material.RoughnessMult = RoughnessMultIdx->second.number_array[0];
-        }
-        else
-        {
-            Model->Material.RoughnessMult = 1.f;
-        }
+            auto AlbedoMultIdx = SrcMtl.values.find("roughnessFactor");
+            if(AlbedoMultIdx != SrcMtl.values.end())
+            {
+                DstMtl.AlbedoMult = vec3f(AlbedoMultIdx->second.number_array[0],
+                        AlbedoMultIdx->second.number_array[1],
+                        AlbedoMultIdx->second.number_array[2]);
+            }
+            else
+            {
+                DstMtl.AlbedoMult = vec3f(1.f);
+            }
 
-        auto MetallicMultIdx = material.values.find("metallicFactor");
-        if(MetallicMultIdx != material.values.end())
-        {
-            Model->Material.MetallicMult = MetallicMultIdx->second.number_array[0];
-        }
-        else
-        {
-            Model->Material.MetallicMult = 1.f;
+            auto RoughnessMultIdx = SrcMtl.values.find("roughnessFactor");
+            if(RoughnessMultIdx != SrcMtl.values.end())
+            {
+                DstMtl.RoughnessMult = RoughnessMultIdx->second.number_array[0];
+            }
+            else
+            {
+                DstMtl.RoughnessMult = 1.f;
+            }
+
+            auto MetallicMultIdx = SrcMtl.values.find("metallicFactor");
+            if(MetallicMultIdx != SrcMtl.values.end())
+            {
+                DstMtl.MetallicMult = MetallicMultIdx->second.number_array[0];
+            }
+            else
+            {
+                DstMtl.MetallicMult = 1.f;
+            }
         }
     }
+
+    // Load Mesh
+    const Buffer &DataBuffer = Mdl.buffers[0];
+
+    iter = 0;
+    for(auto const &SrcMesh : Mdl.meshes)
+    {
+        if(SrcMesh.primitives.size() > 1)
+        {
+            printf("UNIMPLEMENTED : glTF model with several primitives %s (%zu)\n", Filename.c_str(), SrcMesh.primitives.size());
+            return false;
+        }
+
+        const Primitive &prim = SrcMesh.primitives[0];
+        const Accessor &indices =  Mdl.accessors[prim.indices];
+        const BufferView &indicesBV = Mdl.bufferViews[indices.bufferView];
+
+        mesh &DstMesh = Model->Mesh[iter];
+        Model->MaterialIdx[iter] = prim.material;
+
+        DstMesh.IndexCount = indices.count;
+        DstMesh.IndexType = indices.componentType;
+        DstMesh.VAO = MakeVertexArrayObject();
+
+        // compute size of index buffer
+        size_t IdxBufferSize = indices.count * GetComponentSize(indices.componentType);
+        DstMesh.VBO[0] = AddIBO(GL_STATIC_DRAW, IdxBufferSize, &DataBuffer.data[0] + indices.byteOffset + indicesBV.byteOffset);
+
+        // compute size of buffer first by iterating over all attributes
+        size_t BufferSize = 0;//DataBuffer.data.size() - indicesBV.byteLength;
+        for(auto const &it : prim.attributes)
+        {
+            const Accessor &acc = Mdl.accessors[it.second];
+            BufferSize += acc.count * GetComponentSize(acc.componentType) * GetAttribStride(acc.type);
+        }
+        DstMesh.VBO[1] = AddEmptyVBO(BufferSize, GL_STATIC_DRAW);
+
+        bool ValidMesh[3] = { false, false, false };
+        int Attrib = 0;
+        size_t AttribOffset = 0;
+        for(auto &it : prim.attributes)
+        {
+            const Accessor &acc = Mdl.accessors[it.second];
+            const BufferView & bv = Mdl.bufferViews[acc.bufferView];
+
+            int AttribIdx = GetAttribIndex(it.first);
+            int AttribStride = GetAttribStride(acc.type);
+            size_t AttribSize = acc.count * GetComponentSize(acc.componentType) * AttribStride;
+
+            //printf("%s : Idx %d, Stride %d, Size %d\n", it.first.c_str(), AttribIdx, AttribStride, bv.byteLength);
+
+            if(AttribStride < 0 || AttribIdx < 0)
+            {
+                printf("Error loading glTF model %s : Attrib %d stride or size invalid.\n", Filename.c_str(), Attrib);
+                return false;
+            }
+
+            FillVBO(AttribIdx, AttribStride, acc.componentType, AttribOffset, AttribSize, 
+                    &DataBuffer.data[0] + acc.byteOffset + bv.byteOffset);
+
+            if(AttribIdx >= 0 && AttribIdx <= 2)
+            {
+                ValidMesh[AttribIdx] = true;
+            }
+
+            Attrib++;
+            AttribOffset += AttribSize;
+        }
+
+        if(!ValidMesh[0])
+        {
+            printf("Error loading glTF model %s : Positions are not given.\n", Filename.c_str());
+            return false;
+        }
+        if(!ValidMesh[1])
+        {
+            printf("Error loading glTF model %s : Texcoords are not given.\n", Filename.c_str());
+            return false;
+        }
+        if(!ValidMesh[2])
+        {
+            printf("Error loading glTF model %s : Normals are not given.\n", Filename.c_str());
+            return false;
+        }
+
+        ++iter;
+    }
+
 
     glBindVertexArray(0);
 
