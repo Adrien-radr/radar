@@ -47,6 +47,8 @@ struct game_context
     uint32 Shaders2D[MAX_SHADERS];
     uint32 Shaders2DCount;
 
+    game_config *GameConfig;
+
     bool IsRunning;
     bool IsValid;
 };
@@ -75,155 +77,6 @@ void RegisteredShaderClear(game_context *Context)
 #include "sound.cpp"
 #include "water.cpp"
 
-// TMPO
-int GetAttribIndex(const std::string &AttribName)
-{
-    if(AttribName == "POSITION") return 0;
-    if(AttribName == "TEXTURE") return 1;
-    if(AttribName == "NORMAL") return 2;
-    else
-    {
-        printf("Undefined GLTF attrib name %s\n", AttribName.c_str()); 
-        return -1;
-    }
-}
-int GetAttribStride(int AccessorType) {
-    switch(AccessorType)
-    {
-        case TINYGLTF_TYPE_VEC2: return 2;
-        case TINYGLTF_TYPE_VEC3: return 3;
-        case TINYGLTF_TYPE_VEC4: return 4;
-        case TINYGLTF_TYPE_MAT2: return 4;
-        case TINYGLTF_TYPE_MAT3: return 9;
-        case TINYGLTF_TYPE_MAT4: return 16;
-        default: printf("Wrong GLTF TYPE!\n"); return -1;
-    }
-}
-
-static std::string Indent(const int indent) {
-    std::string s;
-    for (int i = 0; i < indent; i++) {
-        s += "  ";
-    }
-
-    return s;
-}
-static std::string PrintMode(int mode) {
-  if (mode == TINYGLTF_MODE_POINTS) {
-    return "POINTS";
-  } else if (mode == TINYGLTF_MODE_LINE) {
-    return "LINE";
-  } else if (mode == TINYGLTF_MODE_LINE_LOOP) {
-    return "LINE_LOOP";
-  } else if (mode == TINYGLTF_MODE_TRIANGLES) {
-    return "TRIANGLES";
-  } else if (mode == TINYGLTF_MODE_TRIANGLE_FAN) {
-    return "TRIANGLE_FAN";
-  } else if (mode == TINYGLTF_MODE_TRIANGLE_STRIP) {
-    return "TRIANGLE_STRIP";
-  }
-  return "**UNKNOWN**";
-}
-static std::string PrintType(int ty) {
-  if (ty == TINYGLTF_TYPE_SCALAR) {
-    return "SCALAR";
-  } else if (ty == TINYGLTF_TYPE_VECTOR) {
-    return "VECTOR";
-  } else if (ty == TINYGLTF_TYPE_VEC2) {
-    return "VEC2";
-  } else if (ty == TINYGLTF_TYPE_VEC3) {
-    return "VEC3";
-  } else if (ty == TINYGLTF_TYPE_VEC4) {
-    return "VEC4";
-  } else if (ty == TINYGLTF_TYPE_MATRIX) {
-    return "MATRIX";
-  } else if (ty == TINYGLTF_TYPE_MAT2) {
-    return "MAT2";
-  } else if (ty == TINYGLTF_TYPE_MAT3) {
-    return "MAT3";
-  } else if (ty == TINYGLTF_TYPE_MAT4) {
-    return "MAT4";
-  }
-  return "**UNKNOWN**";
-}
-static std::string PrintTarget(int target) {
-  if (target == 34962) {
-    return "GL_ARRAY_BUFFER";
-  } else if (target == 34963) {
-    return "GL_ELEMENT_ARRAY_BUFFER";
-  } else {
-    return "**UNKNOWN**";
-  }
-}
-static std::string PrintComponentType(int ty) {
-  if (ty == TINYGLTF_COMPONENT_TYPE_BYTE) {
-    return "BYTE";
-  } else if (ty == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
-    return "UNSIGNED_BYTE";
-  } else if (ty == TINYGLTF_COMPONENT_TYPE_SHORT) {
-    return "SHORT";
-  } else if (ty == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-    return "UNSIGNED_SHORT";
-  } else if (ty == TINYGLTF_COMPONENT_TYPE_INT) {
-    return "INT";
-  } else if (ty == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
-    return "UNSIGNED_INT";
-  } else if (ty == TINYGLTF_COMPONENT_TYPE_FLOAT) {
-    return "FLOAT";
-  } else if (ty == TINYGLTF_COMPONENT_TYPE_DOUBLE) {
-    return "DOUBLE";
-  }
-
-  return "**UNKNOWN**";
-}
-static std::string PrintValue(const std::string &name, const tinygltf::Value &value, const int indent) {
-    std::stringstream ss;
-
-    if (value.IsObject()) {
-        const tinygltf::Value::Object &o = value.Get<tinygltf::Value::Object>();
-        tinygltf::Value::Object::const_iterator it(o.begin());
-        tinygltf::Value::Object::const_iterator itEnd(o.end());
-        for (; it != itEnd; it++) {
-            ss << PrintValue(name, it->second, indent + 1);
-        }
-    } else if (value.IsString()) {
-        ss << Indent(indent) << name << " : " << value.Get<std::string>()
-            << std::endl;
-    } else if (value.IsBool()) {
-        ss << Indent(indent) << name << " : " << value.Get<bool>() << std::endl;
-    } else if (value.IsNumber()) {
-        ss << Indent(indent) << name << " : " << value.Get<double>() << std::endl;
-    } else if (value.IsInt()) {
-        ss << Indent(indent) << name << " : " << value.Get<int>() << std::endl;
-    }
-    // @todo { binary, array }
-
-    return ss.str();
-}
-static void DumpStringIntMap(const std::map<std::string, int> &m, int indent) {
-    std::map<std::string, int>::const_iterator it(m.begin());
-    std::map<std::string, int>::const_iterator itEnd(m.end());
-    for (; it != itEnd; it++) {
-        std::cout << Indent(indent) << it->first << ": " << it->second << std::endl;
-    }
-}
-static void DumpPrimitive(const tinygltf::Primitive &primitive, int indent) {
-    std::cout << Indent(indent) << "material : " << primitive.material
-        << std::endl;
-    std::cout << Indent(indent) << "indices : " << primitive.indices << std::endl;
-    std::cout << Indent(indent) << "mode     : " << PrintMode(primitive.mode)
-        << "(" << primitive.mode << ")" << std::endl;
-    std::cout << Indent(indent)
-        << "attributes(items=" << primitive.attributes.size() << ")"
-        << std::endl;
-    DumpStringIntMap(primitive.attributes, indent + 1);
-
-    std::cout << Indent(indent) << "extras :" << std::endl
-        << PrintValue("extras", primitive.extras, indent + 1) << std::endl;
-
-}
-
-// END TMP
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
 bool FrameDownKeys[350] = {};
@@ -494,7 +347,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
 game_context InitContext(game_memory *Memory)
 {
     game_context Context = {};
-    game_config const &Config = Memory->Config;
+    game_config &Config = Memory->Config;
 
     bool GLFWValid = false, GLEWValid = false, ALValid = false;
 
@@ -545,6 +398,7 @@ game_context InitContext(game_memory *Memory)
 
                 Context.WireframeMode = false;
                 Context.ClearColor = vec4f(0.01f, 0.19f, 0.31f, 0.f);
+                Context.GameConfig = &Config;
 
                 glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
 
@@ -643,10 +497,9 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecutableFu
     Program3D = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program3D);
     SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
-    SendInt(glGetUniformLocation(Program3D, "Metallic"), 1);
-    SendInt(glGetUniformLocation(Program3D, "Roughness"), 2);
-    SendInt(glGetUniformLocation(Program3D, "Skybox"), 3);
-    SendInt(glGetUniformLocation(Program3D, "IrradianceCubemap"), 4);
+    SendInt(glGetUniformLocation(Program3D, "MetallicRoughness"), 1);
+    SendInt(glGetUniformLocation(Program3D, "Skybox"), 2);
+    SendInt(glGetUniformLocation(Program3D, "IrradianceCubemap"), 3);
     CheckGLError("Mesh Shader");
 
     RegisterShader3D(Context, Program3D);
@@ -875,175 +728,12 @@ int RadarMain(int argc, char **argv)
         ComputeIrradianceCubemap(&Memory, ExecutableFullPath, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
         uint32 EnvmapToUse = HDRIrradianceEnvmap; 
 
-            mesh gltfCube = {};
-        // NOTE - TEMPORARY GLTF Tests
-        std::string LoadErr;
-        tinygltf::Model Mdl;
-        tinygltf::TinyGLTF Loader;
-        bool Ret = Loader.LoadASCIIFromFile(&Mdl, &LoadErr, "data/gltftest/Box.gltf");
-        if(!LoadErr.empty())
-        {
-            printf("Err : %s\n", LoadErr.c_str());
-        }
-        if(!Ret)
-        {
-            printf("Failed to parse glTF\n");
-        }
-        else
-        {
-            std::cout << "scene: " << Mdl.defaultScene << std::endl;
-
-            {
-                std::cout << "scenes(items=" << Mdl.scenes.size() << ")" << std::endl;
-                for (size_t i = 0; i < Mdl.scenes.size(); i++) {
-                    std::cout << Indent(1) << "scene[" << i
-                        << "] name  : " << Mdl.scenes[i].name << std::endl;
-                }
-            }
-            {
-                std::cout << "meshes(item=" << Mdl.meshes.size() << ")" << std::endl;
-                for (size_t i = 0; i < Mdl.meshes.size(); i++) {
-                    std::cout << Indent(1) << "name     : " << Mdl.meshes[i].name
-                        << std::endl;
-                    std::cout << Indent(1)
-                        << "primitives(items=" << Mdl.meshes[i].primitives.size()
-                        << "): " << std::endl;
-
-                    for (size_t k = 0; k < Mdl.meshes[i].primitives.size(); k++) {
-                        DumpPrimitive(Mdl.meshes[i].primitives[k], 2);
-                    }
-                }
-            }
-            {
-                std::cout << "accessors(items=" << Mdl.accessors.size() << ")"
-                    << std::endl;
-                for (size_t i = 0; i < Mdl.accessors.size(); i++) {
-                    const tinygltf::Accessor &accessor = Mdl.accessors[i];
-                    std::cout << Indent(1) << "name         : " << accessor.name << std::endl;
-                    std::cout << Indent(2) << "bufferView   : " << accessor.bufferView
-                        << std::endl;
-                    std::cout << Indent(2) << "byteOffset   : " << accessor.byteOffset
-                        << std::endl;
-                    std::cout << Indent(2) << "componentType: "
-                        << PrintComponentType(accessor.componentType) << "("
-                        << accessor.componentType << ")" << std::endl;
-                    std::cout << Indent(2) << "count        : " << accessor.count
-                        << std::endl;
-                    std::cout << Indent(2) << "type         : " << PrintType(accessor.type)
-                        << std::endl;
-                    if (!accessor.minValues.empty()) {
-                        std::cout << Indent(2) << "min          : [";
-                        for (size_t k = 0; k < accessor.minValues.size(); k++) {
-                            std::cout << accessor.minValues[k]
-                                << ((i != accessor.minValues.size() - 1) ? ", " : "");
-                        }
-                        std::cout << "]" << std::endl;
-                    }
-                    if (!accessor.maxValues.empty()) {
-                        std::cout << Indent(2) << "max          : [";
-                        for (size_t k = 0; k < accessor.maxValues.size(); k++) {
-                            std::cout << accessor.maxValues[k]
-                                << ((i != accessor.maxValues.size() - 1) ? ", " : "");
-                        }
-                        std::cout << "]" << std::endl;
-                    }
-                }
-            }
-            {
-                std::cout << "bufferViews(items=" << Mdl.bufferViews.size() << ")"
-                    << std::endl;
-                for (size_t i = 0; i < Mdl.bufferViews.size(); i++) {
-                    const tinygltf::BufferView &bufferView = Mdl.bufferViews[i];
-                    std::cout << Indent(1) << "name         : " << bufferView.name
-                        << std::endl;
-                    std::cout << Indent(2) << "buffer       : " << bufferView.buffer
-                        << std::endl;
-                    std::cout << Indent(2) << "byteLength   : " << bufferView.byteLength
-                        << std::endl;
-                    std::cout << Indent(2) << "byteOffset   : " << bufferView.byteOffset
-                        << std::endl;
-                    std::cout << Indent(2) << "byteStride   : " << bufferView.byteStride
-                        << std::endl;
-                    std::cout << Indent(2)
-                        << "target       : " << PrintTarget(bufferView.target)
-                        << std::endl;
-                }
-            }
-
-            {
-                std::cout << "buffers(items=" << Mdl.buffers.size() << ")" << std::endl;
-                for (size_t i = 0; i < Mdl.buffers.size(); i++) {
-                    const tinygltf::Buffer &buffer = Mdl.buffers[i];
-                    std::cout << Indent(1) << "name         : " << buffer.name << std::endl;
-                    std::cout << Indent(2) << "byteLength   : " << buffer.data.size()
-                        << std::endl;
-                }
-            }
-
-
-            const tinygltf::Primitive &primitive = Mdl.meshes[0].primitives[0];
-            const tinygltf::Accessor &indices = Mdl.accessors[primitive.indices];
-            const tinygltf::BufferView &indicesBV = Mdl.bufferViews[indices.bufferView];
-            const tinygltf::Buffer &dataBuffer = Mdl.buffers[0];
-            gltfCube.IndexCount = indices.count;
-            gltfCube.VAO = MakeVertexArrayObject();
-    vec2f const Texcoord[24] = {
-        vec2f(0, 1),
-        vec2f(0, 0),
-        vec2f(1, 0),
-        vec2f(1, 1),
-
-        vec2f(0, 1),
-        vec2f(0, 0),
-        vec2f(1, 0),
-        vec2f(1, 1),
-
-        vec2f(0, 1),
-        vec2f(0, 0),
-        vec2f(1, 0),
-        vec2f(1, 1),
-
-        vec2f(0, 1),
-        vec2f(0, 0),
-        vec2f(1, 0),
-        vec2f(1, 1),
-
-        vec2f(0, 1),
-        vec2f(0, 0),
-        vec2f(1, 0),
-        vec2f(1, 1),
-
-        vec2f(0, 1),
-        vec2f(0, 0),
-        vec2f(1, 0),
-        vec2f(1, 1),
-    };
-
-            // Get accessor to positions.
-            const tinygltf::Accessor &positions = Mdl.accessors[primitive.attributes.begin()->second];
-            const tinygltf::BufferView &DataBV = Mdl.bufferViews[positions.bufferView];
-            gltfCube.VBO[0] = AddIBO(GL_STATIC_DRAW, indicesBV.byteLength, &dataBuffer.data[0] + indicesBV.byteOffset);
-            // NOTE - VBO should contain all the data buffer excluding the Indices part. 1 VBO per mesh seems like a good idea
-            gltfCube.VBO[1] = AddEmptyVBO(DataBV.byteLength + sizeof(Texcoord), GL_STATIC_DRAW);
-            for(auto &it : primitive.attributes)
-            {
-                const tinygltf::Accessor &acc = Mdl.accessors[it.second];
-                const tinygltf::BufferView &bv = Mdl.bufferViews[acc.bufferView];
-
-                int AttribIdx = GetAttribIndex(it.first);
-                int AttribStride = GetAttribStride(acc.type);
-                int AttribSize = AttribStride * acc.count * sizeof(float); 
-                if(AttribStride < 0 || AttribIdx < 0) return 1;
-
-                printf("Adding attrib at %d, with stride %d, compType %d, byteOff %zu, size %d\n", AttribIdx, AttribStride, 
-                        acc.componentType, acc.byteOffset, AttribSize);
-
-                FillVBO(AttribIdx, AttribStride, acc.componentType, acc.byteOffset, AttribSize, &dataBuffer.data[0] + acc.byteOffset);
-            }
-            FillVBO(1, 2, GL_FLOAT, DataBV.byteLength, sizeof(Texcoord), Texcoord);
-        }
-         
+        model gltfCube = {};
         mesh defCube = MakeUnitCube();
+        //if(!LoadGLTFModel(&gltfCube, "data/gltftest/PBRSpheres/MetalRoughSpheres.gltf", Context))
+        if(!LoadGLTFModel(&gltfCube, "data/gltftest/suzanne/Suzanne.gltf", Context))
+            return 1;
+         
 
         bool LastDisableMouse = false;
 
@@ -1132,7 +822,7 @@ int RadarMain(int argc, char **argv)
             mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
             {
-                glDisable(GL_CULL_FACE);
+                glCullFace(GL_BACK);
                 glUseProgram(Program3D);
                 {
                     uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
@@ -1149,25 +839,28 @@ int RadarMain(int argc, char **argv)
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-                SendVec3(AlbedoLoc, vec3f(1));
-                SendFloat(MetallicLoc, 0.5);
-                SendFloat(RoughnessLoc, 0.5);
-                glBindVertexArray(gltfCube.VAO);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
-                glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
-                glActiveTexture(GL_TEXTURE4);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
-                mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
-                Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                ModelMatrix.FromTRS(vec3f(0), vec3f(0), vec3f(2));
-                SendMat4(Loc, ModelMatrix);
-                glDrawElements(GL_TRIANGLES, gltfCube.IndexCount, GL_UNSIGNED_SHORT, 0);
+                for(uint32 i = 0; i < gltfCube.Mesh.size(); ++i)
+                {
+                    material const &Mat = gltfCube.Material[gltfCube.MaterialIdx[i]];
+
+                    SendVec3(AlbedoLoc, Mat.AlbedoMult);
+                    SendFloat(MetallicLoc, Mat.MetallicMult);
+                    SendFloat(RoughnessLoc, Mat.RoughnessMult);
+                    glBindVertexArray(gltfCube.Mesh[i].VAO);
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, Mat.AlbedoTexture);
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, Mat.RoughnessMetallicTexture);
+                    glActiveTexture(GL_TEXTURE2);
+                    glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
+                    glActiveTexture(GL_TEXTURE3);
+                    glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
+                    mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
+                    Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                    ModelMatrix.FromTRS(vec3f(0), vec3f(0), vec3f(2));
+                    SendMat4(Loc, ModelMatrix);
+                    glDrawElements(GL_TRIANGLES, gltfCube.Mesh[i].IndexCount, gltfCube.Mesh[i].IndexType, 0);
+                }
             }
 
 #if 0

@@ -14,6 +14,7 @@ const real32 SunDistance = 1.496e11;
 struct sun_storage
 {
     real64 Counter;
+    real64 CounterTenth;
     bool IsNight;
 	// DayPhase: 0 = noon, pi = midnight
 	real32 DayPhase;
@@ -23,7 +24,9 @@ struct sun_storage
 	real32 Latitude;
 
     ui_text_line FPSText;
+    ui_text_line NightDayText;
     ui_text_line WaterText;
+    ui_text_line CameraText;
 };
 
 void LogString(console_log *Log, char const *String)
@@ -98,6 +101,7 @@ void GameInitialization(game_memory *Memory)
     System->DLLStorage = PushArenaStruct(&Memory->SessionArena, sun_storage);
     sun_storage *Local = (sun_storage*)System->DLLStorage;
     Local->Counter = 0.0;
+    Local->CounterTenth = 0.0;
 
     FillAudioBuffer(System->SoundData);
     System->SoundData->ReloadSoundBuffer = true;
@@ -235,20 +239,16 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
 	Rot = Rot.RotateZ(M_PI_OVER_TWO - Local->Latitude);
 	SunPos = Rot * SunPos;
 	
-	console_log_string Msg;
 	//snprintf(Msg, CONSOLE_STRINGLEN, "%e %e %e", Rot[1][1], SunPos.y, SunPos.z); 
 	//LogString(System->ConsoleLog, Msg);
 
-	if(Local->IsNight && SunPos.y > 0.f) {
-		Local->IsNight = false;
-		snprintf(Msg, CONSOLE_STRINGLEN, "Day");
-		LogString(System->ConsoleLog, Msg);
-	}
-	if(!Local->IsNight && SunPos.y < 0.f) {
-		Local->IsNight = true;
-		snprintf(Msg, CONSOLE_STRINGLEN, "Night");
-		LogString(System->ConsoleLog, Msg);
-	}
+    if(Local->IsNight && SunPos.y > 0.f) {
+        Local->IsNight = false;
+    }
+    if(!Local->IsNight && SunPos.y < 0.f) {
+        Local->IsNight = true;
+    }
+
 	//State->LightDirection = Normalize(SunPos);
 }
 
@@ -274,6 +274,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 #endif
     
     Local->Counter += Input->dTime; 
+    Local->CounterTenth += Input->dTime; 
 
     MovePlayer(State, Input);
 
@@ -325,19 +326,40 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     UpdateSky(Local, State, System, Input);
 
+    if(Local->CounterTenth > 0.1)
+    {
+        const game_camera &Camera = State->Camera;
+        snprintf(Local->CameraText.String, UI_STRINGLEN, "Camera : From <%2.2g, %2.2g, %2.2g> To <%2.2g, %2.2g, %2.2g>",
+                Camera.Position.x, Camera.Position.y, Camera.Position.z, Camera.Target.x, Camera.Target.y, Camera.Target.z);
+
+        Local->CounterTenth = 0.0;
+    }
+
     if(Local->Counter > 0.75)
     {
+        Local->CameraText.Position = vec3f(10, 10, 0);
+        Local->CameraText.Color = vec4f(0.9, 0.7, 0.1, 1);
+
         snprintf(Local->FPSText.String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
-        Local->FPSText.Position = vec3f(10, 500, 0);
+        Local->FPSText.Position = vec3f(10, 24, 0);
         Local->FPSText.Color = vec4f(0.9, 0.7, 0.1, 1);
 
         snprintf(Local->WaterText.String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
-        Local->WaterText.Position = vec3f(10, 514, 0);
+        Local->WaterText.Position = vec3f(10, 38, 0);
         Local->WaterText.Color = vec4f(0.9, 0.7, 0.1, 1);
+
+        Local->NightDayText.Color = vec4f(0.9,0.7,0.1,1);
+        Local->NightDayText.Position = vec3f(10,54,0);
+        if(Local->IsNight)
+            snprintf(Local->NightDayText.String, UI_STRINGLEN, "Day");
+        else
+            snprintf(Local->NightDayText.String, UI_STRINGLEN, "Night");
 
         Local->Counter = 0.0;
     }
 
     UIStack->TextLines[UIStack->TextLineCount++] = Local->FPSText;
+    UIStack->TextLines[UIStack->TextLineCount++] = Local->CameraText;
     UIStack->TextLines[UIStack->TextLineCount++] = Local->WaterText;
+    UIStack->TextLines[UIStack->TextLineCount++] = Local->NightDayText;
 }

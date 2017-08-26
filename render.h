@@ -55,6 +55,24 @@ struct mesh
     uint32 VAO;
     uint32 VBO[3]; // 0: indices, 1-? : data
     uint32 IndexCount;
+    uint32 IndexType;
+};
+
+struct material
+{
+    uint32 AlbedoTexture;
+    uint32 RoughnessMetallicTexture;
+
+    vec3f AlbedoMult;
+    float RoughnessMult;
+    float MetallicMult;
+};
+
+struct model
+{
+    std::vector<mesh> Mesh;
+    std::vector<int> MaterialIdx;
+    std::vector<material> Material;
 };
 
 #endif

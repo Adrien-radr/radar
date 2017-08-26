@@ -1,7 +1,5 @@
 #include "stb_image.h"
 #include "stb_truetype.h"
-#define TINYGLTF_IMPLEMENTATION
-#include "tiny_gltf.h"
 
 void CheckGLError(const char *Mark = "")
 {
@@ -105,7 +103,8 @@ void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, 
     }
 }
 
-uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, real32 AnisotropicLevel)
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, real32 AnisotropicLevel,
+                     int MagFilter = GL_LINEAR, int MinFilter = GL_LINEAR_MIPMAP_LINEAR, int WrapS = GL_REPEAT, int WrapT = GL_REPEAT)
 {
     uint32 Texture;
     glGenTextures(1, &Texture);
@@ -118,10 +117,10 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
     glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
     glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, WrapS);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, WrapT);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, AnisotropicLevel);
 
     GLint BaseFormat, Format;
@@ -130,7 +129,10 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
 
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, Width, Height, 0, Format, Type, ImageBuffer);
     CheckGLError("glTexImage2D");
-    glGenerateMipmap(GL_TEXTURE_2D);
+    if(MinFilter >= GL_NEAREST_MIPMAP_NEAREST && MinFilter <= GL_LINEAR_MIPMAP_LINEAR)
+    { // NOTE - Generate mipmaps if mag filter ask it
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
 
@@ -491,8 +493,11 @@ void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type,
              size_t ByteOffset, uint32 Size, void const *Data)
 {
     glEnableVertexAttribArray(Attrib);
+    CheckGLError("VA");
     glBufferSubData(GL_ARRAY_BUFFER, ByteOffset, Size, Data);
+    CheckGLError("SB");
     glVertexAttribPointer(Attrib, AttribStride, Type, GL_FALSE, 0, (GLvoid*)ByteOffset);
+    CheckGLError("VAP");
 }
 
 uint32 AddVBO(uint32 Attrib, uint32 AttribStride, uint32 Type, 
@@ -1128,3 +1133,7 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
     DestroyFramebuffer(&FBOEnvmap);
     DestroyMesh(&SkyboxCube);
 }
+
+
+// ADDITIONAL IMPLEMENTATION
+#include "model.cpp"
