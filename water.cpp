@@ -427,3 +427,63 @@ void WaterInitialization(game_memory *Memory, game_state *State, game_system *Sy
     WaterSystem->IndexCount = IndexCount;
 }
 
+uint32 static ProgramWater;
+void RenderWater(game_state *State, game_system *System, uint32 Envmap, uint32 Irrmap)
+{
+    glUseProgram(ProgramWater);
+    glDisable(GL_CULL_FACE);
+    {
+        uint32 Loc = glGetUniformLocation(ProgramWater, "ViewMatrix");
+        SendMat4(Loc, State->Camera.ViewMatrix);
+        CheckGLError("ViewMatrix");
+    }
+    uint32 Loc = glGetUniformLocation(ProgramWater, "LightColor");
+    SendVec4(Loc, State->LightColor);
+    Loc = glGetUniformLocation(ProgramWater, "CameraPos");
+    SendVec3(Loc, State->Camera.Position);
+    Loc = glGetUniformLocation(ProgramWater, "SunDirection");
+    SendVec3(Loc, State->LightDirection);
+    Loc = glGetUniformLocation(ProgramWater, "Time");
+    SendFloat(Loc, State->EngineTime);
+
+    water_system *WaterSystem = System->WaterSystem;
+
+    Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
+    mat4f ModelMatrix;
+    glBindVertexArray(WaterSystem->VAO);
+
+    water_beaufort_state *WaterStateA = &WaterSystem->States[State->WaterState];
+    water_beaufort_state *WaterStateB = &WaterSystem->States[State->WaterState + 1];
+    real32 dWidth = Mix((real32)WaterStateA->Width, (real32)WaterStateB->Width, State->WaterStateInterp);
+    //dWidth *= (State->WaterState+1) * 1.5;
+
+    real32 Interp = (State->WaterState+1) + State->WaterStateInterp;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, Envmap);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, Irrmap);
+
+
+    int Repeat = 5;
+    int Middle = (Repeat-1)/2;
+    for(int j = 0; j < Repeat; ++j)
+    {
+        for(int i = 0; i < Repeat; ++i)
+        {
+            // MIDDLE
+            real32 PositionScale = dWidth * (Interp);
+            vec3f Position(PositionScale * (Middle-i), 0.f, PositionScale * (Middle-j));
+            vec3f Scale(Interp, Interp, Interp);
+            vec3f Rotation(0, State->WaterDirection, 0);
+            mat4f RotationMatrix;
+            RotationMatrix.FromAxisAngle(Rotation);
+            ModelMatrix.FromTRS(Position, vec3f(0), Scale);
+            ModelMatrix = RotationMatrix * ModelMatrix;
+
+            SendMat4(Loc, ModelMatrix);
+            glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
+        }
+    }
+    glEnable(GL_CULL_FACE);
+}

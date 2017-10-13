@@ -511,7 +511,6 @@ void DestroyContext(game_context *Context)
 }
 
 uint32 Program1, Program3D, ProgramSkybox;
-uint32 ProgramWater;
 
 void ReloadShaders(game_memory *Memory, game_context *Context, path ExecutableFullPath)
 {
@@ -719,9 +718,6 @@ int RadarMain(int argc, char **argv)
         };
         mesh Sphere = MakeUnitSphere();
 
-        int PlaneWidth = 256;
-        mesh UnderPlane = Make3DPlane(&Memory, vec2i(PlaneWidth, PlaneWidth), 1, 10);
-
 
         // Cubemaps Test
         path CubemapPaths[6];
@@ -852,8 +848,11 @@ int RadarMain(int argc, char **argv)
             }
 
 
+            // Recompute Camera View matrix if needed
             game_camera &Camera = State->Camera;
-            mat4f ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
+            mat4f &ViewMatrix = Camera.ViewMatrix;
+            ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
+
 
             {
                 glCullFace(GL_BACK);
@@ -981,68 +980,9 @@ int RadarMain(int argc, char **argv)
             }
 #endif
 
-#if 0
+#if 1
             UpdateWater(State, System, &Input, State->WaterState, State->WaterStateInterp);
-            { // NOTE - Water Rendering Test
-                glUseProgram(ProgramWater);
-                glDisable(GL_CULL_FACE);
-                {
-                    uint32 Loc = glGetUniformLocation(ProgramWater, "ViewMatrix");
-                    SendMat4(Loc, ViewMatrix);
-                    CheckGLError("ViewMatrix");
-                }
-                uint32 Loc = glGetUniformLocation(ProgramWater, "LightColor");
-                SendVec4(Loc, State->LightColor);
-                Loc = glGetUniformLocation(ProgramWater, "CameraPos");
-                SendVec3(Loc, State->Camera.Position);
-                Loc = glGetUniformLocation(ProgramWater, "SunDirection");
-                SendVec3(Loc, State->LightDirection);
-                Loc = glGetUniformLocation(ProgramWater, "Time");
-                SendFloat(Loc, State->EngineTime);
-
-                water_system *WaterSystem = System->WaterSystem;
-
-                real32 hW = PlaneWidth/2.f;
-
-                Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
-                mat4f ModelMatrix;
-                glBindVertexArray(WaterSystem->VAO);
-
-                water_beaufort_state *WaterStateA = &WaterSystem->States[State->WaterState];
-                water_beaufort_state *WaterStateB = &WaterSystem->States[State->WaterState + 1];
-                real32 dWidth = Mix((real32)WaterStateA->Width, (real32)WaterStateB->Width, State->WaterStateInterp);
-                //dWidth *= (State->WaterState+1) * 1.5;
-
-                real32 Interp = (State->WaterState+1) + State->WaterStateInterp;
-                
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
-
-
-                int Repeat = 5;
-                int Middle = (Repeat-1)/2;
-                for(int j = 0; j < Repeat; ++j)
-                {
-                    for(int i = 0; i < Repeat; ++i)
-                    {
-                        // MIDDLE
-                        real32 PositionScale = dWidth * (Interp);
-                        vec3f Position(PositionScale * (Middle-i), 0.f, PositionScale * (Middle-j));
-                        vec3f Scale(Interp, Interp, Interp);
-                        vec3f Rotation(0, State->WaterDirection, 0);
-                        mat4f RotationMatrix;
-                        RotationMatrix.FromAxisAngle(Rotation);
-                        ModelMatrix.FromTRS(Position, vec3f(0), Scale);
-                        ModelMatrix = RotationMatrix * ModelMatrix;
-
-                        SendMat4(Loc, ModelMatrix);
-                        glDrawElements(GL_TRIANGLES, WaterSystem->IndexCount, GL_UNSIGNED_INT, 0);
-                    }
-                }
-                glEnable(GL_CULL_FACE);
-            }
+            RenderWater(State, System, EnvmapToUse, HDRIrradianceEnvmap);
 #endif
 
             { // NOTE - Skybox Rendering Test, put somewhere else
@@ -1077,7 +1017,6 @@ int RadarMain(int argc, char **argv)
         // TODO - Destroy Console meshes
         DestroyMesh(&Cube);
         DestroyMesh(&SkyboxCube);
-        DestroyMesh(&UnderPlane);
         glDeleteTextures(1, &Texture1);
         glDeleteProgram(Program1);
         glDeleteProgram(Program3D);

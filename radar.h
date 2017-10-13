@@ -118,11 +118,11 @@ struct game_system
 
 struct game_camera
 {
-    vec3f Position;
-    vec3f Target;
-    vec3f Up;
-    vec3f Forward;
-    vec3f Right;
+    vec3f  Position;
+    vec3f  Target;
+    vec3f  Up;
+    vec3f  Forward;
+    vec3f  Right;
 
     real32 Phi, Theta;
 
@@ -133,6 +133,8 @@ struct game_camera
     int    SpeedMode; // -1 : slower, 0 : normal, 1 : faster
     bool   FreeflyMode;
     vec2i  LastMousePos;
+
+    mat4f  ViewMatrix;
 };
 
 struct game_state

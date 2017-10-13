@@ -108,7 +108,7 @@ void main()
     // Diffuse part
     //Lo += (kd * albedo / PI + Specular) * NdotL * LightColor.xyz;
 
-    vec3 Diffuse = (1 - metallic) * DisneyFrostbite(NdotV, NdotL, LdotH, 1 - roughness) * albedo / PI;
+    vec3 Diffuse = (1 - metallic) * DisneyFrostbite(NdotV, NdotL, LdotH, 1 - roughness) * albedo * NdotL / PI;
     float ks = F.x;
     float kd = 1.0 - ks;
     vec3 ambient = kd * irr_light * albedo;
