@@ -27,6 +27,8 @@ struct game_config
 	real32 CameraSpeedAngular;
     vec3f  CameraPosition;
     vec3f  CameraTarget;
+
+    col4f  DebugFontColor;
 };
 
 struct memory_arena

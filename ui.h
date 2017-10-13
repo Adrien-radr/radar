@@ -26,7 +26,7 @@ struct ui_text_line
     char    String[UI_STRINGLEN]; 
     ui_font Font;
     vec3f   Position;
-    vec4f   Color;
+    col4f   Color;
 };
 
 struct ui_frame_stack

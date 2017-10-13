@@ -332,23 +332,24 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         snprintf(Local->CameraText.String, UI_STRINGLEN, "Camera : From <%2.2g, %2.2g, %2.2g> To <%2.2g, %2.2g, %2.2g>",
                 Camera.Position.x, Camera.Position.y, Camera.Position.z, Camera.Target.x, Camera.Target.y, Camera.Target.z);
 
+        snprintf(Local->FPSText.String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
         Local->CounterTenth = 0.0;
     }
 
     if(Local->Counter > 0.75)
     {
+        col4f TextColor = Memory->Config.DebugFontColor;
         Local->CameraText.Position = vec3f(10, 10, 0);
-        Local->CameraText.Color = vec4f(0.9, 0.7, 0.1, 1);
+        Local->CameraText.Color = TextColor;
 
-        snprintf(Local->FPSText.String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
         Local->FPSText.Position = vec3f(10, 24, 0);
-        Local->FPSText.Color = vec4f(0.9, 0.7, 0.1, 1);
+        Local->FPSText.Color = TextColor;
 
         snprintf(Local->WaterText.String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
         Local->WaterText.Position = vec3f(10, 38, 0);
-        Local->WaterText.Color = vec4f(0.9, 0.7, 0.1, 1);
+        Local->WaterText.Color = TextColor;
 
-        Local->NightDayText.Color = vec4f(0.9,0.7,0.1,1);
+        Local->NightDayText.Color = TextColor;
         Local->NightDayText.Position = vec3f(10,54,0);
         if(Local->IsNight)
             snprintf(Local->NightDayText.String, UI_STRINGLEN, "Day");

@@ -440,6 +440,14 @@ public:
 		w = (T) v.w;
 	}
 
+	vec4(const vec3<T> &v)
+	{
+		x = v.x;
+		y = v.y;
+		z = v.z;
+		w = (T) 1;
+	}
+
 	vec4<T> operator+(const vec4<T> &v) const
 	{
 		return vec4<T>(x + v.x, y + v.y, z + v.z, w + v.w);
@@ -593,6 +601,7 @@ template<typename T>
 class col4 : public vec4<T>
 {
 public:
+    col4() : col4(0,0,0,0) {}
 	col4(T r, T g, T b, T a) : vec4<T>(r, g, b, a) {}
 	col4(vec4<T> v) : vec4<T>(v) {}
 	const T &r() const { return this->x; }

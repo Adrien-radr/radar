@@ -144,8 +144,7 @@ int JSON_Get(cJSON *Root, char const *ValueName, int const &DefaultValue)
     cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
     if(Obj)
         return Obj->valueint;
-    else
-        return DefaultValue;
+    return DefaultValue;
 }
 
 template<>
@@ -154,8 +153,23 @@ double JSON_Get(cJSON *Root, char const *ValueName, double const &DefaultValue)
     cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
     if(Obj)
         return Obj->valuedouble;
-    else
-        return DefaultValue;
+    return DefaultValue;
+}
+
+template<>
+vec3f JSON_Get(cJSON *Root, char const *ValueName, vec3f const &DefaultValue)
+{
+    cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
+    if(Obj && cJSON_GetArraySize(Obj) == 3)
+    {
+        vec3f Ret;
+        Ret.x = (real32)cJSON_GetArrayItem(Obj, 0)->valuedouble;
+        Ret.y = (real32)cJSON_GetArrayItem(Obj, 1)->valuedouble;
+        Ret.z = (real32)cJSON_GetArrayItem(Obj, 2)->valuedouble;
+        return Ret;
+    }
+
+    return DefaultValue;
 }
 
 void ParseConfig(game_memory *Memory, char *ConfigPath)
@@ -182,29 +196,10 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
             Config.CameraSpeedMult = (real32)JSON_Get(root, "fCameraSpeedMult", 2.0);
             Config.CameraSpeedAngular = (real32)JSON_Get(root, "fCameraSpeedAngular", 0.3);
 
-            cJSON *CameraPositionVector = cJSON_GetObjectItem(root, "vCameraPosition");
-            if(CameraPositionVector)
-            {
-                Config.CameraPosition.x = (real32)cJSON_GetArrayItem(CameraPositionVector, 0)->valuedouble;
-                Config.CameraPosition.y = (real32)cJSON_GetArrayItem(CameraPositionVector, 1)->valuedouble;
-                Config.CameraPosition.z = (real32)cJSON_GetArrayItem(CameraPositionVector, 2)->valuedouble;
-            }
-            else
-            {
-                Config.CameraPosition = vec3f(1, 1, 1);
-            }
+            Config.CameraPosition = JSON_Get(root, "vCameraPosition", vec3f(1,1,1));
+            Config.CameraTarget = JSON_Get(root, "vCameraTarget", vec3f(0,0,0));
 
-            cJSON *CameraTargetVector = cJSON_GetObjectItem(root, "vCameraTarget");
-            if(CameraTargetVector)
-            {
-                Config.CameraTarget.x = (real32)cJSON_GetArrayItem(CameraTargetVector, 0)->valuedouble;
-                Config.CameraTarget.y = (real32)cJSON_GetArrayItem(CameraTargetVector, 1)->valuedouble;
-                Config.CameraTarget.z = (real32)cJSON_GetArrayItem(CameraTargetVector, 2)->valuedouble;
-            }
-            else
-            {
-                Config.CameraTarget = vec3f(0, 0, 0);
-            }
+            Config.DebugFontColor = col4f(JSON_Get(root, "vDebugFontColor", vec3f(1,0,0)));
         }
         else
         {
@@ -596,8 +591,6 @@ void InitializeFromGame(game_memory *Memory)
 
 void MakeUI(game_memory *Memory, game_context *Context, font *Font)
 {
-    vec4f uiTextColor(0.9, 0.7, 0.1, 1);
-
     game_system *System = (game_system*)Memory->PermanentMemPool;
 
     console_log *Log = System->ConsoleLog;
@@ -605,7 +598,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     {
         uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
         uiMakeText(Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
-                uiTextColor, Context->WindowWidth - 10);
+                Context->GameConfig->DebugFontColor, Context->WindowWidth - 10);
     }
 
     ui_frame_stack *UIStack = System->UIStack;
