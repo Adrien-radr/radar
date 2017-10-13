@@ -122,7 +122,7 @@ void GameInitialization(game_memory *Memory)
 #if 1
     // Monument Envmap
     State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
-    State->LightColor = vec4f(1.0f, 0.6, 0.2, 1.0f);
+    State->LightColor = vec4f(1.0f, 0.6, 0.5, 1.0f);
 #endif
 #if 0
     // Arch Envmap
@@ -250,6 +250,7 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
     }
 
 	//State->LightDirection = Normalize(SunPos);
+    State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
 }
 
 DLLEXPORT GAMEUPDATE(GameUpdate)

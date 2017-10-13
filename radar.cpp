@@ -933,7 +933,7 @@ int RadarMain(int argc, char **argv)
             }
 #endif
 
-#if 0
+#if 1
             { // NOTE - Sphere Array Test for PBR
                 glUseProgram(Program3D);
                 {
@@ -957,10 +957,8 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
-                glActiveTexture(GL_TEXTURE3);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
-                glActiveTexture(GL_TEXTURE4);
+                glActiveTexture(GL_TEXTURE3);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
 
                 int Count = 5;

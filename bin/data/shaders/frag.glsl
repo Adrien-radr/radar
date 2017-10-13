@@ -109,8 +109,11 @@ void main()
     //Lo += (kd * albedo / PI + Specular) * NdotL * LightColor.xyz;
 
     vec3 Diffuse = (1 - metallic) * DisneyFrostbite(NdotV, NdotL, LdotH, 1 - roughness) * albedo / PI;
+    float ks = F.x;
+    float kd = 1.0 - ks;
+    vec3 ambient = kd * irr_light * albedo;
 
-    vec3 color = LightColor.xyz * (Diffuse + Specular);// + Diffuse * (1 - metallic); //+ kd * albedo * irr_light;//ks * albedo;//Ambient + Lo;
+    vec3 color = ambient + LightColor.xyz * (Diffuse + Specular);// + Diffuse * (1 - metallic); //+ kd * albedo * irr_light;//ks * albedo;//Ambient + Lo;
 
     // View Fresnel
     //vec3 ks = FresnelSchlick(NdotV, vec3(0), roughness);
