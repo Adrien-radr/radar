@@ -133,6 +133,31 @@ void DestroyMemory(game_memory *Memory)
     }
 }
 
+template<typename T>
+T JSON_Get(cJSON *Root, char const *ValueName, T const &DefaultValue)
+{
+}
+
+template<>
+int JSON_Get(cJSON *Root, char const *ValueName, int const &DefaultValue)
+{
+    cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
+    if(Obj)
+        return Obj->valueint;
+    else
+        return DefaultValue;
+}
+
+template<>
+double JSON_Get(cJSON *Root, char const *ValueName, double const &DefaultValue)
+{
+    cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
+    if(Obj)
+        return Obj->valuedouble;
+    else
+        return DefaultValue;
+}
+
 void ParseConfig(game_memory *Memory, char *ConfigPath)
 {
     game_config &Config = Memory->Config;
@@ -143,27 +168,41 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
         cJSON *root = cJSON_Parse((char*)Content);
         if(root)
         {
-            Config.WindowWidth = cJSON_GetObjectItem(root, "iWindowWidth")->valueint;
-            Config.WindowHeight = cJSON_GetObjectItem(root, "iWindowHeight")->valueint;
-            Config.MSAA = cJSON_GetObjectItem(root, "iMSAA")->valueint;
-            Config.FullScreen = cJSON_GetObjectItem(root, "bFullScreen")->valueint != 0;
-            Config.VSync = cJSON_GetObjectItem(root, "bVSync")->valueint != 0;
-            Config.FOV = (real32)cJSON_GetObjectItem(root, "fFOV")->valuedouble;
-            Config.AnisotropicFiltering = cJSON_GetObjectItem(root, "iAnisotropicFiltering")->valueint;
+            Config.WindowWidth = JSON_Get(root, "iWindowWidth", 960);
+            Config.WindowHeight = JSON_Get(root, "iWindowHeight", 540);
+            Config.MSAA = JSON_Get(root, "iMSAA", 0);
+            Config.FullScreen = JSON_Get(root, "bFullScreen", 0) != 0;
+            Config.VSync = JSON_Get(root, "bVSync", 0) != 0;
+            Config.FOV = (real32)JSON_Get(root, "fFOV", 75.0);
+            Config.AnisotropicFiltering = JSON_Get(root, "iAnisotropicFiltering", 1);
 
-            Config.CameraSpeedBase = (real32)cJSON_GetObjectItem(root, "fCameraSpeedBase")->valuedouble;
-            Config.CameraSpeedMult = (real32)cJSON_GetObjectItem(root, "fCameraSpeedMult")->valuedouble;
-            Config.CameraSpeedAngular = (real32)cJSON_GetObjectItem(root, "fCameraSpeedAngular")->valuedouble;
+            Config.CameraSpeedBase = (real32)JSON_Get(root, "fCameraSpeedBase", 20.0);
+            Config.CameraSpeedMult = (real32)JSON_Get(root, "fCameraSpeedMult", 2.0);
+            Config.CameraSpeedAngular = (real32)JSON_Get(root, "fCameraSpeedAngular", 0.3);
 
             cJSON *CameraPositionVector = cJSON_GetObjectItem(root, "vCameraPosition");
-            Config.CameraPosition.x = (real32)cJSON_GetArrayItem(CameraPositionVector, 0)->valuedouble;
-            Config.CameraPosition.y = (real32)cJSON_GetArrayItem(CameraPositionVector, 1)->valuedouble;
-            Config.CameraPosition.z = (real32)cJSON_GetArrayItem(CameraPositionVector, 2)->valuedouble;
+            if(CameraPositionVector)
+            {
+                Config.CameraPosition.x = (real32)cJSON_GetArrayItem(CameraPositionVector, 0)->valuedouble;
+                Config.CameraPosition.y = (real32)cJSON_GetArrayItem(CameraPositionVector, 1)->valuedouble;
+                Config.CameraPosition.z = (real32)cJSON_GetArrayItem(CameraPositionVector, 2)->valuedouble;
+            }
+            else
+            {
+                Config.CameraPosition = vec3f(1, 1, 1);
+            }
 
             cJSON *CameraTargetVector = cJSON_GetObjectItem(root, "vCameraTarget");
-            Config.CameraTarget.x = (real32)cJSON_GetArrayItem(CameraTargetVector, 0)->valuedouble;
-            Config.CameraTarget.y = (real32)cJSON_GetArrayItem(CameraTargetVector, 1)->valuedouble;
-            Config.CameraTarget.z = (real32)cJSON_GetArrayItem(CameraTargetVector, 2)->valuedouble;
+            if(CameraTargetVector)
+            {
+                Config.CameraTarget.x = (real32)cJSON_GetArrayItem(CameraTargetVector, 0)->valuedouble;
+                Config.CameraTarget.y = (real32)cJSON_GetArrayItem(CameraTargetVector, 1)->valuedouble;
+                Config.CameraTarget.z = (real32)cJSON_GetArrayItem(CameraTargetVector, 2)->valuedouble;
+            }
+            else
+            {
+                Config.CameraTarget = vec3f(0, 0, 0);
+            }
         }
         else
         {
@@ -182,7 +221,7 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
 
         Config.CameraSpeedBase = 20.f;
         Config.CameraSpeedMult = 2.f;
-        Config.CameraSpeedAngular = 30.f;
+        Config.CameraSpeedAngular = 0.3f;
         Config.CameraPosition = vec3f(1, 1, 1);
         Config.CameraTarget = vec3f(0, 0, 0);
     }
