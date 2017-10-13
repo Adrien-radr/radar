@@ -1,6 +1,8 @@
 {
-    "iWindowWidth" : 1600,
-    "iWindowHeight" : 900,
+    "iWindowX" : 200,
+    "iWindowY" : 200,
+    "iWindowWidth" : 960,
+    "iWindowHeight" : 540,
     "iMSAA" : 0,
     "bFullScreen" : 0,
     "bVSync" : 0,

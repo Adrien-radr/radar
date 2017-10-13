@@ -12,6 +12,8 @@ real32 static const g_G = 9.807f;
 
 struct game_config
 {
+    int32  WindowX;
+    int32  WindowY;
     int32  WindowWidth;
     int32  WindowHeight;
     int32  MSAA;

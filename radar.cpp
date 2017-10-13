@@ -168,6 +168,8 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
         cJSON *root = cJSON_Parse((char*)Content);
         if(root)
         {
+            Config.WindowX = JSON_Get(root, "iWindowX", 200);
+            Config.WindowY = JSON_Get(root, "iWindowY", 200);
             Config.WindowWidth = JSON_Get(root, "iWindowWidth", 960);
             Config.WindowHeight = JSON_Get(root, "iWindowHeight", 540);
             Config.MSAA = JSON_Get(root, "iMSAA", 0);
@@ -402,7 +404,7 @@ game_context InitContext(game_memory *Memory)
             glfwMakeContextCurrent(Context.Window);
 
             // TODO - Only in windowed mode for debug
-		    glfwSetWindowPos(Context.Window, 800, 400);
+		    glfwSetWindowPos(Context.Window, Config.WindowX, Config.WindowY);
             glfwSwapInterval(Config.VSync);
 
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
