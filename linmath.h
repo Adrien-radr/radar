@@ -1293,7 +1293,7 @@ public:
     float r, i;
 };
 
-complex Conjugate(const complex &c)
+inline complex Conjugate(const complex &c)
 {
     return complex(c.r, -c.i);
 }

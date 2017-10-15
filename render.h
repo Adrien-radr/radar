@@ -75,4 +75,14 @@ struct model
     std::vector<material> Material;
 };
 
+void CheckGLError(const char *Mark = "");
+
+void SendVec2(uint32 Loc, vec2f value);
+void SendVec3(uint32 Loc, vec3f value);
+void SendVec4(uint32 Loc, vec4f value);
+void SendMat4(uint32 Loc, mat4f value);
+void SendInt(uint32 Loc, int value);
+void SendFloat(uint32 Loc, real32 value);
+
+void UpdateVBO(uint32 VBO, size_t ByteOffset, uint32 Size, void *Data);
 #endif

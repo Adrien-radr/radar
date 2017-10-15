@@ -1,5 +1,4 @@
-#ifndef UI_CPP
-#define UI_CPP
+#include "ui.h"
 
 #define UI_STACK_SIZE Megabytes(8)
 
@@ -171,4 +170,3 @@ void uiDraw()
     glBindVertexArray(0);
 }
 
-#endif

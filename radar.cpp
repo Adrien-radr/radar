@@ -7,6 +7,9 @@
 #include "radar.h"
 #include "render.h"
 
+#include "sound.h"
+#include "water.h"
+
 #define MAX_SHADERS 32
 
 // PLATFORM
@@ -18,7 +21,6 @@ int RadarMain(int argc, char **argv);
 #endif
 
 // EXTERNAL
-#include "cJSON.h"
 #include "GL/glew.h"
 #include "GLFW/glfw3.h"
 
@@ -72,10 +74,7 @@ void RegisteredShaderClear(game_context *Context)
 }
 
 // IMPLEMENTATION
-#include "utils.cpp"
 #include "render.cpp"
-#include "sound.cpp"
-#include "water.cpp"
 
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
@@ -131,45 +130,6 @@ void DestroyMemory(game_memory *Memory)
         Memory->IsInitialized = false;
         Memory->IsGameInitialized = false;
     }
-}
-
-template<typename T>
-T JSON_Get(cJSON *Root, char const *ValueName, T const &DefaultValue)
-{
-}
-
-template<>
-int JSON_Get(cJSON *Root, char const *ValueName, int const &DefaultValue)
-{
-    cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
-    if(Obj)
-        return Obj->valueint;
-    return DefaultValue;
-}
-
-template<>
-double JSON_Get(cJSON *Root, char const *ValueName, double const &DefaultValue)
-{
-    cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
-    if(Obj)
-        return Obj->valuedouble;
-    return DefaultValue;
-}
-
-template<>
-vec3f JSON_Get(cJSON *Root, char const *ValueName, vec3f const &DefaultValue)
-{
-    cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
-    if(Obj && cJSON_GetArraySize(Obj) == 3)
-    {
-        vec3f Ret;
-        Ret.x = (real32)cJSON_GetArrayItem(Obj, 0)->valuedouble;
-        Ret.y = (real32)cJSON_GetArrayItem(Obj, 1)->valuedouble;
-        Ret.z = (real32)cJSON_GetArrayItem(Obj, 2)->valuedouble;
-        return Ret;
-    }
-
-    return DefaultValue;
 }
 
 void ParseConfig(game_memory *Memory, char *ConfigPath)
@@ -455,13 +415,13 @@ game_context InitContext(game_memory *Memory)
                     path TexPath;
                     image Image;
 
-                    MakeRelativePath(TexPath, ExecutableFullPath, "data/default_diffuse.png");
-                    Image = LoadImage(TexPath, false);
+                    MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_diffuse.png");
+                    Image = LoadImage(Memory->ExecutableFullPath, TexPath, false);
                     Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
 
-                    MakeRelativePath(TexPath, ExecutableFullPath, "data/default_normal.png");
-                    Image = LoadImage(TexPath, false);
+                    MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_normal.png");
+                    Image = LoadImage(Memory->ExecutableFullPath, TexPath, false);
                     Context.DefaultNormalTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
 #if RADAR_WIN32
@@ -512,8 +472,11 @@ void DestroyContext(game_context *Context)
 
 uint32 Program1, Program3D, ProgramSkybox;
 
-void ReloadShaders(game_memory *Memory, game_context *Context, path ExecutableFullPath)
+void ReloadShaders(game_memory *Memory, game_context *Context)
 {
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+	path &ExecutableFullPath = Memory->ExecutableFullPath;
+
     RegisteredShaderClear(Context);
 
     path VSPath;
@@ -550,13 +513,13 @@ void ReloadShaders(game_memory *Memory, game_context *Context, path ExecutableFu
 
     MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/water_vert.glsl");
     MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/water_frag.glsl");
-    ProgramWater = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(ProgramWater);
-    SendInt(glGetUniformLocation(ProgramWater, "Skybox"), 0);
-    SendInt(glGetUniformLocation(ProgramWater, "IrradianceCubemap"), 1);
+    System->WaterSystem->ProgramWater = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(System->WaterSystem->ProgramWater);
+    SendInt(glGetUniformLocation(System->WaterSystem->ProgramWater, "Skybox"), 0);
+    SendInt(glGetUniformLocation(System->WaterSystem->ProgramWater, "IrradianceCubemap"), 1);
     CheckGLError("Water Shader");
 
-    RegisterShader3D(Context, ProgramWater);
+    RegisterShader3D(Context, System->WaterSystem->ProgramWater);
 
     uiReloadShaders(Memory, Context, ExecutableFullPath);
     CheckGLError("UI Shader");
@@ -622,14 +585,15 @@ int RadarMain(int argc, char **argv)
     path DllSrcPath;
     path DllDstPath;
 
-    GetExecutablePath(ExecutableFullPath);
-    MakeRelativePath(DllSrcPath, ExecutableFullPath, DllName);
-    MakeRelativePath(DllDstPath, ExecutableFullPath, DllDynamicCopyName);
+    game_memory Memory = InitMemory();
+
+    GetExecutablePath(Memory.ExecutableFullPath);
+    MakeRelativePath(DllSrcPath, Memory.ExecutableFullPath, DllName);
+    MakeRelativePath(DllDstPath, Memory.ExecutableFullPath, DllDynamicCopyName);
 
     path ConfigPath;
-    MakeRelativePath(ConfigPath, ExecutableFullPath, "config.json");
+    MakeRelativePath(ConfigPath, Memory.ExecutableFullPath, "config.json");
 
-    game_memory Memory = InitMemory();
     ParseConfig(&Memory, ConfigPath);
     game_context Context = InitContext(&Memory);
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
@@ -649,7 +613,7 @@ int RadarMain(int argc, char **argv)
         System->ConsoleLog = (console_log*)PushArenaStruct(&Memory.SessionArena, console_log);
         System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory.SessionArena, tmp_sound_data);
 
-        ReloadShaders(&Memory, &Context, ExecutableFullPath);
+        //ReloadShaders(&Memory, &Context, Memory.ExecutableFullPath);
         glActiveTexture(GL_TEXTURE0);
         CheckGLError("Start");
 /////////////////////////
@@ -665,28 +629,28 @@ int RadarMain(int argc, char **argv)
 
         // Texture Test
         path TexPath;
-        MakeRelativePath(TexPath, ExecutableFullPath, "data/crate1_diffuse.png");
-        image Image = LoadImage(TexPath, false);
+        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/crate1_diffuse.png");
+        image Image = LoadImage(Memory.ExecutableFullPath, TexPath, false);
         uint32 Texture1 = Make2DTexture(&Image, false, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
 #if 0
-        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/albedo.png");
+        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/albedo.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalAlbedo = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/metallic.png");
+        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/metallic.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalMetallic = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/roughness.png");
+        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/roughness.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalRoughness = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, ExecutableFullPath, "data/brick_1/normal.png");
+        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/normal.png");
         Image = LoadImage(TexPath);
         uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
@@ -743,19 +707,19 @@ int RadarMain(int argc, char **argv)
 #endif
             for(uint32 i = 0; i < 6; ++i)
             {
-                MakeRelativePath(CubemapPaths[i], ExecutableFullPath, CubemapNames[i]);
+                MakeRelativePath(CubemapPaths[i], Memory.ExecutableFullPath, CubemapNames[i]);
             }
         }
 
         mesh SkyboxCube = MakeUnitCube(false);
-        uint32 TestCubemap = MakeCubemap(CubemapPaths, false, false, 0, 0);
+        uint32 TestCubemap = MakeCubemap(Memory.ExecutableFullPath, CubemapPaths, false, false, 0, 0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
 
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
-        ComputeIrradianceCubemap(&Memory, ExecutableFullPath, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
+        ComputeIrradianceCubemap(&Memory, Memory.ExecutableFullPath, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
         uint32 EnvmapToUse = HDRIrradianceEnvmap; 
 
         model gltfCube = {};
@@ -798,6 +762,7 @@ int RadarMain(int argc, char **argv)
             if(!Memory.IsInitialized)
             {
                 InitializeFromGame(&Memory);
+				ReloadShaders(&Memory, &Context);			// First Shader loading after the game is initialized
             }
 
 #if 0
@@ -830,7 +795,7 @@ int RadarMain(int argc, char **argv)
 
             if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
             {
-                ReloadShaders(&Memory, &Context, ExecutableFullPath);
+                ReloadShaders(&Memory, &Context);
             }
 
             if(KEY_UP(Input.KeyF1))
@@ -981,8 +946,8 @@ int RadarMain(int argc, char **argv)
 #endif
 
 #if 1
-            UpdateWater(State, System, &Input, State->WaterState, State->WaterStateInterp);
-            RenderWater(State, System, EnvmapToUse, HDRIrradianceEnvmap);
+            WaterUpdate(State, System->WaterSystem, &Input);
+            WaterRender(State, System->WaterSystem, EnvmapToUse, HDRIrradianceEnvmap);
 #endif
 
             { // NOTE - Skybox Rendering Test, put somewhere else

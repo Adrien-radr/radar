@@ -69,6 +69,7 @@ inline void *_PushArenaData(memory_arena *Arena, uint64 Size)
 // Each pool is then mapped according to the needed layout
 struct game_memory
 {
+    path ExecutableFullPath;
     game_config Config;
 
     // NOTE - For Game State.
@@ -102,10 +103,11 @@ struct game_memory
     bool IsGameInitialized;
 };
 
-// NOTE - Systems declarations
-#include "sound.h"
-#include "water.h"
-#include "ui.h"
+// NOTE - Systems fwd declarations
+struct water_system;    //water.h
+struct tmp_sound_data;  //sound.h
+struct ui_frame_stack;  //ui.h
+struct console_log;     //ui.h
 
 struct game_system
 {
@@ -194,7 +196,5 @@ struct game_input
     mouse_state MouseRight;
 };
 
-void *ReadFileContents(memory_arena *Arena, char const *Filename, int *FileSize);
-void MakeRelativePath(char *Dst, char const *Path, char const *Filename);
 #endif
 

@@ -1,7 +1,8 @@
 #include "stb_image.h"
 #include "stb_truetype.h"
+#include "utils.h"
 
-void CheckGLError(const char *Mark = "")
+void CheckGLError(const char *Mark)
 {
     uint32 Err = glGetError();
     if(Err != GL_NO_ERROR)
@@ -26,7 +27,7 @@ void CheckGLError(const char *Mark = "")
     }
 }
 
-image LoadImage(char *Filename, bool IsFloat, bool FlipY = true, int32 ForceNumChannel = 0)
+image LoadImage(path ExecutablePath, path Filename, bool IsFloat, bool FlipY = true, int32 ForceNumChannel = 0)
 {
     image Image = {};
     stbi_set_flip_vertically_on_load(FlipY ? 1 : 0); // NOTE - Flip Y so textures are Y-descending
@@ -40,7 +41,7 @@ image LoadImage(char *Filename, bool IsFloat, bool FlipY = true, int32 ForceNumC
     {
         printf("Error loading Image from %s. Loading default white texture.\n", Filename);
         path DefaultPath;
-        MakeRelativePath(DefaultPath, ExecutableFullPath, "data/default_diffuse.png");
+        MakeRelativePath(DefaultPath, ExecutablePath, "data/default_diffuse.png");
         if(IsFloat)
             Image.Buffer = stbi_loadf(DefaultPath, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
         else
@@ -146,7 +147,7 @@ uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32
     return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, FloatHalfPrecision, AnisotropicLevel);
 }
 
-uint32 MakeCubemap(path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height)
+uint32 MakeCubemap(path ExecutablePath, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height)
 {
     uint32 Cubemap = 0;
 
@@ -158,7 +159,7 @@ uint32 MakeCubemap(path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Wi
     { // Load each face
         if(Paths)
         { // For loading from texture files
-            image Face = LoadImage(Paths[i], IsFloat);
+            image Face = LoadImage(ExecutablePath, Paths[i], IsFloat);
 
             GLint BaseFormat, Format;
             FormatFromChannels(Face.Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
@@ -1044,7 +1045,7 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
 
     path HDREnvmapImagePath;
     MakeRelativePath(HDREnvmapImagePath, ExecFullPath, HDREnvmapFilename);
-    image HDREnvmapImage = LoadImage(HDREnvmapImagePath, true);
+    image HDREnvmapImage = LoadImage(Memory->ExecutableFullPath, HDREnvmapImagePath, true);
 
     uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
             HDREnvmapImage.Channels, true, false, 1);
@@ -1052,9 +1053,9 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
 
     mesh SkyboxCube = MakeUnitCube(false);
 
-    *HDRCubemapEnvmap = MakeCubemap(NULL, true, true, CubemapWidth, CubemapWidth);
+    *HDRCubemapEnvmap = MakeCubemap(NULL, NULL, true, true, CubemapWidth, CubemapWidth);
     CheckGLError("Latlong2Cubmap");
-    *HDRIrradianceEnvmap = MakeCubemap(NULL, true, false, IrradianceCubemapWidth, IrradianceCubemapWidth);
+    *HDRIrradianceEnvmap = MakeCubemap(NULL, NULL, true, false, IrradianceCubemapWidth, IrradianceCubemapWidth);
     CheckGLError("IrradianceCubemap");
 
     glDisable(GL_CULL_FACE);
@@ -1075,7 +1076,6 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
 
     // NOTE - Latlong to Cubemap
     glUseProgram(ProgramLatlong2Cubemap);
-    // TODO - ProjMatrix updated only when resize happen
     {
         uint32 Loc = glGetUniformLocation(ProgramLatlong2Cubemap, "ProjMatrix");
         SendMat4(Loc, EnvmapProjectionMatrix);
@@ -1099,7 +1099,6 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
 
     // NOTE - Cubemap convolution
     glUseProgram(ProgramCubemapConvolution);
-    // TODO - ProjMatrix updated only when resize happen
     {
         uint32 Loc = glGetUniformLocation(ProgramCubemapConvolution, "ProjMatrix");
         mat4f EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);

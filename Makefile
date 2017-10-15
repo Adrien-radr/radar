@@ -13,7 +13,12 @@ GLEW_LIB=ext/glew
 CJSON_LIB=ext/cjson
 SFMT_LIB=ext/sfmt/
 
-SRCS=radar.cpp
+SRCS= \
+	sampling.cpp \
+	utils.cpp \
+	sound.cpp \
+	water.cpp \
+	radar.cpp
 INCLUDES=radar.h
 
 LIB_SRCS=sun.cpp

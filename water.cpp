@@ -1,3 +1,9 @@
+#include "water.h"
+#include "radar.h"
+
+#include "GL/glew.h"
+#include "render.h"
+
 // NOTE - Tmp storage here
 // Beaufort Level : WidthScale, WaveScale, Choppiness
 // Beaufort     1 :          3,      0.05,      0.005
@@ -164,15 +170,15 @@ void UpdateWaterMesh(water_system *WaterSystem)
     glBindVertexArray(0);
 }
 
-void UpdateWater(game_state *State, game_system *System, game_input *Input, uint32 WaterState, real32 WaterInterp)
+void WaterUpdate(game_state *State, water_system *WaterSystem, game_input *Input)
 {
-    water_beaufort_state *WStateA = &System->WaterSystem->States[WaterState];
-    water_beaufort_state *WStateB = &System->WaterSystem->States[WaterState + 1];
+    water_beaufort_state *WStateA = &WaterSystem->States[State->WaterState];
+    water_beaufort_state *WStateB = &WaterSystem->States[State->WaterState + 1];
 
     State->WaterCounter += Input->dTime;
 
-    vec3f *WaterPositions = (vec3f*)System->WaterSystem->Positions;
-    vec3f *WaterNormals = (vec3f*)System->WaterSystem->Normals;
+    vec3f *WaterPositions = (vec3f*)WaterSystem->Positions;
+    vec3f *WaterNormals = (vec3f*)WaterSystem->Normals;
 
     vec3f *WaterOrigPositionsA = (vec3f*)WStateA->OrigPositions;
     vec3f *WaterOrigPositionsB = (vec3f*)WStateB->OrigPositions;
@@ -184,14 +190,13 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input, uint
 
     float Lambda = -1.0f;
 
-    water_system *WaterSystem = System->WaterSystem;
     complex *hT = (complex*)WaterSystem->hTilde;
     complex *hTSX = (complex*)WaterSystem->hTildeSlopeX;
     complex *hTSZ = (complex*)WaterSystem->hTildeSlopeZ;
     complex *hTDX = (complex*)WaterSystem->hTildeDX;
     complex *hTDZ = (complex*)WaterSystem->hTildeDZ;
 
-    real32 dWidth = Mix((real32)WStateA->Width, (real32)WStateB->Width, WaterInterp);
+    real32 dWidth = Mix((real32)WStateA->Width, (real32)WStateB->Width, State->WaterStateInterp);
 
     // Prepare
     for(int m_prime = 0; m_prime < N; ++m_prime)
@@ -203,7 +208,7 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input, uint
             real32 Len = sqrtf(Square(Kx) + Square(Kz));
             int Idx = m_prime * N + n_prime;
 
-            hT[Idx] = ComputeHTilde(WStateA, WStateB, WaterInterp, dT, n_prime, m_prime);
+            hT[Idx] = ComputeHTilde(WStateA, WStateB, State->WaterStateInterp, dT, n_prime, m_prime);
             hTSX[Idx] = hT[Idx] * complex(0, Kx);
             hTSZ[Idx] = hT[Idx] * complex(0, Kz);
             if(Len < 1e-6f)
@@ -253,7 +258,7 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input, uint
             hTDX[Idx] = hTDX[Idx] * Sign;
             hTDZ[Idx] = hTDZ[Idx] * Sign;
             {
-                vec3f OP = Mix(WaterOrigPositionsA[Idx1], WaterOrigPositionsB[Idx1], WaterInterp);
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1], WaterOrigPositionsB[Idx1], State->WaterStateInterp);
                 WaterPositions[Idx1].x = OP.x + Lambda * hTDX[Idx].r;
                 WaterPositions[Idx1].z = OP.z + Lambda * hTDZ[Idx].r;
             }
@@ -266,7 +271,7 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input, uint
 
             if(n_prime == 0 && m_prime == 0)
             {
-                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + N + NPlus1 * N], WaterOrigPositionsB[Idx1 + N + NPlus1 * N], WaterInterp);
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + N + NPlus1 * N], WaterOrigPositionsB[Idx1 + N + NPlus1 * N], State->WaterStateInterp);
                 WaterPositions[Idx1 + N + NPlus1 * N].x = OP.x + Lambda * hTDX[Idx].r;
                 WaterPositions[Idx1 + N + NPlus1 * N].y = hT[Idx].r;
                 WaterPositions[Idx1 + N + NPlus1 * N].z = OP.z + Lambda * hTDZ[Idx].r;
@@ -275,7 +280,7 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input, uint
             }
             if(n_prime == 0)
             {
-                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + N], WaterOrigPositionsB[Idx1 + N], WaterInterp);
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + N], WaterOrigPositionsB[Idx1 + N], State->WaterStateInterp);
                 WaterPositions[Idx1 + N].x = OP.x + Lambda * hTDX[Idx].r;
                 WaterPositions[Idx1 + N].y = hT[Idx].r;
                 WaterPositions[Idx1 + N].z = OP.z + Lambda * hTDZ[Idx].r;
@@ -284,7 +289,7 @@ void UpdateWater(game_state *State, game_system *System, game_input *Input, uint
             }
             if(m_prime == 0)
             {
-                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + NPlus1 * N], WaterOrigPositionsB[Idx1 + NPlus1 * N], WaterInterp);
+                vec3f OP = Mix(WaterOrigPositionsA[Idx1 + NPlus1 * N], WaterOrigPositionsB[Idx1 + NPlus1 * N], State->WaterStateInterp);
                 WaterPositions[Idx1 + NPlus1 * N].x = OP.x + Lambda * hTDX[Idx].r;
                 WaterPositions[Idx1 + NPlus1 * N].y = hT[Idx].r;
                 WaterPositions[Idx1 + NPlus1 * N].z = OP.z + Lambda * hTDZ[Idx].r;
@@ -427,28 +432,26 @@ void WaterInitialization(game_memory *Memory, game_state *State, game_system *Sy
     WaterSystem->IndexCount = IndexCount;
 }
 
-uint32 static ProgramWater;
-void RenderWater(game_state *State, game_system *System, uint32 Envmap, uint32 Irrmap)
+void WaterRender(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 Irrmap)
 {
-    glUseProgram(ProgramWater);
+    glUseProgram(WaterSystem->ProgramWater);
     glDisable(GL_CULL_FACE);
     {
-        uint32 Loc = glGetUniformLocation(ProgramWater, "ViewMatrix");
+        uint32 Loc = glGetUniformLocation(WaterSystem->ProgramWater, "ViewMatrix");
         SendMat4(Loc, State->Camera.ViewMatrix);
         CheckGLError("ViewMatrix");
     }
-    uint32 Loc = glGetUniformLocation(ProgramWater, "LightColor");
+    uint32 Loc = glGetUniformLocation(WaterSystem->ProgramWater, "LightColor");
     SendVec4(Loc, State->LightColor);
-    Loc = glGetUniformLocation(ProgramWater, "CameraPos");
+    Loc = glGetUniformLocation(WaterSystem->ProgramWater, "CameraPos");
     SendVec3(Loc, State->Camera.Position);
-    Loc = glGetUniformLocation(ProgramWater, "SunDirection");
+    Loc = glGetUniformLocation(WaterSystem->ProgramWater, "SunDirection");
     SendVec3(Loc, State->LightDirection);
-    Loc = glGetUniformLocation(ProgramWater, "Time");
+    Loc = glGetUniformLocation(WaterSystem->ProgramWater, "Time");
     SendFloat(Loc, State->EngineTime);
 
-    water_system *WaterSystem = System->WaterSystem;
 
-    Loc = glGetUniformLocation(ProgramWater, "ModelMatrix");
+    Loc = glGetUniformLocation(WaterSystem->ProgramWater, "ModelMatrix");
     mat4f ModelMatrix;
     glBindVertexArray(WaterSystem->VAO);
 
