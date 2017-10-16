@@ -564,7 +564,7 @@ int RadarMain(int argc, char **argv)
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-                SendVec3(AlbedoLoc, vec3f(1));
+                SendVec3(AlbedoLoc, vec3f(1, 0.3, 0.7));
                 for(int j = 0; j < Count; ++j)
                 {
                     SendFloat(MetallicLoc, (j+1)/(real32)Count);

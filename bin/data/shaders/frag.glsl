@@ -84,7 +84,7 @@ void main()
     vec3 env_light = pow(texture(Skybox, R).xyz, vec3(2.2));
     vec3 irr_light = pow(texture(IrradianceCubemap, -R).xyz, vec3(1.0));
 
-    float NdotV = abs(dot(N, V)) + 1e-5f;
+    float NdotV = min(1, abs(dot(N, V)) + 1e-1);//1e-5f);
     float NdotL = max(0, dot(N, L));
     float HdotV = max(0, dot(H, V));
     float NdotH = max(0, dot(N, H));
@@ -104,24 +104,17 @@ void main()
     float denom = (4 * NdotV * NdotL + 1e-4);
 
     vec3 Specular = nom * NdotL / denom;
-
-    // Diffuse part
-    //Lo += (kd * albedo / PI + Specular) * NdotL * LightColor.xyz;
-
     vec3 Diffuse = (1 - metallic) * DisneyFrostbite(NdotV, NdotL, LdotH, 1 - roughness) * albedo * NdotL / PI;
-    float ks = F.x;
+
+    // Ambient
+    float ks = FresnelSchlick(min(1,abs(dot(N,V))+1e-1), f0, roughness).x;
     float kd = 1.0 - ks;
-    vec3 ambient = kd * irr_light * albedo;
+    kd *= (1 - metallic);
+    vec3 ambient_diffuse = irr_light * albedo;
+    vec3 ambient_specular = vec3(0);
+    vec3 Ambient = kd * ambient_diffuse + ambient_specular;
 
-    vec3 color = ambient + LightColor.xyz * (Diffuse + Specular);// + Diffuse * (1 - metallic); //+ kd * albedo * irr_light;//ks * albedo;//Ambient + Lo;
-
-    // View Fresnel
-    //vec3 ks = FresnelSchlick(NdotV, vec3(0), roughness);
-    //vec3 kd = 1.0 - ks;
-    //kd *= 1 - metallic;
-    //vec3 Diffuse = irr_light * albedo;
-    //vec3 Ambient = kd * Diffuse;
-
+    vec3 color = Ambient + LightColor.xyz * (Diffuse + Specular);
 
     // Gamma correction
     color = color / (color + vec3(1));
