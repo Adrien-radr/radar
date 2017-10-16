@@ -7,9 +7,10 @@
 // defines, macros, common headers, math, etc).
 //////////////////////////////////////////////////////////////////////////
 
-#include "linmath.h"
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <vector>
+#include "linmath.h"
 
 #define RADAR_MAJOR 0
 #define RADAR_MINOR 0

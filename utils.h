@@ -1,7 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "radar.h"
+#include "definitions.h"
 #include "cJSON.h"
 
 void *ReadFileContents(memory_arena *Arena, char const *Filename, int *FileSize);

@@ -1,14 +1,5 @@
 #include "sun.h"
-#include <stdio.h>
-#include <string.h>
-#include <math.h>
 #include "SFMT.h"
-
-// TODO - this is not good. We shouldnt include .h from the game EXE except radar.h and maybe additional util structs.
-// Fix this
-#include "sound.h"
-#include "ui.h"
-#include "water.h"
 
 // In meters
 const real32 EarthRadius = 6.3710088e6;

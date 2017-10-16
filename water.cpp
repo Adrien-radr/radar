@@ -1,7 +1,4 @@
 #include "water.h"
-#include "radar.h"
-
-#include "GL/glew.h"
 #include "render.h"
 
 // NOTE - Tmp storage here

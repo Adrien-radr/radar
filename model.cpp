@@ -1,3 +1,5 @@
+#include "context.h"
+
 #define TINYGLTF_IMPLEMENTATION
 #include "tiny_gltf.h"
 
@@ -51,8 +53,7 @@ static size_t GetComponentSize(int ComponentType)
     }
 }
 
-
-bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Context)
+bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Context)
 {
     tinygltf::Model Mdl;
     tinygltf::TinyGLTF Loader;
@@ -61,22 +62,22 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
     using namespace tinygltf;
 
     stbi_set_flip_vertically_on_load(0);
-    bool Ret = Loader.LoadASCIIFromFile(&Mdl, &LoadErr, Filename.c_str());
+    bool Ret = Loader.LoadASCIIFromFile(&Mdl, &LoadErr, Filename);
     if(!LoadErr.empty())
     {
-        printf("Error loading glTF model %s\n", Filename.c_str());
+        printf("Error loading glTF model %s\n", Filename);
         return false;
     }
 
     if(!Ret)
     {
-        printf("Failed to parse glTF model %s\n", Filename.c_str());
+        printf("Failed to parse glTF model %s\n", Filename);
         return false;
     }
 
     if(Mdl.buffers.size() > 1)
     {
-        printf("UNIMPLEMENTED : glTF model with several buffers %s (%zu)\n", Filename.c_str(), Mdl.buffers.size());
+        printf("UNIMPLEMENTED : glTF model with several buffers %s (%zu)\n", Filename, Mdl.buffers.size());
         return false;
     }
 
@@ -96,8 +97,8 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
 
         if(SrcMtl.values.size() == 0)
         { // NOTE - Default Magenta color for error
-            DstMtl.AlbedoTexture = Context.DefaultDiffuseTexture;
-            DstMtl.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
+            DstMtl.AlbedoTexture = Context->DefaultDiffuseTexture;
+            DstMtl.RoughnessMetallicTexture = Context->DefaultDiffuseTexture;
             DstMtl.AlbedoMult = vec3f(1,0,1); // Magenta error color
             DstMtl.RoughnessMult = 1.f;
             DstMtl.MetallicMult = 0.f;
@@ -111,12 +112,12 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
                 const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
                 const Sampler &spl = Mdl.samplers[Mdl.textures[TextureIndex].sampler];
                 DstMtl.AlbedoTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
-                        false, false, Context.GameConfig->AnisotropicFiltering,
+                        false, false, Context->GameConfig->AnisotropicFiltering,
                         spl.magFilter, spl.minFilter, spl.wrapS, spl.wrapT);
             }
             else
             { // NOTE - No diffuse texture : put in the Default
-                DstMtl.AlbedoTexture = Context.DefaultDiffuseTexture;
+                DstMtl.AlbedoTexture = Context->DefaultDiffuseTexture;
             }
 
             auto RoughnessTexIdx = SrcMtl.values.find("metallicRoughnessTexture");
@@ -126,12 +127,12 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
                 const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
                 const Sampler &spl = Mdl.samplers[Mdl.textures[TextureIndex].sampler];
                 DstMtl.RoughnessMetallicTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component, 
-                        false, false, Context.GameConfig->AnisotropicFiltering,
+                        false, false, Context->GameConfig->AnisotropicFiltering,
                         spl.magFilter, spl.minFilter, spl.wrapS, spl.wrapT);
             }
             else
             { // NOTE - No diffuse texture : put in the Default
-                DstMtl.RoughnessMetallicTexture = Context.DefaultDiffuseTexture;
+                DstMtl.RoughnessMetallicTexture = Context->DefaultDiffuseTexture;
             }
 
             auto AlbedoMultIdx = SrcMtl.values.find("roughnessFactor");
@@ -176,7 +177,7 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
     {
         if(SrcMesh.primitives.size() > 1)
         {
-            printf("UNIMPLEMENTED : glTF model with several primitives %s (%zu)\n", Filename.c_str(), SrcMesh.primitives.size());
+            printf("UNIMPLEMENTED : glTF model with several primitives %s (%zu)\n", Filename, SrcMesh.primitives.size());
             return false;
         }
 
@@ -220,7 +221,7 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
 
             if(AttribStride < 0 || AttribIdx < 0)
             {
-                printf("Error loading glTF model %s : Attrib %d stride or size invalid.\n", Filename.c_str(), Attrib);
+                printf("Error loading glTF model %s : Attrib %d stride or size invalid.\n", Filename, Attrib);
                 return false;
             }
 
@@ -238,17 +239,17 @@ bool LoadGLTFModel(model *Model, const std::string &Filename, game_context &Cont
 
         if(!ValidMesh[0])
         {
-            printf("Error loading glTF model %s : Positions are not given.\n", Filename.c_str());
+            printf("Error loading glTF model %s : Positions are not given.\n", Filename);
             return false;
         }
         if(!ValidMesh[1])
         {
-            printf("Error loading glTF model %s : Texcoords are not given.\n", Filename.c_str());
+            printf("Error loading glTF model %s : Texcoords are not given.\n", Filename);
             return false;
         }
         if(!ValidMesh[2])
         {
-            printf("Error loading glTF model %s : Normals are not given.\n", Filename.c_str());
+            printf("Error loading glTF model %s : Normals are not given.\n", Filename);
             return false;
         }
 

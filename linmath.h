@@ -3,7 +3,7 @@
 
 /// Mat4 are in column-major order
 
-#include <math.h>
+#include <cmath>
 #include <limits>
 
 /// Common functions & math

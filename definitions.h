@@ -1,14 +1,29 @@
-#ifndef RADAR_H
-#define RADAR_H
-
-#include "radar_common.h"
+#ifndef DEFINITIONS_H
+#define DEFINITIONS_H
 
 /////////////////////////////////////////////////////////////////////////
 // NOTE - This Header must contain what the Radar Platform exposes to the
 // Game DLL. Anything that isn't useful for the Game should be elsewhere.
 /////////////////////////////////////////////////////////////////////////
 
+#include "radar_common.h"
+
+// TODO - This is temporarily here, this constant should be part of a physics system
 real32 static const g_G = 9.807f;
+
+#define POOL_OFFSET(Pool, Structure) ((uint8*)(Pool) + sizeof(Structure))
+
+// TODO - See if 256 is enough for more one liner ui strings
+#define CONSOLE_CAPACITY 8
+#define CONSOLE_STRINGLEN 256
+#define UI_STRINGLEN 256
+#define UI_MAXSTACKOBJECT 256
+
+// NOTE - Systems fwd declarations
+struct water_system;    //water.h
+struct tmp_sound_data;  //sound.h
+struct ui_frame_stack;  //ui.h
+struct console_log;     //ui.h
 
 struct game_config
 {
@@ -64,7 +79,6 @@ inline void *_PushArenaData(memory_arena *Arena, uint64 Size)
     return (void*)MemoryPtr;
 }
 
-#define POOL_OFFSET(Pool, Structure) ((uint8*)(Pool) + sizeof(Structure))
 // NOTE - This memory is allocated at startup
 // Each pool is then mapped according to the needed layout
 struct game_memory
@@ -103,21 +117,6 @@ struct game_memory
     bool IsGameInitialized;
 };
 
-// NOTE - Systems fwd declarations
-struct water_system;    //water.h
-struct tmp_sound_data;  //sound.h
-struct ui_frame_stack;  //ui.h
-struct console_log;     //ui.h
-
-struct game_system
-{
-    console_log *ConsoleLog;
-    tmp_sound_data *SoundData;
-    water_system *WaterSystem;
-    ui_frame_stack *UIStack;
-    void *DLLStorage;
-};
-
 struct game_camera
 {
     vec3f  Position;
@@ -137,21 +136,6 @@ struct game_camera
     vec2i  LastMousePos;
 
     mat4f  ViewMatrix;
-};
-
-struct game_state
-{
-    real64 EngineTime;
-    game_camera Camera;
-    bool DisableMouse;
-    vec3f PlayerPosition;
-    vec4f LightColor;
-    vec3f LightDirection;
-
-    real64 WaterCounter;
-    real32 WaterStateInterp;
-    real32 WaterDirection;
-    int    WaterState;
 };
 
 typedef uint8 key_state;
@@ -196,5 +180,109 @@ struct game_input
     mouse_state MouseRight;
 };
 
-#endif
+struct game_system
+{
+    console_log *ConsoleLog;
+    tmp_sound_data *SoundData;
+    water_system *WaterSystem;
+    ui_frame_stack *UIStack;
+    void *DLLStorage;
+};
 
+struct game_state
+{
+    real64 EngineTime;
+    game_camera Camera;
+    bool DisableMouse;
+    vec3f PlayerPosition;
+    vec4f LightColor;
+    vec3f LightDirection;
+
+    real64 WaterCounter;
+    real32 WaterStateInterp;
+    real32 WaterDirection;
+    int    WaterState;
+};
+
+typedef char console_log_string[CONSOLE_STRINGLEN];
+struct console_log
+{
+    console_log_string MsgStack[CONSOLE_CAPACITY];
+    uint32 WriteIdx;
+    uint32 ReadIdx;
+    uint32 StringCount;
+};
+
+enum ui_font
+{
+    DEFAULT_FONT
+};
+
+struct ui_text_line
+{
+    char    String[UI_STRINGLEN]; 
+    ui_font Font;
+    vec3f   Position;
+    col4f   Color;
+};
+
+struct ui_frame_stack
+{
+    ui_text_line TextLines[UI_MAXSTACKOBJECT];
+    uint32 TextLineCount;
+};
+
+struct tmp_sound_data
+{
+    bool ReloadSoundBuffer;
+    uint32 SoundBufferSize;
+    uint16 SoundBuffer[Megabytes(1)];
+};
+
+struct water_beaufort_state
+{
+    int Width;
+    vec2f Direction;
+    real32 Amplitude;
+
+    void *OrigPositions;
+    void *HTilde0;
+    void *HTilde0mk;
+};
+
+struct water_system
+{
+    int static const BeaufortStateCount = 4;
+    int static const WaterN = 64;
+
+    size_t VertexDataSize;
+    size_t VertexCount;
+    real32 *VertexData;
+    size_t IndexDataSize;
+    uint32 IndexCount;
+    uint32 *IndexData;
+
+    water_beaufort_state States[BeaufortStateCount];
+
+    // NOTE - Accessor Pointers, index VertexData
+    void *Positions;
+    void *Normals;
+
+    complex *hTilde;
+    complex *hTildeSlopeX;
+    complex *hTildeSlopeZ;
+    complex *hTildeDX;
+    complex *hTildeDZ;
+
+    // NOTE - FFT system
+    int Switch;
+    int Log2N;
+    complex *FFTC[2];
+    complex **FFTW;
+    uint32 *Reversed;
+
+    uint32 VAO;
+    uint32 VBO[2]; // 0 : idata, 1 : vdata
+    uint32 ProgramWater;
+};
+#endif

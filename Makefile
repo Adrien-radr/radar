@@ -13,12 +13,18 @@ GLEW_LIB=ext/glew
 CJSON_LIB=ext/cjson
 SFMT_LIB=ext/sfmt/
 
+INCLUDE_FLAGS=-I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(STB_INCLUDE) -I$(CJSON_INCLUDE)
+
 SRCS= \
 	sampling.cpp \
+	render.cpp \
 	utils.cpp \
 	sound.cpp \
+	ui.cpp \
 	water.cpp \
 	radar.cpp
+OBJ_DIR=obj/
+OBJS=$(patsubst %.cpp,$(OBJ_DIR)%.obj,$(SRCS))
 INCLUDES=radar.h
 
 LIB_SRCS=sun.cpp
@@ -50,7 +56,6 @@ RELEASE_FLAGS=-O2 -Oi
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
 LIB_FLAGS=/LIBPATH:ext /LIBPATH:$(OPENAL_LIB) /LIBPATH:$(GLEW_LIB) /LIBPATH:$(GLFW_LIB) /LIBPATH:$(CJSON_LIB) stb.lib cjson.lib OpenAL32.lib libglfw3.lib glew.lib opengl32.lib user32.lib shell32.lib gdi32.lib
-INCLUDE_FLAGS=-I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE)
 
 TARGET=bin/radar.exe
 LIB_TARGET=bin/sun.dll
@@ -82,8 +87,11 @@ lib:
 	@$(CC) $(DLL_CFLAGS) $(VERSION_FLAGS) -I$(SFMT_INCLUDE) /LD $(LIB_SRCS) $(LINK) /OUT:$(LIB_TARGET)
 	@mv *.pdb bin/
 
-radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET)
-	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) -I$(STB_INCLUDE) $(LINK) $(LIB_FLAGS) /OUT:$(TARGET) /PDB:$(PDB_TARGET)
+$(OBJ_DIR)%.obj: %.cpp
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
+
+radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET) $(OBJS)
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC $(OBJS) $(LINK) $(LIB_FLAGS) /OUT:$(TARGET) /PDB:$(PDB_TARGET)
 
 ##################################################
 # NOTE - LINUX BUILD
@@ -153,9 +161,10 @@ endif
 ##################################################
 
 post_build:
-	@rm -f *.obj *.lib *.exp
+	@rm -f *.lib *.exp
 
 clean:
+	rm $(OBJS)
 	rm $(TARGET)
 	rm $(LIB_TARGET)
 

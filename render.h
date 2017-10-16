@@ -1,7 +1,10 @@
 #ifndef RENDER_H
 #define RENDER_H
 
-#include "radar_common.h"
+#include "definitions.h"
+#include "GL/glew.h"
+
+struct game_context;
 
 struct image
 {
@@ -75,7 +78,28 @@ struct model
     std::vector<material> Material;
 };
 
+
 void CheckGLError(const char *Mark = "");
+
+image ResourceLoadImage(path const ExecutablePath, path const Filename, bool IsFloat, bool FlipY = true, 
+                        int32 ForceNumChannel = 0);
+void DestroyImage(image *Image);
+font ResourceLoadFont(game_memory *Memory, path const Filename, real32 PixelHeight);
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, 
+                     bool FloatHalfPrecision, real32 AnisotropicLevel, int MagFilter = GL_LINEAR, 
+                     int MinFilter = GL_LINEAR_MIPMAP_LINEAR, int WrapS = GL_REPEAT, int WrapT = GL_REPEAT);
+uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel);
+
+uint32 MakeCubemap(path ExecutablePath, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height);
+void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const *HDREnvmapFilename, 
+                              uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap);
+
+mesh MakeUnitCube(bool MakeAdditionalAttribs = true);
+mesh Make2DQuad(vec2i Start, vec2i End);
+mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic = false);
+mesh MakeUnitSphere(bool MakeAdditionalAttribs = true);
+
+uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath);
 
 void SendVec2(uint32 Loc, vec2f value);
 void SendVec3(uint32 Loc, vec3f value);
@@ -84,5 +108,15 @@ void SendMat4(uint32 Loc, mat4f value);
 void SendInt(uint32 Loc, int value);
 void SendFloat(uint32 Loc, real32 value);
 
+uint32 MakeVertexArrayObject();
+uint32 AddIBO(uint32 Usage, uint32 Size, void const *Data);
+uint32 AddEmptyVBO(uint32 Size, uint32 Usage);
+void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type, size_t ByteOffset, uint32 Size, void const *Data);
 void UpdateVBO(uint32 VBO, size_t ByteOffset, uint32 Size, void *Data);
+void DestroyMesh(mesh *Mesh);
+
+void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth, 
+                                real32 *VertData, uint16 *Indices);
+
+bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Context);
 #endif

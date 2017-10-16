@@ -1,6 +1,9 @@
+#include "render.h"
+#include "context.h"
+#include "utils.h"
+
 #include "stb_image.h"
 #include "stb_truetype.h"
-#include "utils.h"
 
 void CheckGLError(const char *Mark)
 {
@@ -27,7 +30,7 @@ void CheckGLError(const char *Mark)
     }
 }
 
-image LoadImage(path ExecutablePath, path Filename, bool IsFloat, bool FlipY = true, int32 ForceNumChannel = 0)
+image ResourceLoadImage(path const ExecutablePath, path const Filename, bool IsFloat, bool FlipY, int32 ForceNumChannel)
 {
     image Image = {};
     stbi_set_flip_vertically_on_load(FlipY ? 1 : 0); // NOTE - Flip Y so textures are Y-descending
@@ -104,8 +107,8 @@ void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, 
     }
 }
 
-uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, real32 AnisotropicLevel,
-                     int MagFilter = GL_LINEAR, int MinFilter = GL_LINEAR_MIPMAP_LINEAR, int WrapS = GL_REPEAT, int WrapT = GL_REPEAT)
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, 
+        bool FloatHalfPrecision, real32 AnisotropicLevel, int MagFilter, int MinFilter, int WrapS, int WrapT)
 {
     uint32 Texture;
     glGenTextures(1, &Texture);
@@ -159,7 +162,7 @@ uint32 MakeCubemap(path ExecutablePath, path *Paths, bool IsFloat, bool FloatHal
     { // Load each face
         if(Paths)
         { // For loading from texture files
-            image Face = LoadImage(ExecutablePath, Paths[i], IsFloat);
+            image Face = ResourceLoadImage(ExecutablePath, Paths[i], IsFloat);
 
             GLint BaseFormat, Format;
             FormatFromChannels(Face.Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
@@ -278,7 +281,7 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
 // TODO - Load Unicode characters
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
-font LoadFont(game_memory *Memory, char const *Filename, real32 PixelHeight)
+font ResourceLoadFont(game_memory *Memory, char const *Filename, real32 PixelHeight)
 {
     font Font = {};
 
@@ -682,7 +685,7 @@ void DestroyDisplayText(display_text *Text)
 ////////////////////////////////////////////////////////////////////////
 // NOTE - Primitive builders
 ////////////////////////////////////////////////////////////////////////
-mesh MakeUnitCube(bool MakeAdditionalAttribs = true)
+mesh MakeUnitCube(bool MakeAdditionalAttribs)
 {
     mesh Cube = {};
 
@@ -847,7 +850,7 @@ mesh Make2DQuad(vec2i Start, vec2i End)
     return Quad;
 }
 
-mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic = false)
+mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic)
 {
     mesh Plane = {};
 
@@ -909,7 +912,7 @@ mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint
     return Plane;
 }
 
-mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
+mesh MakeUnitSphere(bool MakeAdditionalAttribs)
 {
     mesh Sphere = {};
     
@@ -1016,7 +1019,8 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs = true)
     return Sphere;
 }
 
-void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const *HDREnvmapFilename, uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap)
+void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const *HDREnvmapFilename, 
+        uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap)
 {
     // TODO - Parameterize this ?
     uint32 CubemapWidth = 512;
@@ -1045,7 +1049,7 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
 
     path HDREnvmapImagePath;
     MakeRelativePath(HDREnvmapImagePath, ExecFullPath, HDREnvmapFilename);
-    image HDREnvmapImage = LoadImage(Memory->ExecutableFullPath, HDREnvmapImagePath, true);
+    image HDREnvmapImage = ResourceLoadImage(Memory->ExecutableFullPath, HDREnvmapImagePath, true);
 
     uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
             HDREnvmapImage.Channels, true, false, 1);

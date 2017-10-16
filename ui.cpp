@@ -1,4 +1,6 @@
 #include "ui.h"
+#include "utils.h"
+
 
 #define UI_STACK_SIZE Megabytes(8)
 

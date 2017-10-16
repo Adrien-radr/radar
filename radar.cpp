@@ -1,16 +1,14 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <string>
 
-#include "sun.h"
-#include "radar.h"
-#include "render.h"
-
+#include "utils.h"
 #include "sound.h"
+#include "context.h"
+#include "ui.h"
 #include "water.h"
-
-#define MAX_SHADERS 32
+#include "sun.h"
 
 // PLATFORM
 int RadarMain(int argc, char **argv);
@@ -19,41 +17,6 @@ int RadarMain(int argc, char **argv);
 #elif RADAR_UNIX
 #include "radar_unix.cpp"
 #endif
-
-// EXTERNAL
-#include "GL/glew.h"
-#include "GLFW/glfw3.h"
-
-struct game_context
-{
-    GLFWwindow *Window;
-
-    mat4f ProjectionMatrix3D;
-    mat4f ProjectionMatrix2D;
-
-    bool WireframeMode;
-    vec4f ClearColor;
-
-    uint32 DefaultDiffuseTexture;
-    uint32 DefaultNormalTexture;
-
-    font   DefaultFont;
-    uint32 DefaultFontTexture;
-
-    real32 FOV;
-    int WindowWidth;
-    int WindowHeight;
-
-    uint32 Shaders3D[MAX_SHADERS];
-    uint32 Shaders3DCount;
-    uint32 Shaders2D[MAX_SHADERS];
-    uint32 Shaders2DCount;
-
-    game_config *GameConfig;
-
-    bool IsRunning;
-    bool IsValid;
-};
 
 void RegisterShader3D(game_context *Context, uint32 ProgramID)
 {
@@ -73,9 +36,6 @@ void RegisteredShaderClear(game_context *Context)
     Context->Shaders2DCount = 0;
 }
 
-// IMPLEMENTATION
-#include "render.cpp"
-
 bool FramePressedKeys[350] = {};
 bool FrameReleasedKeys[350] = {};
 bool FrameDownKeys[350] = {};
@@ -92,8 +52,6 @@ int  FrameMouseWheel = 0;
 int ResizeWidth;
 int ResizeHeight;
 bool Resized = true;
-
-#include "ui.cpp"
 
 game_memory InitMemory()
 {
@@ -416,18 +374,18 @@ game_context InitContext(game_memory *Memory)
                     image Image;
 
                     MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_diffuse.png");
-                    Image = LoadImage(Memory->ExecutableFullPath, TexPath, false);
+                    Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
                     Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
 
                     MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_normal.png");
-                    Image = LoadImage(Memory->ExecutableFullPath, TexPath, false);
+                    Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
                     Context.DefaultNormalTexture = Make2DTexture(&Image, false, false, 1);
                     DestroyImage(&Image);
 #if RADAR_WIN32
-                    Context.DefaultFont = LoadFont(Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
+                    Context.DefaultFont = ResourceLoadFont(Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
 #else
-                    Context.DefaultFont = LoadFont(Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+                    Context.DefaultFont = ResourceLoadFont(Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
 #endif
                     Context.DefaultFontTexture = Context.DefaultFont.AtlasTextureID;
                 }
@@ -630,36 +588,36 @@ int RadarMain(int argc, char **argv)
         // Texture Test
         path TexPath;
         MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/crate1_diffuse.png");
-        image Image = LoadImage(Memory.ExecutableFullPath, TexPath, false);
+        image Image = ResourceLoadImage(Memory.ExecutableFullPath, TexPath, false);
         uint32 Texture1 = Make2DTexture(&Image, false, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
 #if 0
         MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/albedo.png");
-        Image = LoadImage(TexPath);
+        Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalAlbedo = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/metallic.png");
-        Image = LoadImage(TexPath);
+        Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalMetallic = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/roughness.png");
-        Image = LoadImage(TexPath);
+        Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalRoughness = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
         MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/normal.png");
-        Image = LoadImage(TexPath);
+        Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 #endif
         // Font Test
 #if RADAR_WIN32
-        font ConsoleFont = LoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
+        font ConsoleFont = ResourceLoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
 #else
-        font ConsoleFont = LoadFont(&Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
+        font ConsoleFont = ResourceLoadFont(&Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
 
         // Cube Meshes Test
@@ -724,8 +682,8 @@ int RadarMain(int argc, char **argv)
 
         model gltfCube = {};
         mesh defCube = MakeUnitCube();
-        //if(!LoadGLTFModel(&gltfCube, "data/gltftest/PBRSpheres/MetalRoughSpheres.gltf", Context))
-        if(!LoadGLTFModel(&gltfCube, "data/gltftest/suzanne/Suzanne.gltf", Context))
+        //if(!ResourceLoadGLTFModel(&gltfCube, "data/gltftest/PBRSpheres/MetalRoughSpheres.gltf", &Context))
+        if(!ResourceLoadGLTFModel(&gltfCube, "data/gltftest/suzanne/Suzanne.gltf", &Context))
             return 1;
          
 
