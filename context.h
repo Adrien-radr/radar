@@ -43,6 +43,19 @@ struct game_context
     bool IsValid;
 };
 
-void RegisterShader3D(game_context *Context, uint32 ProgramID);
-void RegisterShader2D(game_context *Context, uint32 ProgramID);
+namespace Context
+{
+    game_context Init(game_memory *Memory);
+    void Destroy(game_context *Context);
+
+    void WindowResized(game_context *Context);
+    void UpdateShaderProjection(game_context *Context);
+    void GetFrameInput(game_context *Context, game_input *Input);
+
+    void RegisteredShaderClear(game_context *Context);
+    void RegisterShader3D(game_context *Context, uint32 ProgramID);
+    void RegisterShader2D(game_context *Context, uint32 ProgramID);
+}
+
+
 #endif

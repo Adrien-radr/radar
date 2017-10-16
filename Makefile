@@ -19,6 +19,7 @@ SRCS= \
 	sampling.cpp \
 	render.cpp \
 	utils.cpp \
+	context.cpp \
 	sound.cpp \
 	ui.cpp \
 	water.cpp \

@@ -71,7 +71,7 @@ void uiReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPa
     uiProjMatrixUniformLoc = glGetUniformLocation(uiProgram, "ProjMatrix");
     uiColorUniformLoc = glGetUniformLocation(uiProgram, "Color");
 
-    RegisterShader2D(Context, uiProgram);
+    Context::RegisterShader2D(Context, uiProgram);
 }
 
 void uiBeginFrame(game_memory *Memory, game_input *Input)
