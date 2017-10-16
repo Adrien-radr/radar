@@ -148,7 +148,7 @@ game_context Init(game_memory *Memory)
     game_context Context = {};
     game_config &Config = Memory->Config;
 
-    bool GLFWValid = false, GLEWValid = false, ALValid = false;
+    bool GLFWValid = false, GLEWValid = false, SoundValid = false;
 
     GLFWValid = glfwInit();
     if(GLFWValid)
@@ -250,9 +250,9 @@ game_context Init(game_memory *Memory)
         printf("Couldn't init GLFW.\n");
     }
 
-    ALValid = InitAL();
+    SoundValid = sound::Init();
 
-    if(GLFWValid && GLEWValid && ALValid)
+    if(GLFWValid && GLEWValid && SoundValid)
     {
         // NOTE - IsRunning might be better elsewhere ?
         Context.IsRunning = true;
@@ -317,7 +317,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
 
 void Destroy(game_context *Context)
 {
-    DestroyAL();
+    sound::Destroy();
 
     if(Context->Window)
     {

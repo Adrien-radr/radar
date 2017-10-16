@@ -3,7 +3,9 @@
 
 #include "radar_common.h"
 
-bool InitAL();
-void DestroyAL();
+namespace sound {
+    bool Init();
+    void Destroy();
+}
 
 #endif

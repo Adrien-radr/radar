@@ -157,7 +157,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
 
     Context::RegisterShader3D(Context, System->WaterSystem->ProgramWater);
 
-    uiReloadShaders(Memory, Context, ExecutableFullPath);
+    ui::ReloadShaders(Memory, Context, ExecutableFullPath);
     CheckGLError("UI Shader");
 
     Context::UpdateShaderProjection(Context);
@@ -171,7 +171,7 @@ void InitializeFromGame(game_memory *Memory)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
-    WaterInitialization(Memory, State, System, State->WaterState);
+    Water::Initialization(Memory, State, System, State->WaterState);
 
     water_system *WaterSystem = System->WaterSystem;
     WaterSystem->VAO = MakeVertexArrayObject();
@@ -195,7 +195,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     for(uint32 i = 0; i < Log->StringCount; ++i)
     {
         uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-        uiMakeText(Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
+        ui::MakeText(Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
                 Context->GameConfig->DebugFontColor, Context->WindowWidth - 10);
     }
 
@@ -204,15 +204,15 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     {
         ui_text_line *Line = &UIStack->TextLines[i];
         // TODO - handle different fonts
-        uiMakeText(Line->String, Font, Line->Position, Line->Color, Context->WindowWidth);
+        ui::MakeText(Line->String, Font, Line->Position, Line->Color, Context->WindowWidth);
     }
 
 #if 0
-    uiBeginPanel("Title is a pretty long sentence", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
-    uiEndPanel();
+    ui::BeginPanel("Title is a pretty long sentence", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
+    ui::EndPanel();
 
-    uiBeginPanel("Title2", vec3i(600, 150, 1), vec2i(200, 100), col4f(1,0,0,0.5));
-    uiEndPanel();
+    ui::BeginPanel("Title2", vec3i(600, 150, 1), vec2i(200, 100), col4f(1,0,0,0.5));
+    ui::EndPanel();
 #endif
 }
 
@@ -241,7 +241,7 @@ int RadarMain(int argc, char **argv)
         int GameRefreshHz = 60;
         real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
 
-        uiInit(&Context);
+        ui::Init(&Context);
 
         game_system *System = (game_system*)Memory.PermanentMemPool;
         game_state *State = (game_state*)POOL_OFFSET(Memory.PermanentMemPool, game_system);
@@ -392,7 +392,7 @@ int RadarMain(int argc, char **argv)
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            uiBeginFrame(&Memory, &Input);
+            ui::BeginFrame(&Memory, &Input);
             Game.GameUpdate(&Memory, &Input);
             if(!Memory.IsInitialized)
             {
@@ -581,8 +581,8 @@ int RadarMain(int argc, char **argv)
 #endif
 
 #if 1
-            WaterUpdate(State, System->WaterSystem, &Input);
-            WaterRender(State, System->WaterSystem, EnvmapToUse, HDRIrradianceEnvmap);
+            Water::Update(State, System->WaterSystem, &Input);
+            Water::Render(State, System->WaterSystem, EnvmapToUse, HDRIrradianceEnvmap);
 #endif
 
             { // NOTE - Skybox Rendering Test, put somewhere else
@@ -609,7 +609,7 @@ int RadarMain(int argc, char **argv)
             }
 
             MakeUI(&Memory, &Context, &ConsoleFont);
-            uiDraw();
+            ui::Draw();
 
             glfwSwapBuffers(Context.Window);
         }

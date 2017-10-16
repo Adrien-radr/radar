@@ -3,7 +3,8 @@
 #include "AL/al.h"
 #include "AL/alc.h"
 
-bool InitAL()
+namespace sound {
+bool Init()
 {
     ALCdevice *ALDevice = alcOpenDevice(NULL);
 
@@ -22,7 +23,7 @@ bool InitAL()
     return ALValid;
 }
 
-void DestroyAL()
+void Destroy()
 {
     ALCcontext *ALContext = alcGetCurrentContext();
     if(ALContext)
@@ -85,4 +86,5 @@ bool TempPrepareSound(ALuint *Buffer, ALuint *Source)
     if(!CheckALError()) return false;
 
     return true;
+}
 }

@@ -167,7 +167,47 @@ void UpdateWaterMesh(water_system *WaterSystem)
     glBindVertexArray(0);
 }
 
-void WaterUpdate(game_state *State, water_system *WaterSystem, game_input *Input)
+void WaterBeaufortStateInitialize(water_system *WaterSystem, uint32 State)
+{
+    water_beaufort_state *WaterState = &WaterSystem->States[State];
+    int N = water_system::WaterN;
+    int NPlus1 = N+1;
+
+    WaterState->Width = BeaufortParams[State][0] * water_system::WaterN;
+    WaterState->Direction = vec2f(BeaufortParams[State][1] * water_system::WaterN, 0.0);
+    WaterState->Amplitude = 0.00000025f * BeaufortParams[State][2] * water_system::WaterN;
+
+    size_t BaseOffset = 2 * WaterSystem->VertexCount;
+    WaterState->OrigPositions = WaterSystem->VertexData + BaseOffset + (State * 3 + 0) * WaterSystem->VertexCount;
+    WaterState->HTilde0 = WaterSystem->VertexData + BaseOffset + (State * 3 + 1) * WaterSystem->VertexCount;
+    WaterState->HTilde0mk = WaterSystem->VertexData + BaseOffset + (State * 3 + 2) * WaterSystem->VertexCount;
+
+    vec3f *OrigPositions = (vec3f*)WaterState->OrigPositions;
+    vec3f *HTilde0 = (vec3f*)WaterState->HTilde0;
+    vec3f *HTilde0mk = (vec3f*)WaterState->HTilde0mk;
+
+    for(int m_prime = 0; m_prime < NPlus1; m_prime++)
+    {
+        for(int n_prime = 0; n_prime < NPlus1; n_prime++)
+        {
+            int Idx = m_prime * NPlus1 + n_prime;
+            complex H0 = ComputeHTilde0(WaterState, n_prime, m_prime);
+            complex H0mk = Conjugate(ComputeHTilde0(WaterState, -n_prime, -m_prime));
+
+            OrigPositions[Idx].x = (n_prime - N / 2.0f) * WaterState->Width / N;
+            OrigPositions[Idx].y = 0.f;
+            OrigPositions[Idx].z = (m_prime - N / 2.0f) * WaterState->Width / N;
+
+            HTilde0[Idx].x = H0.r;
+            HTilde0[Idx].y = H0.i;
+            HTilde0mk[Idx].x = H0mk.r;
+            HTilde0mk[Idx].y = H0mk.i;
+        }
+    }
+}
+
+namespace Water {
+void Update(game_state *State, water_system *WaterSystem, game_input *Input)
 {
     water_beaufort_state *WStateA = &WaterSystem->States[State->WaterState];
     water_beaufort_state *WStateB = &WaterSystem->States[State->WaterState + 1];
@@ -298,46 +338,7 @@ void WaterUpdate(game_state *State, water_system *WaterSystem, game_input *Input
     UpdateWaterMesh(WaterSystem);
 }
 
-void WaterBeaufortStateInitialize(water_system *WaterSystem, uint32 State)
-{
-    water_beaufort_state *WaterState = &WaterSystem->States[State];
-    int N = water_system::WaterN;
-    int NPlus1 = N+1;
-
-    WaterState->Width = BeaufortParams[State][0] * water_system::WaterN;
-    WaterState->Direction = vec2f(BeaufortParams[State][1] * water_system::WaterN, 0.0);
-    WaterState->Amplitude = 0.00000025f * BeaufortParams[State][2] * water_system::WaterN;
-
-    size_t BaseOffset = 2 * WaterSystem->VertexCount;
-    WaterState->OrigPositions = WaterSystem->VertexData + BaseOffset + (State * 3 + 0) * WaterSystem->VertexCount;
-    WaterState->HTilde0 = WaterSystem->VertexData + BaseOffset + (State * 3 + 1) * WaterSystem->VertexCount;
-    WaterState->HTilde0mk = WaterSystem->VertexData + BaseOffset + (State * 3 + 2) * WaterSystem->VertexCount;
-
-    vec3f *OrigPositions = (vec3f*)WaterState->OrigPositions;
-    vec3f *HTilde0 = (vec3f*)WaterState->HTilde0;
-    vec3f *HTilde0mk = (vec3f*)WaterState->HTilde0mk;
-
-    for(int m_prime = 0; m_prime < NPlus1; m_prime++)
-    {
-        for(int n_prime = 0; n_prime < NPlus1; n_prime++)
-        {
-            int Idx = m_prime * NPlus1 + n_prime;
-            complex H0 = ComputeHTilde0(WaterState, n_prime, m_prime);
-            complex H0mk = Conjugate(ComputeHTilde0(WaterState, -n_prime, -m_prime));
-
-            OrigPositions[Idx].x = (n_prime - N / 2.0f) * WaterState->Width / N;
-            OrigPositions[Idx].y = 0.f;
-            OrigPositions[Idx].z = (m_prime - N / 2.0f) * WaterState->Width / N;
-
-            HTilde0[Idx].x = H0.r;
-            HTilde0[Idx].y = H0.i;
-            HTilde0mk[Idx].x = H0mk.r;
-            HTilde0mk[Idx].y = H0mk.i;
-        }
-    }
-}
-
-void WaterInitialization(game_memory *Memory, game_state *State, game_system *System, uint32 BeaufortState)
+void Initialization(game_memory *Memory, game_state *State, game_system *System, uint32 BeaufortState)
 {
     int N = water_system::WaterN;
     int NPlus1 = N+1;
@@ -429,7 +430,7 @@ void WaterInitialization(game_memory *Memory, game_state *State, game_system *Sy
     WaterSystem->IndexCount = IndexCount;
 }
 
-void WaterRender(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 Irrmap)
+void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 Irrmap)
 {
     glUseProgram(WaterSystem->ProgramWater);
     glDisable(GL_CULL_FACE);
@@ -486,4 +487,5 @@ void WaterRender(game_state *State, water_system *WaterSystem, uint32 Envmap, ui
         }
     }
     glEnable(GL_CULL_FACE);
+}
 }

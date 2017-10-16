@@ -4,7 +4,25 @@
 
 #define UI_STACK_SIZE Megabytes(8)
 
-struct ui_render_info
+
+namespace ui {
+game_context static *Context;
+uint32 static Program;
+uint32 static ProjMatrixUniformLoc;
+uint32 static ColorUniformLoc;
+uint32 static VAO;
+uint32 static VBO[2];
+
+// NOTE - This is what is stored each frame in scratch Memory
+// It stacks draw commands with this layout :
+// 1 render_info
+// 1 array of vertex
+// 1 array of uint16 for the indices
+void static *RenderCmd;
+uint32 static RenderCmdCount;
+memory_arena static RenderCmdArena;
+
+struct render_info
 {
     uint32 VertexCount;
     uint32 IndexCount;
@@ -12,126 +30,108 @@ struct ui_render_info
     col4f  Color;
 };
 
-struct ui_vertex
+struct vertex
 {
     vec3f Position;
     vec2f Texcoord;
 };
 
-ui_vertex UIVertex(vec3f const &Position, vec2f const &Texcoord)
+vertex UIVertex(vec3f const &Position, vec2f const &Texcoord)
 {
-    ui_vertex V = { Position, Texcoord };
+    vertex V = { Position, Texcoord };
     return V;
 }
 
-game_context *uiContext;
-uint32 static uiProgram;
-uint32 static uiProjMatrixUniformLoc;
-uint32 static uiColorUniformLoc;
-uint32 static uiVAO;
-uint32 static uiVBO[2];
-
-// NOTE - This is what is stored each frame in scratch Memory
-// It stacks draw commands with this layout :
-// 1 ui_render_info
-// 1 array of ui_vertex
-// 1 array of uint16 for the indices
-void *uiRenderCmd;
-uint32 uiRenderCmdCount;
-memory_arena uiRenderCmdArena;
-
-
-
-void uiInit(game_context *Context)
+void Init(game_context *Context)
 {
-    uiContext = Context;
-    glGenVertexArrays(1, &uiVAO);
-    glGenBuffers(2, uiVBO);
+    Context = Context;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(2, VBO);
 
-    glBindVertexArray(uiVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, uiVBO[1]);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(ui_vertex), 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vertex), 0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(ui_vertex), (GLvoid*)sizeof(vec3f));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(vertex), (GLvoid*)sizeof(vec3f));
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
 
-void uiReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath)
+void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath)
 {
     path VSPath, FSPath;
     MakeRelativePath(VSPath, ExecFullPath, "data/shaders/ui_vert.glsl");
     MakeRelativePath(FSPath, ExecFullPath, "data/shaders/ui_frag.glsl");
-    uiProgram = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(uiProgram);
-    SendInt(glGetUniformLocation(uiProgram, "Texture0"), 0);
+    Program = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(Program);
+    SendInt(glGetUniformLocation(Program, "Texture0"), 0);
 
-    uiProjMatrixUniformLoc = glGetUniformLocation(uiProgram, "ProjMatrix");
-    uiColorUniformLoc = glGetUniformLocation(uiProgram, "Color");
+    ProjMatrixUniformLoc = glGetUniformLocation(Program, "ProjMatrix");
+    ColorUniformLoc = glGetUniformLocation(Program, "Color");
 
-    Context::RegisterShader2D(Context, uiProgram);
+    Context::RegisterShader2D(Context, Program);
 }
 
-void uiBeginFrame(game_memory *Memory, game_input *Input)
+void BeginFrame(game_memory *Memory, game_input *Input)
 {
     // NOTE - reinit the frame stack for the ui
     game_system *System = (game_system*)Memory->PermanentMemPool;
     System->UIStack = (ui_frame_stack*)PushArenaStruct(&Memory->ScratchArena, ui_frame_stack);
 
-    uiRenderCmd = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE);    
-    InitArena(&uiRenderCmdArena, UI_STACK_SIZE, uiRenderCmd);
-    uiRenderCmdCount = 0;
+    RenderCmd = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE);    
+    InitArena(&RenderCmdArena, UI_STACK_SIZE, RenderCmd);
+    RenderCmdCount = 0;
 }
 
-void uiMakeText(char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth)
+void MakeText(char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth)
 {
     uint32 MsgLength = strlen(Text);
     uint32 VertexCount = MsgLength * 4;
     uint32 IndexCount = MsgLength * 6;
 
-    ui_render_info *RenderInfo = (ui_render_info*)PushArenaStruct(&uiRenderCmdArena, ui_render_info);
-    ui_vertex *VertData = (ui_vertex*)PushArenaData(&uiRenderCmdArena, VertexCount * sizeof(ui_vertex));
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena, render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena, VertexCount * sizeof(vertex));
     // NOTE - Because of USHORT max is 65535, Cant fit more than 10922 characters per Text
-    uint16 *IdxData = (uint16*)PushArenaData(&uiRenderCmdArena, IndexCount * sizeof(uint16));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena, IndexCount * sizeof(uint16));
 
     RenderInfo->VertexCount = VertexCount;
     RenderInfo->IndexCount = IndexCount;
     RenderInfo->TextureID = Font->AtlasTextureID;
     RenderInfo->Color = Color;
 
-    vec3i DisplayPos = vec3i(Position.x, uiContext->WindowHeight - Position.y, Position.z);
+    vec3i DisplayPos = vec3i(Position.x, Context->WindowHeight - Position.y, Position.z);
     FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
 
-    ++uiRenderCmdCount;
+    ++RenderCmdCount;
 }
 
-void uiBeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
+void BeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
 {
-    ui_render_info *RenderInfo = (ui_render_info*)PushArenaStruct(&uiRenderCmdArena, ui_render_info);
-    ui_vertex *VertData = (ui_vertex*)PushArenaData(&uiRenderCmdArena, 4 * sizeof(ui_vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&uiRenderCmdArena, 6 * sizeof(uint16));
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena, render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena, 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena, 6 * sizeof(uint16));
 
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
-    RenderInfo->TextureID = uiContext->DefaultDiffuseTexture;
+    RenderInfo->TextureID = Context->DefaultDiffuseTexture;
     RenderInfo->Color = Color;
 
     IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
-    int Y = uiContext->WindowHeight;
+    int Y = Context->WindowHeight;
     VertData[0] = UIVertex(vec3f(Position.x,          Y - Position.y,          Position.z), vec2f(0.f, 0.f));
     VertData[1] = UIVertex(vec3f(Position.x,          Y - Position.y - Size.y, Position.z), vec2f(0.f, 1.f));
     VertData[2] = UIVertex(vec3f(Position.x + Size.x, Y - Position.y - Size.y, Position.z), vec2f(1.f, 1.f));
     VertData[3] = UIVertex(vec3f(Position.x + Size.x, Y - Position.y,          Position.z), vec2f(1.f, 0.f));
 
-    ++uiRenderCmdCount;
+    ++RenderCmdCount;
 
     // Add panel title as text
-    uiMakeText(PanelTitle, &uiContext->DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
+    MakeText(PanelTitle, &Context->DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
 }
 
-void uiEndPanel()
+void EndPanel()
 {
     // TODO - Keep track of per-panel info, stacking, layout etc
 }
@@ -143,32 +143,32 @@ void *RenderCmdOffset(uint8 *CmdList, size_t *OffsetAccum, size_t Size)
     return Ptr;
 }
 
-void uiDraw()
+void Draw()
 {
-    glUseProgram(uiProgram);
+    glUseProgram(Program);
 
-    glBindVertexArray(uiVAO);
-    uint8 *Cmd = (uint8*)uiRenderCmd;
-    for(uint32 i = 0; i < uiRenderCmdCount; ++i)
+    glBindVertexArray(VAO);
+    uint8 *Cmd = (uint8*)RenderCmd;
+    for(uint32 i = 0; i < RenderCmdCount; ++i)
     {
         size_t Offset = 0;
-        ui_render_info *RenderInfo = (ui_render_info*)RenderCmdOffset(Cmd, &Offset, sizeof(ui_render_info));
-        ui_vertex *VertData = (ui_vertex*)RenderCmdOffset(Cmd, &Offset, RenderInfo->VertexCount * sizeof(ui_vertex));
+        render_info *RenderInfo = (render_info*)RenderCmdOffset(Cmd, &Offset, sizeof(render_info));
+        vertex *VertData = (vertex*)RenderCmdOffset(Cmd, &Offset, RenderInfo->VertexCount * sizeof(vertex));
         uint16 *IdxData = (uint16*)RenderCmdOffset(Cmd, &Offset, RenderInfo->IndexCount * sizeof(uint16));
 
-        glBindBuffer(GL_ARRAY_BUFFER, uiVBO[1]);
-        glBufferData(GL_ARRAY_BUFFER, RenderInfo->VertexCount * sizeof(ui_vertex), (GLvoid*)VertData, GL_STREAM_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+        glBufferData(GL_ARRAY_BUFFER, RenderInfo->VertexCount * sizeof(vertex), (GLvoid*)VertData, GL_STREAM_DRAW);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, uiVBO[0]);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBO[0]);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderInfo->IndexCount * sizeof(uint16), (GLvoid*)IdxData, GL_STREAM_DRAW);
 
         glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
 
-        SendVec4(uiColorUniformLoc, RenderInfo->Color);
+        SendVec4(ColorUniformLoc, RenderInfo->Color);
         glDrawElements(GL_TRIANGLES, RenderInfo->IndexCount, GL_UNSIGNED_SHORT, 0);
 
         Cmd += Offset;
     }
     glBindVertexArray(0);
 }
-
+}
