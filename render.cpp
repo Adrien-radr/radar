@@ -40,6 +40,7 @@ image ResourceLoadImage(path const ExecutablePath, path const Filename, bool IsF
     else
         Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
 
+    // TODO - This is shit, a resource manager should have the default resources and assign them in fail cases. exit(1) shouldnt be called from a load function........
     if(!Image.Buffer)
     {
         printf("Error loading Image from %s. Loading default white texture.\n", Filename);
@@ -53,7 +54,7 @@ image ResourceLoadImage(path const ExecutablePath, path const Filename, bool IsF
         if(!Image.Buffer)
         {
             printf("Can't find default white texture (data/default_diffuse.png). Aborting... \n");
-            exit(1);
+            //exit(1);
         }
             
     }
@@ -278,7 +279,6 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-// TODO - Load Unicode characters
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
 font ResourceLoadFont(game_memory *Memory, char const *Filename, real32 PixelHeight)
@@ -305,15 +305,17 @@ font ResourceLoadFont(game_memory *Memory, char const *Filename, real32 PixelHei
         Font.Ascent = Ascent;
 
 
-        int X = 0, Y = 0;
+        real32 X = 0, Y = 0;
 
+        // TODO - Load Unicode characters
         for(int Codepoint = 32; Codepoint < 127; ++Codepoint)
         {
             int Glyph = stbtt_FindGlyphIndex(&STBFont, Codepoint);
 
+            real32 ShiftX = X - (real32)floor(X);
             int AdvX;
             int X0, X1, Y0, Y1;
-            stbtt_GetGlyphBitmapBox(&STBFont, Glyph, PixelScale, PixelScale, &X0, &Y0, &X1, &Y1);
+            stbtt_GetGlyphBitmapBoxSubpixel(&STBFont, Glyph, PixelScale, PixelScale, ShiftX, 0, &X0, &Y0, &X1, &Y1);
             stbtt_GetGlyphHMetrics(&STBFont, Glyph, &AdvX, 0);
             //int AdvKern = stbtt_GetCodepointKernAdvance(&STBFont, Codepoint, Codepoint+1);
 
@@ -340,7 +342,7 @@ font ResourceLoadFont(game_memory *Memory, char const *Filename, real32 PixelHei
             int CharY = Y + Ascent + Y0;
 
             uint8 *BitmapPtr = Font.Buffer + (CharY * Font.Width + CharX);
-            stbtt_MakeGlyphBitmap(&STBFont, BitmapPtr, CW, CH, Font.Width, PixelScale, PixelScale, Glyph);
+            stbtt_MakeGlyphBitmapSubpixel(&STBFont, BitmapPtr, CW, CH, Font.Width, PixelScale, PixelScale, ShiftX, 0, Glyph);
 
             X += AdvanceX;
         }

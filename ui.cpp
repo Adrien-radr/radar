@@ -44,7 +44,7 @@ vertex UIVertex(vec3f const &Position, vec2f const &Texcoord)
 
 void Init(game_context *Context)
 {
-    Context = Context;
+    ui::Context = Context;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(2, VBO);
 
