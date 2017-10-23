@@ -135,7 +135,7 @@ void WindowResized(game_context *Context)
         glViewport(0, 0, ResizeWidth, ResizeHeight);
         Context->WindowWidth = ResizeWidth;
         Context->WindowHeight = ResizeHeight;
-        Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
+        Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV,
                 Context->WindowWidth / (real32)Context->WindowHeight, 0.1f, 10000.f);
         Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1000.f);
 
@@ -159,10 +159,11 @@ game_context Init(game_memory *Memory)
         Context.Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
         if(Context.Window)
         {
+            Context.RenderResources.RH = &Memory->ResourceHelper;
             glfwMakeContextCurrent(Context.Window);
 
             // TODO - Only in windowed mode for debug
-		    glfwSetWindowPos(Context.Window, Config.WindowX, Config.WindowY);
+            glfwSetWindowPos(Context.Window, Config.WindowX, Config.WindowY);
             glfwSwapInterval(Config.VSync);
 
             glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
@@ -191,7 +192,7 @@ game_context Init(game_memory *Memory)
                 Context.WindowWidth = Config.WindowWidth;
                 Context.WindowHeight = Config.WindowHeight;
                 Context.FOV = Config.FOV;
-                Context.ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
+                Context.ProjectionMatrix3D = mat4f::Perspective(Config.FOV,
                         Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 10000.f);
                 Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
@@ -216,23 +217,28 @@ game_context Init(game_memory *Memory)
 
                 {
                     path TexPath;
-                    image Image;
+                    image *Image;
 
-                    MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_diffuse.png");
-                    Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
-                    Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, false, 1);
-                    DestroyImage(&Image);
+                    //MakeRelativePath(Memory->ResourceHelper, TexPath, "data/default_diffuse.png");
+                    //Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
+                    //Image = ResourceLoadImage(&Context.RenderResources, "data/default_diffuse.png", false);
+                    Context.DefaultDiffuseTexture = ResourceLoad2DTexture(&Context.RenderResources, "data/default_diffuse.png", false,
+                                                                            false, 1);
+                    //Make2DTexture(Image, false, false, 1);
+                    //DestroyImage(&Image);
 
-                    MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_normal.png");
-                    Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
-                    Context.DefaultNormalTexture = Make2DTexture(&Image, false, false, 1);
-                    DestroyImage(&Image);
+                    //MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_normal.png");
+                    //Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
+                    //Image = ResourceLoadImage(&Context.RenderResources, "data/default_normal.png", false);
+                    //Context.DefaultNormalTexture = Make2DTexture(Image, false, false, 1);
+                    Context.DefaultNormalTexture = ResourceLoad2DTexture(&Context.RenderResources, "data/default_normal.png", false,
+                                                                            false, 1);
+                    //DestroyImage(&Image);
 #if RADAR_WIN32
-                    Context.DefaultFont = ResourceLoadFont(Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
+                    Context.DefaultFont = ResourceLoadFont(&Context.RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
 #else
-                    Context.DefaultFont = ResourceLoadFont(Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+                    Context.DefaultFont = ResourceLoadFont(&Context.RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
 #endif
-                    Context.DefaultFontTexture = Context.DefaultFont.AtlasTextureID;
                 }
             }
             else
@@ -318,6 +324,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
 void Destroy(game_context *Context)
 {
     sound::Destroy();
+    ResourceFree(&Context->RenderResources);
 
     if(Context->Window)
     {

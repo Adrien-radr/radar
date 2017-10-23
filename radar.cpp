@@ -17,23 +17,26 @@ int RadarMain(int argc, char **argv);
 #include "radar_unix.cpp"
 #endif
 
-game_memory InitMemory()
+game_memory *InitMemory()
 {
-    game_memory Memory = {};
+    game_memory *Memory = (game_memory*)calloc(1, sizeof(game_memory));
 
-    Memory.PermanentMemPoolSize = Megabytes(32);
-    Memory.SessionMemPoolSize = Megabytes(512);
-    Memory.ScratchMemPoolSize = Megabytes(64);
+    Memory->PermanentMemPoolSize = Megabytes(32);
+    Memory->SessionMemPoolSize = Megabytes(512);
+    Memory->ScratchMemPoolSize = Megabytes(64);
 
-    Memory.PermanentMemPool = calloc(1, Memory.PermanentMemPoolSize);
-    Memory.SessionMemPool = calloc(1, Memory.SessionMemPoolSize);
-    Memory.ScratchMemPool = calloc(1, Memory.ScratchMemPoolSize);
+    Memory->PermanentMemPool = calloc(1, Memory->PermanentMemPoolSize);
+    Memory->SessionMemPool = calloc(1, Memory->SessionMemPoolSize);
+    Memory->ScratchMemPool = calloc(1, Memory->ScratchMemPoolSize);
 
-    InitArena(&Memory.SessionArena, Memory.SessionMemPoolSize, Memory.SessionMemPool);
-    InitArena(&Memory.ScratchArena, Memory.ScratchMemPoolSize, Memory.ScratchMemPool);
+    InitArena(&Memory->SessionArena, Memory->SessionMemPoolSize, Memory->SessionMemPool);
+    InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
 
-    Memory.IsValid = Memory.PermanentMemPool && Memory.SessionMemPool && Memory.ScratchMemPool;
-    Memory.IsInitialized = false;
+    Memory->ResourceHelper.Memory = Memory;
+    GetExecutablePath(Memory->ResourceHelper.ExecutablePath);
+
+    Memory->IsValid = Memory->PermanentMemPool && Memory->SessionMemPool && Memory->ScratchMemPool;
+    Memory->IsInitialized = false;
 
     return Memory;
 }
@@ -111,14 +114,14 @@ uint32 Program1, Program3D, ProgramSkybox;
 void ReloadShaders(game_memory *Memory, game_context *Context)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
-	path &ExecutableFullPath = Memory->ExecutableFullPath;
+    resource_helper *RH = &Memory->ResourceHelper;
 
     Context::RegisteredShaderClear(Context);
 
     path VSPath;
     path FSPath;
-    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/text_vert.glsl");
-    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/text_frag.glsl");
+    MakeRelativePath(RH, VSPath, "data/shaders/text_vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/text_frag.glsl");
     Program1 = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program1);
     SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
@@ -126,8 +129,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
 
     Context::RegisterShader2D(Context, Program1);
 
-    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/vert.glsl");
-    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/frag.glsl");
+    MakeRelativePath(RH, VSPath, "data/shaders/vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/frag.glsl");
     Program3D = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program3D);
     SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
@@ -138,8 +141,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
 
     Context::RegisterShader3D(Context, Program3D);
 
-    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/skybox_vert.glsl");
-    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/skybox_frag.glsl");
+    MakeRelativePath(RH, VSPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/skybox_frag.glsl");
     ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramSkybox);
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
@@ -147,8 +150,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
 
     Context::RegisterShader3D(Context, ProgramSkybox);
 
-    MakeRelativePath(VSPath, ExecutableFullPath, "data/shaders/water_vert.glsl");
-    MakeRelativePath(FSPath, ExecutableFullPath, "data/shaders/water_frag.glsl");
+    MakeRelativePath(RH, VSPath, "data/shaders/water_vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/water_frag.glsl");
     System->WaterSystem->ProgramWater = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(System->WaterSystem->ProgramWater);
     SendInt(glGetUniformLocation(System->WaterSystem->ProgramWater, "Skybox"), 0);
@@ -157,11 +160,11 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
 
     Context::RegisterShader3D(Context, System->WaterSystem->ProgramWater);
 
-    ui::ReloadShaders(Memory, Context, ExecutableFullPath);
+    ui::ReloadShaders(Memory, Context);
     CheckGLError("UI Shader");
 
     Context::UpdateShaderProjection(Context);
-    
+
     glUseProgram(0);
 }
 
@@ -195,7 +198,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     for(uint32 i = 0; i < Log->StringCount; ++i)
     {
         uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-        ui::MakeText(Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
+        ui::MakeText(Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0),
                 Context->GameConfig->DebugFontColor, Context->WindowWidth - 10);
     }
 
@@ -221,21 +224,20 @@ int RadarMain(int argc, char **argv)
     path DllSrcPath;
     path DllDstPath;
 
-    game_memory Memory = InitMemory();
+    game_memory *Memory = InitMemory();
 
-    GetExecutablePath(Memory.ExecutableFullPath);
-    MakeRelativePath(DllSrcPath, Memory.ExecutableFullPath, DllName);
-    MakeRelativePath(DllDstPath, Memory.ExecutableFullPath, DllDynamicCopyName);
+    MakeRelativePath(&Memory->ResourceHelper, DllSrcPath, DllName);
+    MakeRelativePath(&Memory->ResourceHelper, DllSrcPath, DllDynamicCopyName);
 
     path ConfigPath;
-    MakeRelativePath(ConfigPath, Memory.ExecutableFullPath, "config.json");
+    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "config.json");
 
-    ParseConfig(&Memory, ConfigPath);
-    game_context Context = Context::Init(&Memory);
+    ParseConfig(Memory, ConfigPath);
+    game_context Context = Context::Init(Memory);
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
-    game_config const &Config = Memory.Config;
+    game_config const &Config = Memory->Config;
 
-    if(Context.IsValid && Memory.IsValid)
+    if(Context.IsValid && Memory->IsValid)
     {
         real64 CurrentTime, LastTime = glfwGetTime();
         int GameRefreshHz = 60;
@@ -243,11 +245,11 @@ int RadarMain(int argc, char **argv)
 
         ui::Init(&Context);
 
-        game_system *System = (game_system*)Memory.PermanentMemPool;
-        game_state *State = (game_state*)POOL_OFFSET(Memory.PermanentMemPool, game_system);
+        game_system *System = (game_system*)Memory->PermanentMemPool;
+        game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
-        System->ConsoleLog = (console_log*)PushArenaStruct(&Memory.SessionArena, console_log);
-        System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory.SessionArena, tmp_sound_data);
+        System->ConsoleLog = (console_log*)PushArenaStruct(&Memory->SessionArena, console_log);
+        System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
 
         //ReloadShaders(&Memory, &Context, Memory.ExecutableFullPath);
         glActiveTexture(GL_TEXTURE0);
@@ -264,38 +266,28 @@ int RadarMain(int argc, char **argv)
 #endif
 
         // Texture Test
-        path TexPath;
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/crate1_diffuse.png");
-        image Image = ResourceLoadImage(Memory.ExecutableFullPath, TexPath, false);
-        uint32 Texture1 = Make2DTexture(&Image, false, false, Config.AnisotropicFiltering);
-        DestroyImage(&Image);
+        uint32 *Texture1 = ResourceLoad2DTexture(&Context.RenderResources, "data/crate1_diffuse.png", false, false, Config.AnisotropicFiltering);
 
 #if 0
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/albedo.png");
+        MakeRelativePath(Memory.ResourceHelper, TexPath, "data/brick_1/albedo.png");
         Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalAlbedo = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/metallic.png");
+        MakeRelativePath(Memory.ResourceHelper, TexPath, "data/brick_1/metallic.png");
         Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalMetallic = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/roughness.png");
+        MakeRelativePath(Memory.ResourceHelper, TexPath, "data/brick_1/roughness.png");
         Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalRoughness = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/normal.png");
+        MakeRelativePath(Memory.ResourceHelper, TexPath, "data/brick_1/normal.png");
         Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
-#endif
-        // Font Test
-#if RADAR_WIN32
-        font ConsoleFont = ResourceLoadFont(&Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
-#else
-        font ConsoleFont = ResourceLoadFont(&Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
 
         // Cube Meshes Test
@@ -320,50 +312,35 @@ int RadarMain(int argc, char **argv)
 
 
         // Cubemaps Test
-        path CubemapPaths[6];
-        {
 #if 0
-            path CubemapNames[6] = {
-                "data/default_diffuse.png",
-                "data/default_diffuse.png",
-                "data/default_diffuse.png",
-                "data/default_diffuse.png",
-                "data/default_diffuse.png",
-                "data/default_diffuse.png",
-            };
-#else
-            path CubemapNames[6] = {
-                "data/Skybox/1/right.png",
-                "data/Skybox/1/left.png",
-                "data/Skybox/1/bottom.png",
-                "data/Skybox/1/top.png",
-                "data/Skybox/1/back.png",
-                "data/Skybox/1/front.png",
-            };
-#endif
-            for(uint32 i = 0; i < 6; ++i)
-            {
-                MakeRelativePath(CubemapPaths[i], Memory.ExecutableFullPath, CubemapNames[i]);
-            }
-        }
+        path CubemapNames[6] = {
+            "data/Skybox/1/right.png",
+            "data/Skybox/1/left.png",
+            "data/Skybox/1/bottom.png",
+            "data/Skybox/1/top.png",
+            "data/Skybox/1/back.png",
+            "data/Skybox/1/front.png",
+        };
 
-        mesh SkyboxCube = MakeUnitCube(false);
-        uint32 TestCubemap = MakeCubemap(Memory.ExecutableFullPath, CubemapPaths, false, false, 0, 0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+        uint32 TestCubemap = MakeCubemap(&Context.RenderResources, CubemapNames, false, false, 0, 0);
+        printf("TestCubemap : %u\n", TestCubemap);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
         glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
+#endif
+        mesh SkyboxCube = MakeUnitCube(false);
 
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
-        ComputeIrradianceCubemap(&Memory, Memory.ExecutableFullPath, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
-        uint32 EnvmapToUse = HDRIrradianceEnvmap; 
+        ComputeIrradianceCubemap(&Context.RenderResources, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
+        uint32 EnvmapToUse = HDRIrradianceEnvmap;
 
         model gltfCube = {};
         mesh defCube = MakeUnitCube();
         //if(!ResourceLoadGLTFModel(&gltfCube, "data/gltftest/PBRSpheres/MetalRoughSpheres.gltf", &Context))
         if(!ResourceLoadGLTFModel(&gltfCube, "data/gltftest/suzanne/Suzanne.gltf", &Context))
             return 1;
-         
+
 
         bool LastDisableMouse = false;
 
@@ -379,9 +356,9 @@ int RadarMain(int argc, char **argv)
 
             // NOTE - Each frame, clear the Scratch Arena Data
             // TODO - Is this too often ? Maybe let it stay several frames
-            ClearArena(&Memory.ScratchArena);
+            ClearArena(&Memory->ScratchArena);
 
-            Context::GetFrameInput(&Context, &Input);        
+            Context::GetFrameInput(&Context, &Input);
             Context::WindowResized(&Context);
 
             if(CheckNewDllVersion(&Game, DllSrcPath))
@@ -392,12 +369,12 @@ int RadarMain(int argc, char **argv)
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            ui::BeginFrame(&Memory, &Input);
-            Game.GameUpdate(&Memory, &Input);
-            if(!Memory.IsInitialized)
+            ui::BeginFrame(Memory, &Input);
+            Game.GameUpdate(Memory, &Input);
+            if(!Memory->IsInitialized)
             {
-                InitializeFromGame(&Memory);
-				ReloadShaders(&Memory, &Context);			// First Shader loading after the game is initialized
+                InitializeFromGame(Memory);
+                ReloadShaders(Memory, &Context);			// First Shader loading after the game is initialized
             }
 
 #if 0
@@ -430,7 +407,7 @@ int RadarMain(int argc, char **argv)
 
             if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
             {
-                ReloadShaders(&Memory, &Context);
+                ReloadShaders(Memory, &Context);
             }
 
             if(KEY_UP(Input.KeyF1))
@@ -454,7 +431,8 @@ int RadarMain(int argc, char **argv)
             ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
 
-            {
+#if 1
+            { // NOTE - Model Drawing
                 glCullFace(GL_BACK);
                 glUseProgram(Program3D);
                 {
@@ -495,6 +473,7 @@ int RadarMain(int argc, char **argv)
                     glDrawElements(GL_TRIANGLES, gltfCube.Mesh[i].IndexCount, gltfCube.Mesh[i].IndexType, 0);
                 }
             }
+#endif
 
 #if 0
             { // NOTE - CUBE DRAWING Test Put somewhere else
@@ -552,9 +531,9 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
 
                 glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
+                glBindTexture(GL_TEXTURE_2D, *Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, Context.DefaultDiffuseTexture);
+                glBindTexture(GL_TEXTURE_2D, *Context.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
                 glActiveTexture(GL_TEXTURE3);
@@ -601,14 +580,16 @@ int RadarMain(int argc, char **argv)
                 }
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
+                CheckGLError("BindTexture");
                 glBindVertexArray(SkyboxCube.VAO);
                 glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+                CheckGLError("DrawElements");
 
                 glDepthFunc(GL_LESS);
                 glEnable(GL_CULL_FACE);
             }
 
-            MakeUI(&Memory, &Context, &ConsoleFont);
+            MakeUI(Memory, &Context, Context.DefaultFont);
             ui::Draw();
 
             glfwSwapBuffers(Context.Window);
@@ -617,13 +598,12 @@ int RadarMain(int argc, char **argv)
         // TODO - Destroy Console meshes
         DestroyMesh(&Cube);
         DestroyMesh(&SkyboxCube);
-        glDeleteTextures(1, &Texture1);
         glDeleteProgram(Program1);
         glDeleteProgram(Program3D);
         glDeleteProgram(ProgramSkybox);
     }
 
-    DestroyMemory(&Memory);
+    DestroyMemory(Memory);
     Context::Destroy(&Context);
     UnloadGameCode(&Game, DllDstPath);
 

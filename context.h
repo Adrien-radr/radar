@@ -15,6 +15,7 @@
 struct game_context
 {
     GLFWwindow *Window;
+    render_resources RenderResources;
 
     mat4f ProjectionMatrix3D;
     mat4f ProjectionMatrix2D;
@@ -22,11 +23,10 @@ struct game_context
     bool WireframeMode;
     vec4f ClearColor;
 
-    uint32 DefaultDiffuseTexture;
-    uint32 DefaultNormalTexture;
+    uint32 *DefaultDiffuseTexture;
+    uint32 *DefaultNormalTexture;
 
-    font   DefaultFont;
-    uint32 DefaultFontTexture;
+    font   *DefaultFont;
 
     real32 FOV;
     int WindowWidth;

@@ -2,6 +2,8 @@
 #define RENDER_H
 
 #include "definitions.h"
+#include "utils.h"
+#include <map>
 #include "GL/glew.h"
 
 struct game_context;
@@ -66,9 +68,9 @@ struct material
     uint32 AlbedoTexture;
     uint32 RoughnessMetallicTexture;
 
-    vec3f AlbedoMult;
-    float RoughnessMult;
-    float MetallicMult;
+    vec3f  AlbedoMult;
+    real32 RoughnessMult;
+    real32 MetallicMult;
 };
 
 struct model
@@ -78,20 +80,43 @@ struct model
     std::vector<material> Material;
 };
 
+enum render_resource_type
+{
+    RESOURCE_IMAGE,
+    //RESOURCE_PROGRAM,
+    RESOURCE_TEXTURE,
+    RESOURCE_FONT,
+    RESOURCE_COUNT
+};
+
+struct render_resources
+{
+    resource_helper *RH;
+    // TODO - dont like map and string
+    std::map<std::string, image*>  Images;
+    std::map<std::string, uint32*> Textures;
+    std::map<std::string, font*>   Fonts;
+};
+
+void *ResourceCheckExist(render_resources *RenderResources, render_resource_type Type, path const Filename);
+void ResourceStore(render_resources *RenderResources, render_resource_type Type, path const Filename, void *Resource);
+void ResourceFree(render_resources *RenderResources);
+image *ResourceLoadImage(render_resources *RenderResources, path const Filename, bool IsFloat, bool FlipY = true, 
+                        int32 ForceNumChannel = 0);
+font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 PixelHeight);
+uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, 
+                              bool FloatHalfPrecision, uint32 AnisotropicLevel);
 
 void CheckGLError(const char *Mark = "");
 
-image ResourceLoadImage(path const ExecutablePath, path const Filename, bool IsFloat, bool FlipY = true, 
-                        int32 ForceNumChannel = 0);
 void DestroyImage(image *Image);
-font ResourceLoadFont(game_memory *Memory, path const Filename, real32 PixelHeight);
-uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, 
-                     bool FloatHalfPrecision, real32 AnisotropicLevel, int MagFilter = GL_LINEAR, 
-                     int MinFilter = GL_LINEAR_MIPMAP_LINEAR, int WrapS = GL_REPEAT, int WrapT = GL_REPEAT);
-uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel);
+//uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, 
+                     //bool FloatHalfPrecision, real32 AnisotropicLevel, int MagFilter = GL_LINEAR, 
+                     //int MinFilter = GL_LINEAR_MIPMAP_LINEAR, int WrapS = GL_REPEAT, int WrapT = GL_REPEAT);
+//uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel);
 
-uint32 MakeCubemap(path ExecutablePath, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height);
-void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const *HDREnvmapFilename, 
+uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height);
+void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDREnvmapFilename, 
                               uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap);
 
 mesh MakeUnitCube(bool MakeAdditionalAttribs = true);

@@ -59,11 +59,12 @@ void Init(game_context *Context)
     glBindVertexArray(0);
 }
 
-void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath)
+void ReloadShaders(game_memory *Memory, game_context *Context)
 {
+    resource_helper *RH = &Memory->ResourceHelper;
     path VSPath, FSPath;
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/ui_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/ui_frag.glsl");
+    MakeRelativePath(RH, VSPath, "data/shaders/ui_vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/ui_frag.glsl");
     Program = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program);
     SendInt(glGetUniformLocation(Program, "Texture0"), 0);
@@ -80,7 +81,7 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     System->UIStack = (ui_frame_stack*)PushArenaStruct(&Memory->ScratchArena, ui_frame_stack);
 
-    RenderCmd = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE);    
+    RenderCmd = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE);
     InitArena(&RenderCmdArena, UI_STACK_SIZE, RenderCmd);
     RenderCmdCount = 0;
 }
@@ -115,10 +116,10 @@ void BeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
 
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
-    RenderInfo->TextureID = Context->DefaultDiffuseTexture;
+    RenderInfo->TextureID = *Context->DefaultDiffuseTexture;
     RenderInfo->Color = Color;
 
-    IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
+    IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3;
     int Y = Context->WindowHeight;
     VertData[0] = UIVertex(vec3f(Position.x,          Y - Position.y,          Position.z), vec2f(0.f, 0.f));
     VertData[1] = UIVertex(vec3f(Position.x,          Y - Position.y - Size.y, Position.z), vec2f(0.f, 1.f));
@@ -128,7 +129,7 @@ void BeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
     ++RenderCmdCount;
 
     // Add panel title as text
-    MakeText(PanelTitle, &Context->DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
+    MakeText(PanelTitle, Context->DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
 }
 
 void EndPanel()

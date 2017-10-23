@@ -79,11 +79,19 @@ inline void *_PushArenaData(memory_arena *Arena, uint64 Size)
     return (void*)MemoryPtr;
 }
 
+struct game_memory;
+
+struct resource_helper // TODO - find better name
+{
+    path ExecutablePath;
+    game_memory *Memory; // Link back to the memory where resources are stored eventually
+};
+
 // NOTE - This memory is allocated at startup
 // Each pool is then mapped according to the needed layout
 struct game_memory
 {
-    path ExecutableFullPath;
+    resource_helper ResourceHelper;
     game_config Config;
 
     // NOTE - For Game State.

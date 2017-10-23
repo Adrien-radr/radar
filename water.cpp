@@ -75,7 +75,7 @@ complex ComputeHTilde0(water_beaufort_state *State, int n_prime, int m_prime)
     return R * sqrtf(Phillips(State, n_prime, m_prime) / 2.0f);
 }
 
-complex ComputeHTilde(water_beaufort_state *StateA, water_beaufort_state *StateB, real32 WaterInterp, 
+complex ComputeHTilde(water_beaufort_state *StateA, water_beaufort_state *StateB, real32 WaterInterp,
         real32 T, int n_prime, int m_prime)
 {
     int NPlus1 = water_system::WaterN+1;
@@ -89,7 +89,7 @@ complex ComputeHTilde(water_beaufort_state *StateA, water_beaufort_state *StateB
     vec3f dHT0 = Mix(HTilde0A[Idx], HTilde0B[Idx], WaterInterp);
     vec3f dHT0mk = Mix(HTilde0mkA[Idx], HTilde0mkB[Idx], WaterInterp);
     real32 dWidth = Mix((real32)StateA->Width, (real32)StateB->Width, WaterInterp);
-    
+
     complex H0(dHT0.x, dHT0.y);
     complex H0mk(dHT0mk.x, dHT0mk.y);
 
@@ -388,7 +388,7 @@ void Initialization(game_memory *Memory, game_state *State, game_system *System,
             WaterSystem->FFTW[j][i] = FFTW(i, 2 * Pow2);
         Pow2 *=2;
     }
-    
+
     for(uint32 i = 0; i < water_system::BeaufortStateCount; ++i)
     {
         WaterBeaufortStateInitialize(WaterSystem, i);
@@ -418,7 +418,7 @@ void Initialization(game_memory *Memory, game_state *State, game_system *System,
         for(int n_prime = 0; n_prime < N; n_prime++)
         {
             int Idx = m_prime * NPlus1 + n_prime;
-            
+
             Indices[IndexCount++] = Idx;
             Indices[IndexCount++] = Idx + NPlus1;
             Indices[IndexCount++] = Idx + NPlus1 + 1;

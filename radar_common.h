@@ -44,7 +44,6 @@ typedef unsigned long long  uint64;
 typedef char path[MAX_PATH];
 
 #ifdef DEBUG
-#include <stdio.h>
 #ifndef Assert
 #define Assert(expr) if(!(expr)) { printf("Assert %s %d.\n", __FILE__, __LINE__); *(int*)0 = 0; }
 #endif

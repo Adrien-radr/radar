@@ -97,8 +97,8 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
 
         if(SrcMtl.values.size() == 0)
         { // NOTE - Default Magenta color for error
-            DstMtl.AlbedoTexture = Context->DefaultDiffuseTexture;
-            DstMtl.RoughnessMetallicTexture = Context->DefaultDiffuseTexture;
+            DstMtl.AlbedoTexture = *Context->DefaultDiffuseTexture;
+            DstMtl.RoughnessMetallicTexture = *Context->DefaultDiffuseTexture;
             DstMtl.AlbedoMult = vec3f(1,0,1); // Magenta error color
             DstMtl.RoughnessMult = 1.f;
             DstMtl.MetallicMult = 0.f;
@@ -117,7 +117,7 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
             }
             else
             { // NOTE - No diffuse texture : put in the Default
-                DstMtl.AlbedoTexture = Context->DefaultDiffuseTexture;
+                DstMtl.AlbedoTexture = *Context->DefaultDiffuseTexture;
             }
 
             auto RoughnessTexIdx = SrcMtl.values.find("metallicRoughnessTexture");
@@ -132,7 +132,7 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
             }
             else
             { // NOTE - No diffuse texture : put in the Default
-                DstMtl.RoughnessMetallicTexture = Context->DefaultDiffuseTexture;
+                DstMtl.RoughnessMetallicTexture = *Context->DefaultDiffuseTexture;
             }
 
             auto AlbedoMultIdx = SrcMtl.values.find("roughnessFactor");

@@ -4,8 +4,10 @@
 #include "definitions.h"
 #include "cJSON.h"
 
-void *ReadFileContents(memory_arena *Arena, char const *Filename, int *FileSize);
-void MakeRelativePath(char *Dst, char const *Path, char const *Filename);
+
+
+void *ReadFileContents(memory_arena *Arena, path const Filename, int *FileSize);
+void MakeRelativePath(resource_helper *RH, path Dst, path const Filename);
 
 template<typename T>
 inline T JSON_Get(cJSON *Root, char const *ValueName, T const &DefaultValue)

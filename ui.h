@@ -10,6 +10,6 @@ namespace ui {
     void EndPanel();
     void Draw();
     void MakeText(char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth);
-    void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath);
+    void ReloadShaders(game_memory *Memory, game_context *Context);
 }
 #endif
