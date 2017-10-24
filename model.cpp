@@ -53,31 +53,34 @@ static size_t GetComponentSize(int ComponentType)
     }
 }
 
-bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Context)
+bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path const Filename, game_context *Context)
 {
     tinygltf::Model Mdl;
     tinygltf::TinyGLTF Loader;
     std::string LoadErr;
+
+    path Filepath;
+    MakeRelativePath(RenderResources->RH, Filepath, Filename);
     
     using namespace tinygltf;
 
     stbi_set_flip_vertically_on_load(0);
-    bool Ret = Loader.LoadASCIIFromFile(&Mdl, &LoadErr, Filename);
+    bool Ret = Loader.LoadASCIIFromFile(&Mdl, &LoadErr, Filepath);
     if(!LoadErr.empty())
     {
-        printf("Error loading glTF model %s\n", Filename);
+        printf("Error loading glTF model %s\n", Filepath);
         return false;
     }
 
     if(!Ret)
     {
-        printf("Failed to parse glTF model %s\n", Filename);
+        printf("Failed to parse glTF model %s\n", Filepath);
         return false;
     }
 
     if(Mdl.buffers.size() > 1)
     {
-        printf("UNIMPLEMENTED : glTF model with several buffers %s (%zu)\n", Filename, Mdl.buffers.size());
+        printf("UNIMPLEMENTED : glTF model with several buffers %s (%zu)\n", Filepath, Mdl.buffers.size());
         return false;
     }
 
@@ -97,8 +100,8 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
 
         if(SrcMtl.values.size() == 0)
         { // NOTE - Default Magenta color for error
-            DstMtl.AlbedoTexture = Context->DefaultDiffuseTexture;
-            DstMtl.RoughnessMetallicTexture = Context->DefaultDiffuseTexture;
+            DstMtl.AlbedoTexture = *Context->RenderResources.DefaultDiffuseTexture;
+            DstMtl.RoughnessMetallicTexture = *Context->RenderResources.DefaultDiffuseTexture;
             DstMtl.AlbedoMult = vec3f(1,0,1); // Magenta error color
             DstMtl.RoughnessMult = 1.f;
             DstMtl.MetallicMult = 0.f;
@@ -117,7 +120,7 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
             }
             else
             { // NOTE - No diffuse texture : put in the Default
-                DstMtl.AlbedoTexture = Context->DefaultDiffuseTexture;
+                DstMtl.AlbedoTexture = *Context->RenderResources.DefaultDiffuseTexture;
             }
 
             auto RoughnessTexIdx = SrcMtl.values.find("metallicRoughnessTexture");
@@ -132,7 +135,7 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
             }
             else
             { // NOTE - No diffuse texture : put in the Default
-                DstMtl.RoughnessMetallicTexture = Context->DefaultDiffuseTexture;
+                DstMtl.RoughnessMetallicTexture = *Context->RenderResources.DefaultDiffuseTexture;
             }
 
             auto AlbedoMultIdx = SrcMtl.values.find("roughnessFactor");
@@ -177,7 +180,7 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
     {
         if(SrcMesh.primitives.size() > 1)
         {
-            printf("UNIMPLEMENTED : glTF model with several primitives %s (%zu)\n", Filename, SrcMesh.primitives.size());
+            printf("UNIMPLEMENTED : glTF model with several primitives %s (%zu)\n", Filepath, SrcMesh.primitives.size());
             return false;
         }
 
@@ -221,7 +224,7 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
 
             if(AttribStride < 0 || AttribIdx < 0)
             {
-                printf("Error loading glTF model %s : Attrib %d stride or size invalid.\n", Filename, Attrib);
+                printf("Error loading glTF model %s : Attrib %d stride or size invalid.\n", Filepath, Attrib);
                 return false;
             }
 
@@ -239,17 +242,17 @@ bool ResourceLoadGLTFModel(model *Model, path const Filename, game_context *Cont
 
         if(!ValidMesh[0])
         {
-            printf("Error loading glTF model %s : Positions are not given.\n", Filename);
+            printf("Error loading glTF model %s : Positions are not given.\n", Filepath);
             return false;
         }
         if(!ValidMesh[1])
         {
-            printf("Error loading glTF model %s : Texcoords are not given.\n", Filename);
+            printf("Error loading glTF model %s : Texcoords are not given.\n", Filepath);
             return false;
         }
         if(!ValidMesh[2])
         {
-            printf("Error loading glTF model %s : Normals are not given.\n", Filename);
+            printf("Error loading glTF model %s : Normals are not given.\n", Filepath);
             return false;
         }
 

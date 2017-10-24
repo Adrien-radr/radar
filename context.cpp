@@ -143,9 +143,9 @@ void WindowResized(game_context *Context)
     }
 }
 
-game_context Init(game_memory *Memory)
+game_context *Init(game_memory *Memory)
 {
-    game_context Context = {};
+    game_context *Context = (game_context*)PushArenaStruct(&Memory->SessionArena, game_context);
     game_config &Config = Memory->Config;
 
     bool GLFWValid = false, GLEWValid = false, SoundValid = false;
@@ -156,19 +156,20 @@ game_context Init(game_memory *Memory)
         char WindowName[64];
         snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
 
-        Context.Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
-        if(Context.Window)
+        Context->Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
+        if(Context->Window)
         {
-            glfwMakeContextCurrent(Context.Window);
+            Context->RenderResources.RH = &Memory->ResourceHelper;
+            glfwMakeContextCurrent(Context->Window);
 
             // TODO - Only in windowed mode for debug
-		    glfwSetWindowPos(Context.Window, Config.WindowX, Config.WindowY);
+		    glfwSetWindowPos(Context->Window, Config.WindowX, Config.WindowY);
             glfwSwapInterval(Config.VSync);
 
-            glfwSetKeyCallback(Context.Window, ProcessKeyboardEvent);
-            glfwSetMouseButtonCallback(Context.Window, ProcessMouseButtonEvent);
-            glfwSetScrollCallback(Context.Window, ProcessMouseWheelEvent);
-            glfwSetWindowSizeCallback(Context.Window, ProcessWindowSizeEvent);
+            glfwSetKeyCallback(Context->Window, ProcessKeyboardEvent);
+            glfwSetMouseButtonCallback(Context->Window, ProcessMouseButtonEvent);
+            glfwSetScrollCallback(Context->Window, ProcessMouseWheelEvent);
+            glfwSetWindowSizeCallback(Context->Window, ProcessWindowSizeEvent);
             glfwSetErrorCallback(ProcessErrorEvent);
 
             GLEWValid = (GLEW_OK == glewInit());
@@ -188,18 +189,18 @@ game_context Init(game_memory *Memory)
 
                 ResizeWidth = Config.WindowWidth;
                 ResizeHeight = Config.WindowHeight;
-                Context.WindowWidth = Config.WindowWidth;
-                Context.WindowHeight = Config.WindowHeight;
-                Context.FOV = Config.FOV;
-                Context.ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
+                Context->WindowWidth = Config.WindowWidth;
+                Context->WindowHeight = Config.WindowHeight;
+                Context->FOV = Config.FOV;
+                Context->ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
                         Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 10000.f);
-                Context.ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
+                Context->ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
-                Context.WireframeMode = false;
-                Context.ClearColor = vec4f(0.01f, 0.19f, 0.31f, 0.f);
-                Context.GameConfig = &Config;
+                Context->WireframeMode = false;
+                Context->ClearColor = vec4f(0.01f, 0.19f, 0.31f, 0.f);
+                Context->GameConfig = &Config;
 
-                glClearColor(Context.ClearColor.x, Context.ClearColor.y, Context.ClearColor.z, Context.ClearColor.w);
+                glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
 
                 glEnable(GL_CULL_FACE);
                 glCullFace(GL_BACK);
@@ -215,24 +216,22 @@ game_context Init(game_memory *Memory)
                 glEnable(GL_PROGRAM_POINT_SIZE);
 
                 {
-                    path TexPath;
-                    image Image;
+                    //image *Image;
 
-                    MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_diffuse.png");
-                    Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
-                    Context.DefaultDiffuseTexture = Make2DTexture(&Image, false, false, 1);
-                    DestroyImage(&Image);
+                    //Image = ResourceLoadImage(&Context.RenderResources, "data/default_diffuse.png", false);
+                    //Context.RenderResources.DefaultDiffuseTexture = Make2DTexture(Image, false, false, 1);
+                    Context->RenderResources.DefaultDiffuseTexture = 
+                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
 
-                    MakeRelativePath(TexPath, Memory->ExecutableFullPath, "data/default_normal.png");
-                    Image = ResourceLoadImage(Memory->ExecutableFullPath, TexPath, false);
-                    Context.DefaultNormalTexture = Make2DTexture(&Image, false, false, 1);
-                    DestroyImage(&Image);
+                    //Image = ResourceLoadImage(&Context.RenderResources, "data/default_normal.png", false);
+                    //Context.RenderResources.DefaultNormalTexture = Make2DTexture(Image, false, false, 1);
+                    Context->RenderResources.DefaultNormalTexture= 
+                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
 #if RADAR_WIN32
-                    Context.DefaultFont = ResourceLoadFont(Memory, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
+                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
 #else
-                    Context.DefaultFont = ResourceLoadFont(Memory, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
 #endif
-                    Context.DefaultFontTexture = Context.DefaultFont.AtlasTextureID;
                 }
             }
             else
@@ -255,8 +254,8 @@ game_context Init(game_memory *Memory)
     if(GLFWValid && GLEWValid && SoundValid)
     {
         // NOTE - IsRunning might be better elsewhere ?
-        Context.IsRunning = true;
-        Context.IsValid = true;
+        Context->IsRunning = true;
+        Context->IsValid = true;
     }
 
     return Context;
@@ -318,6 +317,7 @@ void GetFrameInput(game_context *Context, game_input *Input)
 void Destroy(game_context *Context)
 {
     sound::Destroy();
+    ResourceFree(&Context->RenderResources);
 
     if(Context->Window)
     {

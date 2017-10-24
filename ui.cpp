@@ -59,11 +59,11 @@ void Init(game_context *Context)
     glBindVertexArray(0);
 }
 
-void ReloadShaders(game_memory *Memory, game_context *Context, path ExecFullPath)
+void ReloadShaders(game_memory *Memory, game_context *Context)
 {
     path VSPath, FSPath;
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/ui_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/ui_frag.glsl");
+    MakeRelativePath(&Memory->ResourceHelper, VSPath, "data/shaders/ui_vert.glsl");
+    MakeRelativePath(&Memory->ResourceHelper, FSPath, "data/shaders/ui_frag.glsl");
     Program = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program);
     SendInt(glGetUniformLocation(Program, "Texture0"), 0);
@@ -115,7 +115,7 @@ void BeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
 
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
-    RenderInfo->TextureID = Context->DefaultDiffuseTexture;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
     RenderInfo->Color = Color;
 
     IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
@@ -128,7 +128,7 @@ void BeginPanel(char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
     ++RenderCmdCount;
 
     // Add panel title as text
-    MakeText(PanelTitle, &Context->DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
+    MakeText(PanelTitle, Context->RenderResources.DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
 }
 
 void EndPanel()

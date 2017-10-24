@@ -1,12 +1,12 @@
 #include "utils.h"
 
-void MakeRelativePath(char *Dst, char const *Path, char const *Filename)
+void MakeRelativePath(resource_helper *RH, path Dst, path const Filename)
 {
-    strncpy(Dst, Path, MAX_PATH);
+    strncpy(Dst, RH->ExecutablePath, MAX_PATH);
     strncat(Dst, Filename, MAX_PATH);
 }
 
-void *ReadFileContents(memory_arena *Arena, char const *Filename, int32 *FileSize)
+void *ReadFileContents(memory_arena *Arena, path const Filename, int32 *FileSize)
 {
     char *Contents = NULL;
     FILE *fp = fopen(Filename, "rb");

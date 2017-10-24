@@ -5,6 +5,89 @@
 #include "stb_image.h"
 #include "stb_truetype.h"
 
+static resource_store *GetStore(render_resources *RenderResources, render_resource_type Type)
+{
+    switch(Type)
+    {
+        case RESOURCE_IMAGE:
+            return &RenderResources->Images;
+        case RESOURCE_FONT:
+            return &RenderResources->Fonts;
+        case RESOURCE_TEXTURE:
+            return &RenderResources->Textures;
+        default:
+            return NULL;
+    }
+}
+
+void *ResourceCheckExist(render_resources *RenderResources, render_resource_type Type, path const Filename)
+{
+    Assert(Type < RESOURCE_COUNT);
+    printf("Checking for resource %s\n", (char*)Filename);
+
+    resource_store *Store = GetStore(RenderResources, Type);
+    if(Store)
+    {
+        for(int i = 0; i < Store->Keys.size(); ++i)
+        {
+            if(!strncmp(Store->Keys[i], Filename, MAX_PATH))
+            {
+                printf("Found %s, returning it\n", Filename);
+                return Store->Values[i];
+            }
+        }
+    }
+
+    return NULL;
+}
+
+void ResourceStore(render_resources *RenderResources, render_resource_type Type, path const Filename, void *Resource)
+{
+    Assert(Type < RESOURCE_COUNT);
+
+    resource_store *Store = GetStore(RenderResources, Type);
+    if(Store)
+    {
+        printf("Storing %s [%llu]\n", Filename, (uint64)Resource);
+        Store->Keys.push_back((char*)Filename);
+        Store->Values.push_back(Resource);
+    }
+}
+
+void ResourceFree(render_resources *RenderResources)
+{
+    resource_store *Store;
+    {
+        Store = &RenderResources->Images;
+        for(uint32 i = 0; i < Store->Values.size(); ++i)
+        {
+            printf("Destroying image %s\n", Store->Keys[i]);
+            DestroyImage((image*)Store->Values[i]);
+        }
+        Store->Values.clear();
+        Store->Keys.clear();
+    }
+    {
+        Store = &RenderResources->Fonts;
+        for(uint32 i = 0; i < Store->Values.size(); ++i)
+        {
+            printf("Destroying font %s\n", Store->Keys[i]);
+        }
+        Store->Values.clear();
+        Store->Keys.clear();
+    }
+    {
+        Store = &RenderResources->Textures;
+        for(uint32 i = 0; i < Store->Values.size(); ++i)
+        {
+            printf("Destroying texture %s\n", Store->Keys[i]);
+            glDeleteTextures(1, (uint32*)Store->Values[i]);
+        }
+        Store->Values.clear();
+        Store->Keys.clear();
+    }
+}
+
 void CheckGLError(const char *Mark)
 {
     uint32 Err = glGetError();
@@ -30,34 +113,33 @@ void CheckGLError(const char *Mark)
     }
 }
 
-image ResourceLoadImage(path const ExecutablePath, path const Filename, bool IsFloat, bool FlipY, int32 ForceNumChannel)
+image *ResourceLoadImage(render_resources *RenderResources, path const Filename, bool IsFloat, bool FlipY, int32 ForceNumChannel)
 {
-    image Image = {};
+    path ResourceName;
+    MakeRelativePath(RenderResources->RH, ResourceName, Filename);
+    void *LoadedResource = ResourceCheckExist(RenderResources, RESOURCE_IMAGE, Filename);
+
+    if(LoadedResource)
+    {
+        return (image*)LoadedResource;
+    }
+
+    game_memory *Memory = RenderResources->RH->Memory;
+    image *Image = (image*)PushArenaStruct(&Memory->SessionArena, image);
     stbi_set_flip_vertically_on_load(FlipY ? 1 : 0); // NOTE - Flip Y so textures are Y-descending
 
     if(IsFloat)
-        Image.Buffer = stbi_loadf(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
+        Image->Buffer = stbi_loadf(ResourceName, &Image->Width, &Image->Height, &Image->Channels, ForceNumChannel);
     else
-        Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
+        Image->Buffer = stbi_load(ResourceName, &Image->Width, &Image->Height, &Image->Channels, ForceNumChannel);
 
-    // TODO - This is shit, a resource manager should have the default resources and assign them in fail cases. exit(1) shouldnt be called from a load function........
-    if(!Image.Buffer)
+    if(!Image->Buffer)
     {
-        printf("Error loading Image from %s. Loading default white texture.\n", Filename);
-        path DefaultPath;
-        MakeRelativePath(DefaultPath, ExecutablePath, "data/default_diffuse.png");
-        if(IsFloat)
-            Image.Buffer = stbi_loadf(DefaultPath, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
-        else
-            Image.Buffer = stbi_load(Filename, &Image.Width, &Image.Height, &Image.Channels, ForceNumChannel);
-
-        if(!Image.Buffer)
-        {
-            printf("Can't find default white texture (data/default_diffuse.png). Aborting... \n");
-            //exit(1);
-        }
-            
+        printf("Error loading Image from %s. Aborting..\n", ResourceName);
+        return NULL;
     }
+
+    ResourceStore(RenderResources, RESOURCE_IMAGE, Filename, Image);
 
     return Image;
 }
@@ -148,10 +230,29 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
 
 uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel)
 {
-    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, FloatHalfPrecision, AnisotropicLevel);
+    return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, FloatHalfPrecision, AnisotropicLevel,
+                         GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 }
 
-uint32 MakeCubemap(path ExecutablePath, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height)
+uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
+                              uint32 AnisotropicLevel, int32 ForceNumChannel)
+{
+    void *LoadedResource = ResourceCheckExist(RenderResources, RESOURCE_TEXTURE, Filename);
+    if(LoadedResource)
+    {
+        return (uint32*)LoadedResource;
+    }
+
+    game_memory *Memory = RenderResources->RH->Memory;
+    uint32 *Tex = (uint32*)PushArenaStruct(&Memory->SessionArena, uint32);
+    *Tex = Make2DTexture(ResourceLoadImage(RenderResources, Filename, IsFloat, ForceNumChannel), 
+                         IsFloat, FloatHalfPrecision, AnisotropicLevel);
+
+    ResourceStore(RenderResources, RESOURCE_TEXTURE, Filename, Tex);
+    return Tex;
+}
+
+uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height)
 {
     uint32 Cubemap = 0;
 
@@ -163,17 +264,15 @@ uint32 MakeCubemap(path ExecutablePath, path *Paths, bool IsFloat, bool FloatHal
     { // Load each face
         if(Paths)
         { // For loading from texture files
-            image Face = ResourceLoadImage(ExecutablePath, Paths[i], IsFloat);
+            image *Face = ResourceLoadImage(RenderResources, Paths[i], IsFloat);
 
             GLint BaseFormat, Format;
-            FormatFromChannels(Face.Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
+            FormatFromChannels(Face->Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
             GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
 
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face.Width, Face.Height,
-                    0, Format, Type, Face.Buffer);
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, Face->Width, Face->Height,
+                    0, Format, Type, Face->Buffer);
             CheckGLError("SkyboxFace");
-
-            DestroyImage(&Face);
         }
         else
         { // Empty Cubemap
@@ -281,16 +380,33 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
 
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
-font ResourceLoadFont(game_memory *Memory, char const *Filename, real32 PixelHeight)
+font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 FontHeight)
 {
-    font Font = {};
+    game_memory *Memory = RenderResources->RH->Memory;
+
+    if(FontHeight >= 1000) FontHeight = 999; // be realist..
+    real32 PixelHeight = (real32)FontHeight;
+
+    path *ResourceName = (path*)PushArenaData(&Memory->SessionArena, MAX_PATH);
+    uint32 FilenameLen = strlen(Filename);
+    Assert(FilenameLen < (MAX_PATH-4));
+    strncpy(*ResourceName, Filename, FilenameLen); // to add the 3 size characters + \0
+    sprintf(*ResourceName + FilenameLen, "%d", (int32)FontHeight);
+
+    void *LoadedResource = ResourceCheckExist(RenderResources, RESOURCE_FONT, *ResourceName);
+    if(LoadedResource)
+    {
+        return (font*)LoadedResource;
+    }
+
+    font *Font = (font*)PushArenaStruct(&Memory->SessionArena, font);
 
     void *Contents = ReadFileContents(&Memory->ScratchArena, Filename, 0);
     if(Contents)
     {
-        Font.Width = 1024;
-        Font.Height = 1024;
-        Font.Buffer = (uint8*)PushArenaData(&Memory->SessionArena, Font.Width*Font.Height);
+        Font->Width = 1024;
+        Font->Height = 1024;
+        Font->Buffer = (uint8*)PushArenaData(&Memory->SessionArena, Font->Width*Font->Height);
 
         stbtt_fontinfo STBFont;
         stbtt_InitFont(&STBFont, (uint8*)Contents, 0);
@@ -301,8 +417,8 @@ font ResourceLoadFont(game_memory *Memory, char const *Filename, real32 PixelHei
         Ascent *= PixelScale;
         Descent *= PixelScale;
 
-        Font.LineGap = Ascent - Descent;
-        Font.Ascent = Ascent;
+        Font->LineGap = Ascent - Descent;
+        Font->Ascent = Ascent;
 
 
         real32 X = 0, Y = 0;
@@ -323,34 +439,36 @@ font ResourceLoadFont(game_memory *Memory, char const *Filename, real32 PixelHei
             int CH = Y1 - Y0;
             real32 AdvanceX = (AdvX /*+ AdvKern*/) * PixelScale;
 
-            if(X + CW >= Font.Width)
+            if(X + CW >= Font->Width)
             {
                 X = 0;
                 Y += LineGap + Ascent + Descent;
-                Assert((Y + Ascent - Descent) < Font.Height);
+                Assert((Y + Ascent - Descent) < Font->Height);
             }
 
              glyph TmpGlyph = { 
                 X0, Y0,
-                (X + X0)/(real32)Font.Width, (Y + Ascent + Y0)/(real32)Font.Height, 
-                (X + X1)/(real32)Font.Width, (Y + Ascent + Y1)/(real32)Font.Height, 
+                (X + X0)/(real32)Font->Width, (Y + Ascent + Y0)/(real32)Font->Height, 
+                (X + X1)/(real32)Font->Width, (Y + Ascent + Y1)/(real32)Font->Height, 
                 CW, CH, AdvanceX
             };
-            Font.Glyphs[Codepoint-32] = TmpGlyph;
+            Font->Glyphs[Codepoint-32] = TmpGlyph;
 
             int CharX = X + X0;
             int CharY = Y + Ascent + Y0;
 
-            uint8 *BitmapPtr = Font.Buffer + (CharY * Font.Width + CharX);
-            stbtt_MakeGlyphBitmapSubpixel(&STBFont, BitmapPtr, CW, CH, Font.Width, PixelScale, PixelScale, ShiftX, 0, Glyph);
+            uint8 *BitmapPtr = Font->Buffer + (CharY * Font->Width + CharX);
+            stbtt_MakeGlyphBitmapSubpixel(&STBFont, BitmapPtr, CW, CH, Font->Width, PixelScale, PixelScale, ShiftX, 0, Glyph);
 
             X += AdvanceX;
         }
 
         // Make Texture out of the Bitmap
-        Font.AtlasTextureID = Make2DTexture(Font.Buffer, Font.Width, Font.Height, 1, false, false, 1.0f);
+        Font->AtlasTextureID = Make2DTexture(Font->Buffer, Font->Width, Font->Height, 1, false, false, 1.0f,
+                             GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     }
 
+    ResourceStore(RenderResources, RESOURCE_FONT, *ResourceName, Font);
 
     return Font;
 }
@@ -1021,9 +1139,10 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs)
     return Sphere;
 }
 
-void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const *HDREnvmapFilename, 
+void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDREnvmapFilename, 
         uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap)
 {
+    game_memory *Memory = RenderResources->RH->Memory;
     // TODO - Parameterize this ?
     uint32 CubemapWidth = 512;
     uint32 IrradianceCubemapWidth = 32;
@@ -1033,15 +1152,15 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
 
     path VSPath;
     path FSPath;
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/latlong2cubemap_frag.glsl");
+    MakeRelativePath(RenderResources->RH, VSPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(RenderResources->RH, FSPath, "data/shaders/latlong2cubemap_frag.glsl");
     ProgramLatlong2Cubemap = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramLatlong2Cubemap);
     SendInt(glGetUniformLocation(ProgramLatlong2Cubemap, "Envmap"), 0);
     CheckGLError("Latlong Shader");
 
-    MakeRelativePath(VSPath, ExecFullPath, "data/shaders/skybox_vert.glsl");
-    MakeRelativePath(FSPath, ExecFullPath, "data/shaders/cubemapconvolution_frag.glsl");
+    MakeRelativePath(RenderResources->RH, VSPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(RenderResources->RH, FSPath, "data/shaders/cubemapconvolution_frag.glsl");
     ProgramCubemapConvolution = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramCubemapConvolution);
     SendInt(glGetUniformLocation(ProgramCubemapConvolution, "Cubemap"), 0);
@@ -1049,13 +1168,10 @@ void ComputeIrradianceCubemap(game_memory *Memory, path ExecFullPath, char const
 
     frame_buffer FBOEnvmap = MakeFramebuffer(1, vec2i(CubemapWidth, CubemapWidth));
 
-    path HDREnvmapImagePath;
-    MakeRelativePath(HDREnvmapImagePath, ExecFullPath, HDREnvmapFilename);
-    image HDREnvmapImage = ResourceLoadImage(Memory->ExecutableFullPath, HDREnvmapImagePath, true);
+    image *HDREnvmapImage = ResourceLoadImage(RenderResources, HDREnvmapFilename, true);
 
-    uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage.Buffer, HDREnvmapImage.Width, HDREnvmapImage.Height,
-            HDREnvmapImage.Channels, true, false, 1);
-    DestroyImage(&HDREnvmapImage);
+    uint32 HDRLatlongEnvmap = Make2DTexture(HDREnvmapImage->Buffer, HDREnvmapImage->Width, HDREnvmapImage->Height,
+            HDREnvmapImage->Channels, true, false, 1, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_MIRRORED_REPEAT);
 
     mesh SkyboxCube = MakeUnitCube(false);
 

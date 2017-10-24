@@ -15,18 +15,13 @@
 struct game_context
 {
     GLFWwindow *Window;
+    render_resources RenderResources;
 
     mat4f ProjectionMatrix3D;
     mat4f ProjectionMatrix2D;
 
     bool WireframeMode;
     vec4f ClearColor;
-
-    uint32 DefaultDiffuseTexture;
-    uint32 DefaultNormalTexture;
-
-    font   DefaultFont;
-    uint32 DefaultFontTexture;
 
     real32 FOV;
     int WindowWidth;
@@ -45,7 +40,7 @@ struct game_context
 
 namespace Context
 {
-    game_context Init(game_memory *Memory);
+    game_context *Init(game_memory *Memory);
     void Destroy(game_context *Context);
 
     void WindowResized(game_context *Context);
