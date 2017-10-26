@@ -228,9 +228,9 @@ game_context *Init(game_memory *Memory)
                     Context->RenderResources.DefaultNormalTexture= 
                         ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
 #if RADAR_WIN32
-                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 24);
+                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
 #else
-                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 24);
+                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
                 }
             }

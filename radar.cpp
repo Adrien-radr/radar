@@ -210,11 +210,12 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
         ui::MakeText(Line->String, Font, Line->Position, Line->Color, Context->WindowWidth);
     }
 
-#if 0
-    ui::BeginPanel("Title is a pretty long sentence", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
+#if 1
+    static uint32 id1, id2;
+    ui::BeginPanel(&id1, "Panel 1", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
     ui::EndPanel();
 
-    ui::BeginPanel("Title2", vec3i(600, 150, 1), vec2i(200, 100), col4f(1,0,0,0.5));
+    ui::BeginPanel(&id2, "Panel 2", vec3i(600, 150, 1), vec2i(200, 100), col4f(1,0,0,0.5));
     ui::EndPanel();
 #endif
 }
@@ -435,7 +436,8 @@ int RadarMain(int argc, char **argv)
             ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
 
-            {
+#if 0
+            { // NOTE - Model rendering test
                 glCullFace(GL_BACK);
                 glUseProgram(Program3D);
                 {
@@ -476,6 +478,7 @@ int RadarMain(int argc, char **argv)
                     glDrawElements(GL_TRIANGLES, gltfCube.Mesh[i].IndexCount, gltfCube.Mesh[i].IndexType, 0);
                 }
             }
+#endif
 
 #if 0
             { // NOTE - CUBE DRAWING Test Put somewhere else
@@ -561,7 +564,7 @@ int RadarMain(int argc, char **argv)
             }
 #endif
 
-#if 1
+#if 0
             Water::Update(State, System->WaterSystem, &Input);
             Water::Render(State, System->WaterSystem, EnvmapToUse, HDRIrradianceEnvmap);
 #endif

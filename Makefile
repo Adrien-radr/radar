@@ -25,7 +25,6 @@ SRCS= \
 	water.cpp \
 	radar.cpp
 OBJ_DIR=obj/
-OBJS=$(patsubst %.cpp,$(OBJ_DIR)%.obj,$(SRCS))
 INCLUDES=radar.h
 
 LIB_SRCS=sun.cpp
@@ -45,6 +44,8 @@ STB_TARGET=ext/stb.lib
 STB_OBJECT=ext/stb.obj
 OPENAL_LIB=ext/openal-soft/build/Release
 GLFW_LIB=ext/glfw/build/x64/Release
+
+OBJS=$(patsubst %.cpp,$(OBJ_DIR)%.obj,$(SRCS))
 
 CC=cl /nologo
 STATICLIB=lib /nologo
@@ -109,6 +110,8 @@ SFMT_TARGET=ext/sfmt/libSFMT.a
 STB_TARGET=ext/libstb.a
 STB_OBJECT=ext/stb.o
 
+OBJS=$(patsubst %.cpp,$(OBJ_DIR)%.o,$(SRCS))
+
 CC=g++
 CFLAGS=-Wno-unused-variable -Wno-unused-parameter -Wno-write-strings -D_CRT_SECURE_NO_WARNINGS -DSFMT_MEXP=19937 -std=c++11 -pedantic
 DEBUG_FLAGS=-g -DDEBUG -Wall -Wextra
@@ -151,9 +154,13 @@ lib:
 	@echo "LIB $(LIB_TARGET)"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -I$(SFMT_INCLUDE) -o $(LIB_TARGET)
 
-radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET)
+$(OBJ_DIR)%.o: %.cpp
+	@echo "CC $@"
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
+
+radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET) $(OBJS)
 	@echo "CC $(TARGET)"
-	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(SRCS) $(INCLUDE_FLAGS) $(LIB_FLAGS) -o $(TARGET)
+	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(OBJS) $(INCLUDE_FLAGS) $(LIB_FLAGS) -o $(TARGET)
 
 endif
 #$(error OS not compatible. Only Win32 and Linux for now.)

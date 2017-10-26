@@ -1,8 +1,8 @@
 {
-    "iWindowX" : 200,
+    "iWindowX" : 1200,
     "iWindowY" : 200,
-    "iWindowWidth" : 960,
-    "iWindowHeight" : 540,
+    "iWindowWidth" : 800,
+    "iWindowHeight" : 450,
     "iMSAA" : 0,
     "bFullScreen" : 0,
     "bVSync" : 0,
@@ -15,8 +15,8 @@
 
     "OLDvCameraPosition" : [30, 20, 30],
     "OLDvCameraTarget" : [0, 0, 0],
-    "vCameraPosition" : [4.1, 1.1, 5.3],
-    "vCameraTarget" : [3.5, 0.92, 4.5],
+    "vCameraPosition" : [-15, 8.2, 26],
+    "vCameraTarget" : [-14, 8.2, 25],
 
     "vDebugFontColor" : [1, 0, 0]
 }
