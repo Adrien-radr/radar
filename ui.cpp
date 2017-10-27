@@ -64,6 +64,7 @@ struct render_info
     void        *ID;
     void        *ParentID;
     widget_type Type;
+    uint32      TotalWidgetSize;    // Size in bytes of the widget and all its children
 };
 
 struct vertex
@@ -175,6 +176,8 @@ void MakeText(char const *Text, font *Font, vec3i Position, col4f Color, int Max
     uint32 VertexCount = MsgLength * 4;
     uint32 IndexCount = MsgLength * 6;
 
+    bool NoParent = IsRootWidget();
+
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena, render_info);
     vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena, VertexCount * sizeof(vertex));
     // NOTE - Because of USHORT max is 65535, Cant fit more than 10922 characters per Text
@@ -186,10 +189,16 @@ void MakeText(char const *Text, font *Font, vec3i Position, col4f Color, int Max
     RenderInfo->TextureID = Font->AtlasTextureID;
     RenderInfo->Color = Color;
     RenderInfo->ID = ID;
-    RenderInfo->ParentID = IsRootWidget() ? NULL : ParentID[ParentLayer];
+    RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
+    RenderInfo->TotalWidgetSize = 0;
 
     vec3i DisplayPos = vec3i(Position.x, Context->WindowHeight - Position.y, Position.z);
     FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+
+    if(NoParent)
+    {
+        RenderInfo->TotalWidgetSize = ((uint8*)(RenderCmdArena.BasePtr + RenderCmdArena.Size)) - ((uint8*)RenderInfo);
+    }
 
     ++RenderCmdCount;
 }
@@ -208,13 +217,20 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena, 4 * sizeof(vertex));
     uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena, 6 * sizeof(uint16));
 
+    bool NoParent = IsRootWidget();
+
     RenderInfo->Type = WIDGET_PANEL
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
     RenderInfo->Color = Color;
     RenderInfo->ID = ID;
-    RenderInfo->ParentID = IsRootWidget() ? NULL : ParentID[ParentLayer];
+    RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
+
+    if(NoParent)
+    {
+        LastRootWidget = ID;
+    }
 
     int const Y = Context->WindowHeight;
     vec2f TL(Position.x, Y - Position.y);
@@ -253,6 +269,13 @@ void EndPanel()
 {
     // TODO - Keep track of per-panel info, stacking, layout etc
     --ParentLayer;
+
+    // Compute size in byte of the Panel and all its children
+    uint8 *Cmd = (uint8*)RenderCmdInfo;
+    uint8 *PanelPtr = (uint8*)LastRootWidget;
+    uint32 Offset = PanelPtr - Cmd;
+    render_info *PanelRenderInfo = (render_info*)RenderCmdOffset(Cmd, &Offset, sizeof(render_info));
+    PanelRenderInfo->TotalWidgetSize = ((uint8*)(RenderCmdArena.BasePtr + RenderCmdArena.Size)) - PanelPtr;
 }
 
 static bool FindPanelID(void *ID)
@@ -289,16 +312,21 @@ static void UpdateOrder()
     }
 
     // Extend the RenderCmd Stack by same amount to prepare duplicacy
-    if(RenderCmdArena.Size < RenderCmdArena.Capacity/2)
+    if(RenderCmdArena.Size > 0)
     {
-        OrderedRenderCmd = PushArenaData(&RenderCmdArena, RenderCmdArena.Size);
-        for(uint32 i = 0; i < RenderCmdCount; ++i)
+        if(RenderCmdArena.Size < RenderCmdArena.Capacity/2)
         {
+            OrderedRenderCmd = PushArenaData(&RenderCmdArena, RenderCmdArena.Size);
+
+            render_info *Info = (render_info*)RenderCmdArena.BasePtr;
+            while(Info && Info->ParentID == NULL)
+            {
+            }
         }
-    }
-    else
-    {
-        printf("Error : UI Data Stack(%d) not large enough for UI rendering !\n", UI_STACK_SIZE);
+        else
+        {
+            printf("Error : UI Data Stack(%d) not large enough for UI rendering !\n", UI_STACK_SIZE);
+        }
     }
 }
 
