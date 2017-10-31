@@ -3,8 +3,8 @@
 
 
 #define UI_STACK_SIZE Megabytes(8)
+#define UI_MAX_PANELS 64
 #define UI_PARENT_SIZE 10
-#define UI_MAX_PANELS 100
 
 
 #define UI_Z_DOWN 0.001
@@ -16,12 +16,13 @@ game_input static   *Input;
 
 uint32 PanelCount;
 uint32 PanelCountNext;
-void *FramePanels[UI_MAX_PANELS]; // Panels asked to be drawn from the code
-void *PanelOrder[UI_MAX_PANELS];  // Reordering of the above according to focus
 void *ParentID[UI_PARENT_SIZE]; // ID stack of the parent of the current widgets, changes when a panel is begin and ended
+uint32 PanelOrder[UI_MAX_PANELS];
 uint32 ParentLayer;             // Current Parent layer widgets are attached to
 void *HoverID;      // ID of the widget that has the hover focus (mouse hovered)
 void *HoverNextID;
+uint32 HoverPanelIdx;
+uint32 HoverNextPanelIdx;
 void *FocusID;      // ID of the widget that has the focus (clicked)
 void *FocusNextID;      
 
@@ -44,10 +45,9 @@ uint32 static VBO[2];
 // 1 render_info
 // 1 array of vertex
 // 1 array of uint16 for the indices
-void static *RenderCmd;
-void static *OrderedRenderCmd;
-uint32 static RenderCmdCount;
-memory_arena static RenderCmdArena;
+void static *RenderCmd[UI_MAX_PANELS];
+uint32 static RenderCmdCount[UI_MAX_PANELS];
+memory_arena static RenderCmdArena[UI_MAX_PANELS];
 
 enum widget_type {
     WIDGET_PANEL,
@@ -64,7 +64,6 @@ struct render_info
     void        *ID;
     void        *ParentID;
     widget_type Type;
-    uint32      TotalWidgetSize;    // Size in bytes of the widget and all its children
 };
 
 struct vertex
@@ -98,14 +97,20 @@ void Init(game_context *Context)
     HoverID = HoverNextID = NULL;
     FocusID = FocusNextID = NULL;
     memset(HoverTitleNext, 0, 64);
+    HoverPanelIdx = HoverNextPanelIdx = 0;
     strncpy(FocusTitleNext, "None", 64);
     memset(FocusTitleCurrent, 0, 64);
 
-    PanelCount = PanelCountNext = 0;
-    memset(PanelOrder, NULL, sizeof(void*) * UI_MAX_PANELS);
+    // 1 panel at the start : the 'backpanel' where floating widgets are stored
+    PanelCount = PanelCountNext = 1;
 
     ParentLayer = 0;
-    memset(ParentID, NULL, sizeof(void*) * UI_PARENT_SIZE);
+    memset(ParentID, 0, sizeof(void*) * UI_PARENT_SIZE);
+
+    for(uint32 i = 0; i < UI_MAX_PANELS; ++i)
+    {
+        PanelOrder[i] = i;
+    }
 }
 
 void ReloadShaders(game_memory *Memory, game_context *Context)
@@ -129,21 +134,25 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     System->UIStack = (ui_frame_stack*)PushArenaStruct(&Memory->ScratchArena, ui_frame_stack);
 
-    RenderCmd = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE);    
-    InitArena(&RenderCmdArena, UI_STACK_SIZE, RenderCmd);
-    RenderCmdCount = 0;
-    LastRootWidget = RenderCmd;
+    // TODO -  probably this can be done with 1 'alloc' and redirections in the buffer
+    for(uint32 p = 0; p < UI_MAX_PANELS; ++p)
+    {
+        RenderCmd[p] = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE/UI_MAX_PANELS);    
+        InitArena(&RenderCmdArena[p], UI_STACK_SIZE/UI_MAX_PANELS, RenderCmd[p]);
+    }
+    memset(RenderCmdCount, 0, UI_MAX_PANELS * sizeof(uint32));
+    LastRootWidget = RenderCmd[0];
 
     ui::Input = Input;
 
     ParentLayer = 0;
     HoverID = HoverNextID;
+    HoverPanelIdx = HoverNextPanelIdx;
     HoverNextID = NULL;
     FocusID = FocusNextID;
 
-    PanelCount = PanelCountNext
-    PanelCountNext = 0;
-    memset(FramePanels, NULL, sizeof(void*) * UI_MAX_PANELS);
+    PanelCount = PanelCountNext;
+    PanelCountNext = 1;
 
     // TMP
     strncpy(HoverTitleCurrent, HoverTitleNext, 64);
@@ -152,10 +161,10 @@ void BeginFrame(game_memory *Memory, game_input *Input)
 
     char Text[64];
     snprintf(Text, 64, "Current Hover : %s", HoverTitleCurrent);
-    MakeText(Text, Context->RenderResources.DefaultFont, vec3f(600, 10, 0), Context->GameConfig->DebugFontColor, Context->WindowWidth);
+    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 10, 0), Context->GameConfig->DebugFontColor, Context->WindowWidth);
 
     snprintf(Text, 64, "Current Focus : %s", FocusTitleCurrent);
-    MakeText(Text, Context->RenderResources.DefaultFont, vec3f(600, 24, 0), Context->GameConfig->DebugFontColor, Context->WindowWidth);
+    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 24, 0), Context->GameConfig->DebugFontColor, Context->WindowWidth);
 
     // Reset the FocusID to None if we have a mouse click, future frame widgets will change that
     if(MOUSE_DOWN(Input->MouseLeft))
@@ -170,18 +179,20 @@ static bool IsRootWidget()
     return ParentLayer == 0;
 }
 
-void MakeText(char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth)
+void MakeText(void *ID, char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth)
 {
-    uint32 MsgLength = strlen(Text);
-    uint32 VertexCount = MsgLength * 4;
-    uint32 IndexCount = MsgLength * 6;
+    uint32 const MsgLength = strlen(Text);
+    uint32 const VertexCount = MsgLength * 4;
+    uint32 const IndexCount = MsgLength * 6;
 
-    bool NoParent = IsRootWidget();
+    bool const NoParent = IsRootWidget();
+    uint32 const PanelIdx = NoParent ? 0 : PanelCount;
 
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena, render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena, VertexCount * sizeof(vertex));
+
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], VertexCount * sizeof(vertex));
     // NOTE - Because of USHORT max is 65535, Cant fit more than 10922 characters per Text
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena, IndexCount * sizeof(uint16));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], IndexCount * sizeof(uint16));
 
     RenderInfo->Type = WIDGET_TEXT;
     RenderInfo->VertexCount = VertexCount;
@@ -190,17 +201,11 @@ void MakeText(char const *Text, font *Font, vec3i Position, col4f Color, int Max
     RenderInfo->Color = Color;
     RenderInfo->ID = ID;
     RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
-    RenderInfo->TotalWidgetSize = 0;
 
     vec3i DisplayPos = vec3i(Position.x, Context->WindowHeight - Position.y, Position.z);
     FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
 
-    if(NoParent)
-    {
-        RenderInfo->TotalWidgetSize = ((uint8*)(RenderCmdArena.BasePtr + RenderCmdArena.Size)) - ((uint8*)RenderInfo);
-    }
-
-    ++RenderCmdCount;
+    ++(RenderCmdCount[PanelIdx]);
 }
 
 static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec2f &BottomRight)
@@ -213,13 +218,16 @@ static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec
 
 void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
 {
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena, render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena, 4 * sizeof(vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena, 6 * sizeof(uint16));
+    Assert(PanelCount < UI_MAX_PANELS);
+    uint32 const PanelIdx = PanelCount;
+
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], 6 * sizeof(uint16));
 
     bool NoParent = IsRootWidget();
 
-    RenderInfo->Type = WIDGET_PANEL
+    RenderInfo->Type = WIDGET_PANEL;
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
@@ -242,50 +250,25 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     VertData[2] = UIVertex(vec3f(BR.x, BR.y, Position.z), vec2f(1.f, 1.f));
     VertData[3] = UIVertex(vec3f(BR.x, TL.y, Position.z), vec2f(1.f, 0.f));
 
-    ++RenderCmdCount;
+    ++(RenderCmdCount[PanelIdx]);
     ParentID[ParentLayer++] = ID;
-    FramePanels[PanelCount++] = ID;
 
     // Add panel title as text
-    MakeText(PanelTitle, Context->RenderResources.DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
+    MakeText(NULL, PanelTitle, Context->RenderResources.DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
 
-    // TODO - push that to a 2nd pass that sorts shit
-#if 0
     if(PointInRectangle(vec2f(Input->MousePosX, Y - Input->MousePosY), TL, BR))
     {
         HoverNextID = ID;
+        HoverNextPanelIdx = PanelCount;
         strncpy(HoverTitleNext, PanelTitle, 64);
-
-        if(MOUSE_DOWN(Input->MouseLeft))
-        {
-            FocusNextID = ID;
-            strncpy(FocusTitleNext, PanelTitle, 64);
-        }
     }
-#endif
 }
 
 void EndPanel()
 {
     // TODO - Keep track of per-panel info, stacking, layout etc
     --ParentLayer;
-
-    // Compute size in byte of the Panel and all its children
-    uint8 *Cmd = (uint8*)RenderCmdInfo;
-    uint8 *PanelPtr = (uint8*)LastRootWidget;
-    uint32 Offset = PanelPtr - Cmd;
-    render_info *PanelRenderInfo = (render_info*)RenderCmdOffset(Cmd, &Offset, sizeof(render_info));
-    PanelRenderInfo->TotalWidgetSize = ((uint8*)(RenderCmdArena.BasePtr + RenderCmdArena.Size)) - PanelPtr;
-}
-
-static bool FindPanelID(void *ID)
-{
-    for(uint32 i = 0; i < PanelCount; ++i)
-    {
-        if(PanelOrder[i] == ID)
-            return true;
-    }
-    return false;
+    ++PanelCount;
 }
 
 static void UpdateOrder()
@@ -296,7 +279,29 @@ static void UpdateOrder()
 
     }
 
+#if 1
+    if(MOUSE_DOWN(Input->MouseLeft))
+    {
+        FocusNextID = HoverID;
+        strncpy(FocusTitleNext, HoverTitleCurrent, 64);
+
+        // reorder priority
+        if(PanelOrder[PanelCount-1] != HoverPanelIdx)
+        {
+            for(uint32 p = HoverPanelIdx; p < (PanelCount-1); ++p)
+            {
+                PanelOrder[p] = PanelOrder[p+1];
+            }
+            PanelOrder[PanelCount-1] = HoverPanelIdx;
+            for(uint32 i = 0; i < PanelCount; ++i)
+                printf("%d ", PanelOrder[i]);
+            printf("\n");
+        }
+    }
+#endif
+
     // Look if all the panels asked this frame are already in the sort order
+#if 0
     for(uint32 i = 0; i < PanelCountNext; ++i)
     {
         if(!FindPanelID(FramePanels[i]))
@@ -328,6 +333,7 @@ static void UpdateOrder()
             printf("Error : UI Data Stack(%d) not large enough for UI rendering !\n", UI_STACK_SIZE);
         }
     }
+#endif
 }
 
 static void *RenderCmdOffset(uint8 *CmdList, size_t *OffsetAccum, size_t Size)
@@ -343,26 +349,30 @@ void Draw()
     glUseProgram(Program);
 
     glBindVertexArray(VAO);
-    uint8 *Cmd = (uint8*)RenderCmd;
-    for(uint32 i = 0; i < RenderCmdCount; ++i)
+    for(int p = PanelCount-1; p >=0; --p)
     {
-        size_t Offset = 0;
-        render_info *RenderInfo = (render_info*)RenderCmdOffset(Cmd, &Offset, sizeof(render_info));
-        vertex *VertData = (vertex*)RenderCmdOffset(Cmd, &Offset, RenderInfo->VertexCount * sizeof(vertex));
-        uint16 *IdxData = (uint16*)RenderCmdOffset(Cmd, &Offset, RenderInfo->IndexCount * sizeof(uint16));
+        uint32 OrdPanelIdx = PanelOrder[p];
+        uint8 *Cmd = (uint8*)RenderCmd[OrdPanelIdx];
+        for(uint32 i = 0; i < RenderCmdCount[OrdPanelIdx]; ++i)
+        {
+            size_t Offset = 0;
+            render_info *RenderInfo = (render_info*)RenderCmdOffset(Cmd, &Offset, sizeof(render_info));
+            vertex *VertData = (vertex*)RenderCmdOffset(Cmd, &Offset, RenderInfo->VertexCount * sizeof(vertex));
+            uint16 *IdxData = (uint16*)RenderCmdOffset(Cmd, &Offset, RenderInfo->IndexCount * sizeof(uint16));
 
-        glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-        glBufferData(GL_ARRAY_BUFFER, RenderInfo->VertexCount * sizeof(vertex), (GLvoid*)VertData, GL_STREAM_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+            glBufferData(GL_ARRAY_BUFFER, RenderInfo->VertexCount * sizeof(vertex), (GLvoid*)VertData, GL_STREAM_DRAW);
 
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBO[0]);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderInfo->IndexCount * sizeof(uint16), (GLvoid*)IdxData, GL_STREAM_DRAW);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBO[0]);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderInfo->IndexCount * sizeof(uint16), (GLvoid*)IdxData, GL_STREAM_DRAW);
 
-        glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
+            glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
 
-        SendVec4(ColorUniformLoc, RenderInfo->Color);
-        glDrawElements(GL_TRIANGLES, RenderInfo->IndexCount, GL_UNSIGNED_SHORT, 0);
+            SendVec4(ColorUniformLoc, RenderInfo->Color);
+            glDrawElements(GL_TRIANGLES, RenderInfo->IndexCount, GL_UNSIGNED_SHORT, 0);
 
-        Cmd += Offset;
+            Cmd += Offset;
+        }
     }
     glBindVertexArray(0);
 }

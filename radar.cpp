@@ -198,7 +198,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     for(uint32 i = 0; i < Log->StringCount; ++i)
     {
         uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-        ui::MakeText(Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
+        ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
                 Context->GameConfig->DebugFontColor, Context->WindowWidth - 10);
     }
 
@@ -207,7 +207,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     {
         ui_text_line *Line = &UIStack->TextLines[i];
         // TODO - handle different fonts
-        ui::MakeText(Line->String, Font, Line->Position, Line->Color, Context->WindowWidth);
+        ui::MakeText((void*)Line, Line->String, Font, Line->Position, Line->Color, Context->WindowWidth);
     }
 
 #if 1

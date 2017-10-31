@@ -9,7 +9,7 @@ namespace ui {
     void BeginPanel(void* ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color);
     void EndPanel();
     void Draw();
-    void MakeText(char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth);
+    void MakeText(void *ID, char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth);
     void ReloadShaders(game_memory *Memory, game_context *Context);
 }
 #endif
