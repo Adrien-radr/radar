@@ -14,17 +14,22 @@ namespace ui {
 game_context static *Context;
 game_input static   *Input;
 
+struct input_state
+{
+    void   *ID;
+    uint32 Priority;
+};
+
 uint32 PanelCount;
 uint32 PanelCountNext;
 void *ParentID[UI_PARENT_SIZE]; // ID stack of the parent of the current widgets, changes when a panel is begin and ended
 uint32 PanelOrder[UI_MAX_PANELS];
+uint32 RenderOrder[UI_MAX_PANELS];
 uint32 ParentLayer;             // Current Parent layer widgets are attached to
-void *HoverID;      // ID of the widget that has the hover focus (mouse hovered)
-void *HoverNextID;
-uint32 HoverPanelIdx;
-uint32 HoverNextPanelIdx;
-void *FocusID;      // ID of the widget that has the focus (clicked)
-void *FocusNextID;      
+input_state Hover;
+input_state HoverNext;
+input_state Focus;
+input_state FocusNext;
 
 void *LastRootWidget; // Address of the last widget not attached to anything
 
@@ -94,10 +99,11 @@ void Init(game_context *Context)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    HoverID = HoverNextID = NULL;
-    FocusID = FocusNextID = NULL;
+    Hover = { NULL, 0 };
+    HoverNext = { NULL, 0 };
+    Focus = { NULL, 0 };
+    FocusNext = { NULL, 0 };
     memset(HoverTitleNext, 0, 64);
-    HoverPanelIdx = HoverNextPanelIdx = 0;
     strncpy(FocusTitleNext, "None", 64);
     memset(FocusTitleCurrent, 0, 64);
 
@@ -146,10 +152,9 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     ui::Input = Input;
 
     ParentLayer = 0;
-    HoverID = HoverNextID;
-    HoverPanelIdx = HoverNextPanelIdx;
-    HoverNextID = NULL;
-    FocusID = FocusNextID;
+    Hover = HoverNext;
+    HoverNext = { NULL, 0 };
+    Focus = FocusNext;
 
     PanelCount = PanelCountNext;
     PanelCountNext = 1;
@@ -169,7 +174,7 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     // Reset the FocusID to None if we have a mouse click, future frame widgets will change that
     if(MOUSE_DOWN(Input->MouseLeft))
     {
-        FocusNextID = NULL;
+        FocusNext = { NULL, PanelOrder[0] };
         strncpy(FocusTitleNext, "None", 64);
     }
 }
@@ -256,12 +261,19 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     // Add panel title as text
     MakeText(NULL, PanelTitle, Context->RenderResources.DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
 
-    if(PointInRectangle(vec2f(Input->MousePosX, Y - Input->MousePosY), TL, BR))
+
+    //printf("hprio : %d <= %d (hn:%d), pcount : %d", Hover.Priority, PanelOrder[PanelCount], HoverNext.Priority, PanelCount);
+    if(HoverNext.Priority <= PanelOrder[PanelIdx])
     {
-        HoverNextID = ID;
-        HoverNextPanelIdx = PanelCount;
-        strncpy(HoverTitleNext, PanelTitle, 64);
+        if(PointInRectangle(vec2f(Input->MousePosX, Y - Input->MousePosY), TL, BR))
+        {
+            //printf(" check");
+            HoverNext.ID = ID;
+            HoverNext.Priority = PanelOrder[PanelIdx];
+            strncpy(HoverTitleNext, PanelTitle, 64);
+        }
     }
+    //printf("\n");
 }
 
 void EndPanel()
@@ -273,6 +285,7 @@ void EndPanel()
 
 static void UpdateOrder()
 {
+
     // TODO - panel removal
     if(PanelCountNext < PanelCount)
     {
@@ -280,22 +293,26 @@ static void UpdateOrder()
     }
 
 #if 1
-    if(MOUSE_DOWN(Input->MouseLeft))
+    if(MOUSE_HIT(Input->MouseLeft))
     {
-        FocusNextID = HoverID;
+        FocusNext = Hover;
         strncpy(FocusTitleNext, HoverTitleCurrent, 64);
 
-        // reorder priority
-        if(PanelOrder[PanelCount-1] != HoverPanelIdx)
+        printf("hpr %d, po[hpr] %d\n", Hover.Priority, PanelOrder[Hover.Priority]);
+        // reorder panel priority, only reorder if it changed by this click
+        if(Hover.Priority > 0 && PanelOrder[Hover.Priority] < (PanelCount-1))
         {
-            for(uint32 p = HoverPanelIdx; p < (PanelCount-1); ++p)
-            {
-                PanelOrder[p] = PanelOrder[p+1];
-            }
-            PanelOrder[PanelCount-1] = HoverPanelIdx;
+            for(uint32 p = 1; p < PanelCount; ++p)
+                --PanelOrder[p];
+            PanelOrder[Hover.Priority] = PanelCount - 1;
             for(uint32 i = 0; i < PanelCount; ++i)
                 printf("%d ", PanelOrder[i]);
             printf("\n");
+
+            for(uint32 i = 0; i < PanelCount; ++i)
+            {
+                RenderOrder[PanelOrder[i]] = i;
+            }
         }
     }
 #endif
