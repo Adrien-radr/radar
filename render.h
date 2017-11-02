@@ -99,7 +99,6 @@ struct render_resources
     resource_helper *RH;
     uint32 *DefaultDiffuseTexture;
     uint32 *DefaultNormalTexture;
-    font   *DefaultFont;
 
     resource_store Images;
     resource_store Textures;

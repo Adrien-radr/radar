@@ -1,14 +1,11 @@
 #include "ui.h"
 #include "utils.h"
 
-
 #define UI_STACK_SIZE Megabytes(8)
 #define UI_MAX_PANELS 64
 #define UI_PARENT_SIZE 10
 
-
-#define UI_Z_DOWN 0.001
-#define UI_Z_UP 0.1
+#include "ui_theme.cpp"
 
 namespace ui {
 game_context static *Context;
@@ -84,7 +81,7 @@ vertex UIVertex(vec3f const &Position, vec2f const &Texcoord)
     return V;
 }
 
-void Init(game_context *Context)
+void Init(game_memory *Memory, game_context *Context)
 {
     ui::Context = Context;
     glGenVertexArrays(1, &VAO);
@@ -118,6 +115,10 @@ void Init(game_context *Context)
     {
         PanelOrder[i] = i;
     }
+
+    path ConfigPath; 
+    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "ui_config.json");
+    ParseUIConfig(Memory, Context, ConfigPath);
 }
 
 void ReloadShaders(game_memory *Memory, game_context *Context)
@@ -139,7 +140,7 @@ void BeginFrame(game_memory *Memory, game_input *Input)
 {
     // NOTE - reinit the frame stack for the ui
     game_system *System = (game_system*)Memory->PermanentMemPool;
-    System->UIStack = (ui_frame_stack*)PushArenaStruct(&Memory->ScratchArena, ui_frame_stack);
+    System->UIStack = (frame_stack*)PushArenaStruct(&Memory->ScratchArena, frame_stack);
 
     // TODO -  probably this can be done with 1 'alloc' and redirections in the buffer
     for(uint32 p = 0; p < UI_MAX_PANELS; ++p)
@@ -167,10 +168,10 @@ void BeginFrame(game_memory *Memory, game_input *Input)
 
     char Text[64];
     snprintf(Text, 64, "Current Hover : %s", HoverTitleCurrent);
-    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 10, 0.0001f), Context->GameConfig->DebugFontColor, Context->WindowWidth);
+    MakeText(NULL, Text, FONT_DEFAULT, vec3f(600, 10, 0.0001f), COLOR_DEBUGFG, Context->WindowWidth);
 
     snprintf(Text, 64, "Current Focus : %s", FocusTitleCurrent);
-    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 24, 0.0001f), Context->GameConfig->DebugFontColor, Context->WindowWidth);
+    MakeText(NULL, Text, FONT_DEFAULT, vec3f(600, 24, 0.0001f), COLOR_DEBUGFG, Context->WindowWidth);
 
     // Reset the FocusID to None if we have a mouse click, future frame widgets will change that
     if(MOUSE_HIT(Input->MouseLeft))
@@ -185,7 +186,12 @@ static bool IsRootWidget()
     return ParentLayer == 0;
 }
 
-void MakeText(void *ID, char const *Text, font *Font, vec3i Position, col4f Color, int MaxWidth)
+void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth)
+{
+    MakeText(ID, Text, Font, Position, GetColor(Color), MaxWidth);
+}
+
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
 {
     uint32 const MsgLength = strlen(Text);
     uint32 const VertexCount = MsgLength * 4;
@@ -199,6 +205,8 @@ void MakeText(void *ID, char const *Text, font *Font, vec3i Position, col4f Colo
     vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], VertexCount * sizeof(vertex));
     // NOTE - Because of USHORT max is 65535, Cant fit more than 10922 characters per Text
     uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], IndexCount * sizeof(uint16));
+
+    font *Font = GetFont(FontStyle);
 
     RenderInfo->Type = WIDGET_TEXT;
     RenderInfo->VertexCount = VertexCount;
@@ -237,7 +245,7 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
-    RenderInfo->Color = Color;
+    RenderInfo->Color = Theme.PanelBG;
     RenderInfo->ID = ID;
     RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
 
@@ -260,7 +268,7 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     ParentID[ParentLayer++] = ID;
 
     // Add panel title as text
-    MakeText(NULL, PanelTitle, Context->RenderResources.DefaultFont, Position + vec3f(5,5,0), col4f(0, 0, 0, 1), Size.x - 5);
+    MakeText(NULL, PanelTitle, FONT_DEFAULT, Position + vec3f(5,5,0), Theme.PanelFG, Size.x - 5);
 
 
     if(HoverNext.Priority <= PanelOrder[PanelIdx])

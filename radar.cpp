@@ -57,7 +57,7 @@ void DestroyMemory(game_memory *Memory)
     }
 }
 
-void ParseConfig(game_memory *Memory, char *ConfigPath)
+bool ParseConfig(game_memory *Memory, char *ConfigPath)
 {
     game_config &Config = Memory->Config;
 
@@ -91,6 +91,7 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
         else
         {
             printf("Error parsing Config File as JSON.\n");
+            return false;
         }
     }
     else
@@ -109,6 +110,7 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
         Config.CameraPosition = vec3f(1, 1, 1);
         Config.CameraTarget = vec3f(0, 0, 0);
     }
+    return true;
 }
 
 uint32 Program1, Program3D, ProgramSkybox;
@@ -192,24 +194,25 @@ void InitializeFromGame(game_memory *Memory)
     Memory->IsInitialized = true;
 }
 
-void MakeUI(game_memory *Memory, game_context *Context, font *Font)
+void MakeUI(game_memory *Memory, game_context *Context)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
 
     console_log *Log = System->ConsoleLog;
+    font *FontInfo = ui::GetFont(ui::FONT_DEFAULT);
+    int LineGap = FontInfo->LineGap;
     for(uint32 i = 0; i < Log->StringCount; ++i)
     {
         uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-        ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0.01f), 
-                Context->GameConfig->DebugFontColor, Context->WindowWidth - 10);
+        ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_DEFAULT, vec3f(10, 10 + i * LineGap, 0.01f), 
+                ui::COLOR_DEBUGFG, Context->WindowWidth - 10);
     }
 
-    ui_frame_stack *UIStack = System->UIStack;
+    ui::frame_stack *UIStack = System->UIStack;
     for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
     {
-        ui_text_line *Line = &UIStack->TextLines[i];
-        // TODO - handle different fonts
-        ui::MakeText((void*)Line, Line->String, Font, Line->Position, Line->Color, Context->WindowWidth);
+        ui::text_line *Line = &UIStack->TextLines[i];
+        ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, Context->WindowWidth);
     }
 
 #if 1
@@ -217,7 +220,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     ui::BeginPanel(&id1, "Panel 1", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
     ui::EndPanel();
 
-    ui::BeginPanel(&id2, "Panel 2", vec3i(600, 150, 0), vec2i(200, 100), col4f(1,0,0,1));
+    ui::BeginPanel(&id2, "Panel 2", vec3i(600, 150, 0), vec2i(200, 100), col4f(1,0,0,0.5));
     ui::EndPanel();
 #endif
 }
@@ -235,7 +238,11 @@ int RadarMain(int argc, char **argv)
     path ConfigPath;
     MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "config.json");
 
-    ParseConfig(Memory, ConfigPath);
+    if(!ParseConfig(Memory, ConfigPath))
+    {
+        return 1;
+    }
+
     game_context *Context = Context::Init(Memory);
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
     game_config const &Config = Memory->Config;
@@ -246,7 +253,7 @@ int RadarMain(int argc, char **argv)
         int GameRefreshHz = 60;
         real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
 
-        ui::Init(Context);
+        ui::Init(Memory, Context);
 
         game_system *System = (game_system*)Memory->PermanentMemPool;
         game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
@@ -292,12 +299,6 @@ int RadarMain(int argc, char **argv)
         Image = ResourceLoadImage(TexPath);
         uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
         DestroyImage(&Image);
-#endif
-        // Font Test
-#if RADAR_WIN32
-        font *ConsoleFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
-#else
-        font *ConsoleFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
 #endif
 
         // Cube Meshes Test
@@ -594,7 +595,7 @@ int RadarMain(int argc, char **argv)
                 glEnable(GL_CULL_FACE);
             }
 
-            MakeUI(Memory, Context, ConsoleFont);
+            MakeUI(Memory, Context);
             ui::Draw();
 
             glfwSwapBuffers(Context->Window);

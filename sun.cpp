@@ -19,10 +19,10 @@ struct sun_storage
 	// Latitude: -pi/2 = South pole, +pi/2 = North pole
 	real32 Latitude;
 
-    ui_text_line FPSText;
-    ui_text_line NightDayText;
-    ui_text_line WaterText;
-    ui_text_line CameraText;
+    ui::text_line FPSText;
+    ui::text_line NightDayText;
+    ui::text_line WaterText;
+    ui::text_line CameraText;
 };
 
 void LogString(console_log *Log, char const *String)
@@ -259,7 +259,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
     sun_storage *Local = (sun_storage*)System->DLLStorage;
-    ui_frame_stack *UIStack = System->UIStack;
+    ui::frame_stack *UIStack = System->UIStack;
 
 #if 0
     if(Input->KeyReleased)
@@ -335,18 +335,17 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     if(Local->Counter > 0.75)
     {
-        col4f TextColor = Memory->Config.DebugFontColor;
         Local->CameraText.Position = vec3f(10, 10, 0);
-        Local->CameraText.Color = TextColor;
+        Local->CameraText.Color = ui::COLOR_DEBUGFG;
 
         Local->FPSText.Position = vec3f(10, 24, 0);
-        Local->FPSText.Color = TextColor;
+        Local->FPSText.Color = ui::COLOR_DEBUGFG;
 
         snprintf(Local->WaterText.String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
         Local->WaterText.Position = vec3f(10, 38, 0);
-        Local->WaterText.Color = TextColor;
+        Local->WaterText.Color = ui::COLOR_DEBUGFG;
 
-        Local->NightDayText.Color = TextColor;
+        Local->NightDayText.Color = ui::COLOR_DEBUGFG;
         Local->NightDayText.Position = vec3f(10,54,0);
         if(Local->IsNight)
             snprintf(Local->NightDayText.String, UI_STRINGLEN, "Day");
@@ -356,6 +355,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         Local->Counter = 0.0;
     }
 
+    // TODO - streamline this a bit
     UIStack->TextLines[UIStack->TextLineCount++] = Local->FPSText;
     UIStack->TextLines[UIStack->TextLineCount++] = Local->CameraText;
     UIStack->TextLines[UIStack->TextLineCount++] = Local->WaterText;

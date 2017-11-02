@@ -1,0 +1,14 @@
+{
+    "Red" : [ 1, 0, 0, 1 ],
+    "Green" : [ 0, 1, 0, 1 ],
+    "Blue" : [ 0, 0, 1, 1 ],
+    "Black" : [ 0, 0, 1, 1 ],
+    "White" : [ 1, 1, 1, 1 ],
+
+    "PanelBG" : [ 0, 0, 0, 0.5 ],
+    "PanelFG" : [ 1, 1, 1, 1 ],
+
+    "DebugFG" : [ 1, 0, 0, 1 ],
+
+    "DefaultFont" : [ "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14 ]
+}

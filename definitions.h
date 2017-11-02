@@ -22,8 +22,7 @@ real32 static const g_G = 9.807f;
 // NOTE - Systems fwd declarations
 struct water_system;    //water.h
 struct tmp_sound_data;  //sound.h
-struct ui_frame_stack;  //ui.h
-struct console_log;     //ui.h
+struct console_log;
 
 struct game_config
 {
@@ -191,12 +190,47 @@ struct game_input
     mouse_state MouseRight;
 };
 
+namespace ui
+{
+    enum theme_color
+    {
+        COLOR_RED,
+        COLOR_GREEN,
+        COLOR_BLUE,
+        COLOR_BLACK,
+        COLOR_WHITE,
+
+        COLOR_DEBUGFG,
+        COLOR_PANELFG,
+        COLOR_PANELBG,
+    };
+
+    enum theme_font
+    {
+        FONT_DEFAULT
+    };
+
+    struct text_line
+    {
+        char        String[UI_STRINGLEN]; 
+        vec3f       Position;
+        theme_font  Font;
+        theme_color Color;
+    };
+
+    struct frame_stack
+    {
+        text_line TextLines[UI_MAXSTACKOBJECT];
+        uint32 TextLineCount;
+    };
+}
+
 struct game_system
 {
     console_log *ConsoleLog;
     tmp_sound_data *SoundData;
     water_system *WaterSystem;
-    ui_frame_stack *UIStack;
+    ui::frame_stack *UIStack;
     void *DLLStorage;
 };
 
@@ -222,25 +256,6 @@ struct console_log
     uint32 WriteIdx;
     uint32 ReadIdx;
     uint32 StringCount;
-};
-
-enum ui_font
-{
-    DEFAULT_FONT
-};
-
-struct ui_text_line
-{
-    char    String[UI_STRINGLEN]; 
-    ui_font Font;
-    vec3f   Position;
-    col4f   Color;
-};
-
-struct ui_frame_stack
-{
-    ui_text_line TextLines[UI_MAXSTACKOBJECT];
-    uint32 TextLineCount;
 };
 
 struct tmp_sound_data

@@ -155,13 +155,14 @@ game_context *Init(game_memory *Memory)
     {
         char WindowName[64];
         snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
-        printf("%d %d\n", Config.WindowWidth, Config.WindowHeight);
 
         glfwSetErrorCallback(ProcessErrorEvent);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+#if 0
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
+#endif
 
         Context->Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
         if(Context->Window)
@@ -230,11 +231,6 @@ game_context *Init(game_memory *Memory)
                     //Context.RenderResources.DefaultNormalTexture = Make2DTexture(Image, false, false, 1);
                     Context->RenderResources.DefaultNormalTexture= 
                         ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
-#if RADAR_WIN32
-                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
-#else
-                    Context->RenderResources.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
-#endif
                 }
             }
             else

@@ -28,7 +28,7 @@ void *ResourceCheckExist(render_resources *RenderResources, render_resource_type
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
     {
-        for(int i = 0; i < Store->Keys.size(); ++i)
+        for(uint32 i = 0; i < Store->Keys.size(); ++i)
         {
             if(!strncmp(Store->Keys[i], Filename, MAX_PATH))
             {
