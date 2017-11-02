@@ -17,15 +17,16 @@ game_input static   *Input;
 struct input_state
 {
     void   *ID;
-    uint32 Priority;
+    uint16 Idx;
+    uint16 Priority;
 };
 
-uint32 PanelCount;
-uint32 PanelCountNext;
+uint16 PanelCount;
+uint16 PanelCountNext;
 void *ParentID[UI_PARENT_SIZE]; // ID stack of the parent of the current widgets, changes when a panel is begin and ended
-uint32 PanelOrder[UI_MAX_PANELS];
-uint32 RenderOrder[UI_MAX_PANELS];
-uint32 ParentLayer;             // Current Parent layer widgets are attached to
+uint16 PanelOrder[UI_MAX_PANELS];
+uint16 RenderOrder[UI_MAX_PANELS];
+uint16 ParentLayer;             // Current Parent layer widgets are attached to
 input_state Hover;
 input_state HoverNext;
 input_state Focus;
@@ -99,10 +100,10 @@ void Init(game_context *Context)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    Hover = { NULL, 0 };
-    HoverNext = { NULL, 0 };
-    Focus = { NULL, 0 };
-    FocusNext = { NULL, 0 };
+    Hover = { NULL, 0, 0 };
+    HoverNext = { NULL, 0, 0 };
+    Focus = { NULL, 0, 0 };
+    FocusNext = { NULL, 0, 0 };
     memset(HoverTitleNext, 0, 64);
     strncpy(FocusTitleNext, "None", 64);
     memset(FocusTitleCurrent, 0, 64);
@@ -153,7 +154,7 @@ void BeginFrame(game_memory *Memory, game_input *Input)
 
     ParentLayer = 0;
     Hover = HoverNext;
-    HoverNext = { NULL, 0 };
+    HoverNext = { NULL, 0, 0 };
     Focus = FocusNext;
 
     PanelCount = PanelCountNext;
@@ -166,15 +167,15 @@ void BeginFrame(game_memory *Memory, game_input *Input)
 
     char Text[64];
     snprintf(Text, 64, "Current Hover : %s", HoverTitleCurrent);
-    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 10, 0), Context->GameConfig->DebugFontColor, Context->WindowWidth);
+    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 10, 0.0001f), Context->GameConfig->DebugFontColor, Context->WindowWidth);
 
     snprintf(Text, 64, "Current Focus : %s", FocusTitleCurrent);
-    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 24, 0), Context->GameConfig->DebugFontColor, Context->WindowWidth);
+    MakeText(NULL, Text, Context->RenderResources.DefaultFont, vec3f(600, 24, 0.0001f), Context->GameConfig->DebugFontColor, Context->WindowWidth);
 
     // Reset the FocusID to None if we have a mouse click, future frame widgets will change that
-    if(MOUSE_DOWN(Input->MouseLeft))
+    if(MOUSE_HIT(Input->MouseLeft))
     {
-        FocusNext = { NULL, PanelOrder[0] };
+        FocusNext = { NULL, 0, PanelOrder[0] };
         strncpy(FocusTitleNext, "None", 64);
     }
 }
@@ -250,30 +251,28 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     vec2f BR(Position.x + Size.x, Y - Position.y - Size.y);
 
     IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
-    VertData[0] = UIVertex(vec3f(TL.x, TL.y, Position.z), vec2f(0.f, 0.f));
-    VertData[1] = UIVertex(vec3f(TL.x, BR.y, Position.z), vec2f(0.f, 1.f));
-    VertData[2] = UIVertex(vec3f(BR.x, BR.y, Position.z), vec2f(1.f, 1.f));
-    VertData[3] = UIVertex(vec3f(BR.x, TL.y, Position.z), vec2f(1.f, 0.f));
+    VertData[0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
+    VertData[1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
+    VertData[2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
+    VertData[3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
 
     ++(RenderCmdCount[PanelIdx]);
     ParentID[ParentLayer++] = ID;
 
     // Add panel title as text
-    MakeText(NULL, PanelTitle, Context->RenderResources.DefaultFont, Position + vec3i(5, 5, 1), col4f(0, 0, 0, 1), Size.x - 5);
+    MakeText(NULL, PanelTitle, Context->RenderResources.DefaultFont, Position + vec3f(5,5,0), col4f(0, 0, 0, 1), Size.x - 5);
 
 
-    //printf("hprio : %d <= %d (hn:%d), pcount : %d", Hover.Priority, PanelOrder[PanelCount], HoverNext.Priority, PanelCount);
     if(HoverNext.Priority <= PanelOrder[PanelIdx])
     {
         if(PointInRectangle(vec2f(Input->MousePosX, Y - Input->MousePosY), TL, BR))
         {
-            //printf(" check");
             HoverNext.ID = ID;
             HoverNext.Priority = PanelOrder[PanelIdx];
+            HoverNext.Idx = PanelIdx;
             strncpy(HoverTitleNext, PanelTitle, 64);
         }
     }
-    //printf("\n");
 }
 
 void EndPanel()
@@ -285,29 +284,19 @@ void EndPanel()
 
 static void UpdateOrder()
 {
-
-    // TODO - panel removal
-    if(PanelCountNext < PanelCount)
-    {
-
-    }
-
-#if 1
+    // TODO - if a panel is closed, the order should be updated
+    // i.e. the panel is removed in PanelOrder and the other slots are updated for next frame
     if(MOUSE_HIT(Input->MouseLeft))
     {
         FocusNext = Hover;
         strncpy(FocusTitleNext, HoverTitleCurrent, 64);
 
-        printf("hpr %d, po[hpr] %d\n", Hover.Priority, PanelOrder[Hover.Priority]);
-        // reorder panel priority, only reorder if it changed by this click
-        if(Hover.Priority > 0 && PanelOrder[Hover.Priority] < (PanelCount-1))
+        // Reorder panel rendering order if focus has changed
+        if(Hover.Priority > 0 && Hover.Priority < (PanelCount-1))
         {
             for(uint32 p = 1; p < PanelCount; ++p)
                 --PanelOrder[p];
-            PanelOrder[Hover.Priority] = PanelCount - 1;
-            for(uint32 i = 0; i < PanelCount; ++i)
-                printf("%d ", PanelOrder[i]);
-            printf("\n");
+            PanelOrder[Hover.Idx] = PanelCount - 1;
 
             for(uint32 i = 0; i < PanelCount; ++i)
             {
@@ -315,42 +304,6 @@ static void UpdateOrder()
             }
         }
     }
-#endif
-
-    // Look if all the panels asked this frame are already in the sort order
-#if 0
-    for(uint32 i = 0; i < PanelCountNext; ++i)
-    {
-        if(!FindPanelID(FramePanels[i]))
-        {
-            // add new panels at the top of the priority order (new windows)
-            PanelOrder[PanelCount++] = FramePanels[i];
-        }
-    }
-
-    // Do Input handling in order
-    for(uint32 i = 0; i < PanelCount; ++i)
-    {
-    }
-
-    // Extend the RenderCmd Stack by same amount to prepare duplicacy
-    if(RenderCmdArena.Size > 0)
-    {
-        if(RenderCmdArena.Size < RenderCmdArena.Capacity/2)
-        {
-            OrderedRenderCmd = PushArenaData(&RenderCmdArena, RenderCmdArena.Size);
-
-            render_info *Info = (render_info*)RenderCmdArena.BasePtr;
-            while(Info && Info->ParentID == NULL)
-            {
-            }
-        }
-        else
-        {
-            printf("Error : UI Data Stack(%d) not large enough for UI rendering !\n", UI_STACK_SIZE);
-        }
-    }
-#endif
 }
 
 static void *RenderCmdOffset(uint8 *CmdList, size_t *OffsetAccum, size_t Size)
@@ -365,8 +318,10 @@ void Draw()
     UpdateOrder();
     glUseProgram(Program);
 
+    glDisable(GL_DEPTH_TEST);
     glBindVertexArray(VAO);
-    for(int p = PanelCount-1; p >=0; --p)
+    // TODO - 1 DrawCall for the whole AI ? just need to prepare the buffer with each RenderCmd beforehand
+    for(int p = 0; p < PanelCount; ++p)
     {
         uint32 OrdPanelIdx = PanelOrder[p];
         uint8 *Cmd = (uint8*)RenderCmd[OrdPanelIdx];
@@ -391,6 +346,7 @@ void Draw()
             Cmd += Offset;
         }
     }
+    glEnable(GL_DEPTH_TEST);
     glBindVertexArray(0);
 }
 }

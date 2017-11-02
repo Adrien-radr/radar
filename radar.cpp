@@ -76,6 +76,7 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
             Config.VSync = JSON_Get(root, "bVSync", 0) != 0;
             Config.FOV = (real32)JSON_Get(root, "fFOV", 75.0);
             Config.AnisotropicFiltering = JSON_Get(root, "iAnisotropicFiltering", 1);
+            Config.NearPlane = (real32)JSON_Get(root, "fNearPlane", 0.1);
 
             Config.CameraSpeedBase = (real32)JSON_Get(root, "fCameraSpeedBase", 20.0);
             Config.CameraSpeedMult = (real32)JSON_Get(root, "fCameraSpeedMult", 2.0);
@@ -198,7 +199,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     for(uint32 i = 0; i < Log->StringCount; ++i)
     {
         uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-        ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0), 
+        ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], Font, vec3f(10, 10 + i * Font->LineGap, 0.01f), 
                 Context->GameConfig->DebugFontColor, Context->WindowWidth - 10);
     }
 
@@ -215,7 +216,7 @@ void MakeUI(game_memory *Memory, game_context *Context, font *Font)
     ui::BeginPanel(&id1, "Panel 1", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
     ui::EndPanel();
 
-    ui::BeginPanel(&id2, "Panel 2", vec3i(600, 150, 1), vec2i(200, 100), col4f(1,0,0,0.5));
+    ui::BeginPanel(&id2, "Panel 2", vec3i(600, 150, 0), vec2i(200, 100), col4f(1,0,0,1));
     ui::EndPanel();
 #endif
 }

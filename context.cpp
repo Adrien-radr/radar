@@ -136,8 +136,8 @@ void WindowResized(game_context *Context)
         Context->WindowWidth = ResizeWidth;
         Context->WindowHeight = ResizeHeight;
         Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
-                Context->WindowWidth / (real32)Context->WindowHeight, 0.1f, 10000.f);
-        Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1000.f);
+                Context->WindowWidth / (real32)Context->WindowHeight, Context->GameConfig->NearPlane, 10000.f);
+        Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.0001, 1.f);
 
         UpdateShaderProjection(Context);
     }
@@ -192,9 +192,9 @@ game_context *Init(game_memory *Memory)
                 Context->WindowWidth = Config.WindowWidth;
                 Context->WindowHeight = Config.WindowHeight;
                 Context->FOV = Config.FOV;
-                Context->ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
-                        Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 10000.f);
-                Context->ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
+                //Context->ProjectionMatrix3D = mat4f::Perspective(Config.FOV, 
+                        //Config.WindowWidth / (real32)Config.WindowHeight, 0.1f, 10000.f);
+                //Context->ProjectionMatrix2D = mat4f::Ortho(0, Config.WindowWidth, 0,Config.WindowHeight, 0.1f, 1000.f);
 
                 Context->WireframeMode = false;
                 Context->ClearColor = vec4f(0.01f, 0.19f, 0.31f, 0.f);

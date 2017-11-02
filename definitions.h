@@ -36,6 +36,7 @@ struct game_config
     bool   VSync;
     real32 FOV;
     int32  AnisotropicFiltering;
+    real32 NearPlane;
 
     real32 CameraSpeedBase;
     real32 CameraSpeedMult;
