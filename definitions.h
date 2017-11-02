@@ -187,6 +187,7 @@ struct game_input
     key_state KeyNumMinus;
     key_state KeyNumMultiply;
     key_state KeyNumDivide;
+    key_state KeyTilde;
 
     mouse_state MouseLeft;
     mouse_state MouseRight;

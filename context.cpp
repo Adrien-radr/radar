@@ -314,6 +314,7 @@ namespace context {
         Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);
         Input->KeyNumMultiply = BuildKeyState(GLFW_KEY_KP_MULTIPLY);
         Input->KeyNumDivide = BuildKeyState(GLFW_KEY_KP_DIVIDE);
+        Input->KeyTilde = BuildKeyState(GLFW_KEY_GRAVE_ACCENT);
 
         Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
         Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);

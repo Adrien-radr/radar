@@ -194,26 +194,47 @@ void InitializeFromGame(game_memory *Memory)
     Memory->IsInitialized = true;
 }
 
-void MakeUI(game_memory *Memory, game_context *Context)
+void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
 
     console_log *Log = System->ConsoleLog;
     font *FontInfo = ui::GetFont(ui::FONT_DEFAULT);
     int LineGap = FontInfo->LineGap;
-    for(uint32 i = 0; i < Log->StringCount; ++i)
+    int LogHeight = LineGap * Log->StringCount;
+
+    static bool   ConsoleShow = false;
+    static uint32 ConsolePanel;
+    static vec3i  ConsolePanelPos(0,0,0);
+
+    if(KEY_HIT(Input->KeyTilde)) ConsoleShow = !ConsoleShow;
+
+    if(ConsoleShow)
     {
-        uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-        ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_DEFAULT, vec3f(10, 10 + i * LineGap, 0.01f), 
-                ui::COLOR_DEBUGFG, Context->WindowWidth - 10);
+        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, vec2i(Context->WindowWidth, LogHeight + 20), ui::DECORATION_NONE);
+        for(uint32 i = 0; i < Log->StringCount; ++i)
+        {
+            uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
+            ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_DEFAULT, vec3f(10, 10 + i * LineGap, 0.01f), 
+                    ui::COLOR_DEBUGFG, Context->WindowWidth - 10);
+        }
+        ui::EndPanel();
     }
 
     ui::frame_stack *UIStack = System->UIStack;
+    int UIStackHeight = LineGap * UIStack->TextLineCount;
+    static uint32 UIStackPanel;
+    static vec3i  UIStackPanelPos(0,0,0);
+    static vec2i  UIStackPanelSize(350, UIStackHeight + 30);
+    ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, UIStackPanelSize, ui::DECORATION_NONE);
+    UIStackPanelSize.x = 0;
     for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
     {
         ui::text_line *Line = &UIStack->TextLines[i];
         ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, Context->WindowWidth);
+        UIStackPanelSize.x = std::max(UIStackPanelSize.x, int(Line->Position.x + strlen(Line->String) * FontInfo->MaxGlyphWidth));
     }
+    ui::EndPanel();
 
 #if 1
     static uint32 id1, id2;
@@ -603,7 +624,7 @@ int RadarMain(int argc, char **argv)
                 glEnable(GL_CULL_FACE);
             }
 
-            MakeUI(Memory, Context);
+            MakeUI(Memory, Context, &Input);
             ui::Draw();
 
             glfwSwapBuffers(Context->Window);

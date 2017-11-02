@@ -41,6 +41,7 @@ struct font
     int Height;
     int LineGap;
     int Ascent;
+    real32 MaxGlyphWidth;
     glyph Glyphs[127-32]; // 126 is '~', 32 is ' '
     uint32 AtlasTextureID;
 };

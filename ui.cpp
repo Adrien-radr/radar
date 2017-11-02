@@ -15,14 +15,14 @@ struct input_state
 {
     void   *ID;
     uint16 Idx;
-    uint16 Priority;
+    int16  Priority;
 };
 
 uint16 PanelCount;
 uint16 PanelCountNext;
 void *ParentID[UI_PARENT_SIZE]; // ID stack of the parent of the current widgets, changes when a panel is begin and ended
-uint16 PanelOrder[UI_MAX_PANELS];
-uint16 RenderOrder[UI_MAX_PANELS];
+int16 PanelOrder[UI_MAX_PANELS];
+int16 RenderOrder[UI_MAX_PANELS];
 uint16 ParentLayer;             // Current Parent layer widgets are attached to
 input_state Hover;
 input_state HoverNext;
@@ -115,7 +115,7 @@ void Init(game_memory *Memory, game_context *Context)
     ParentLayer = 0;
     memset(ParentID, 0, sizeof(void*) * UI_PARENT_SIZE);
 
-    for(uint32 i = 0; i < UI_MAX_PANELS; ++i)
+    for(int16 i = 0; i < UI_MAX_PANELS; ++i)
     {
         PanelOrder[i] = i;
     }
@@ -409,8 +409,11 @@ static void UpdateOrder()
         // Reorder panel rendering order if focus has changed
         if(Hover.Priority > 0 && Hover.Priority < (PanelCount-1))
         {
+            int16 OldPriority = PanelOrder[Hover.Idx];
+
             for(uint32 p = 1; p < PanelCount; ++p)
-                --PanelOrder[p];
+                if(PanelOrder[p] > OldPriority)
+                    --PanelOrder[p];
             PanelOrder[Hover.Idx] = PanelCount - 1;
 
             for(uint32 i = 0; i < PanelCount; ++i)
@@ -438,7 +441,7 @@ void Draw()
     // TODO - 1 DrawCall for the whole AI ? just need to prepare the buffer with each RenderCmd beforehand
     for(int p = 0; p < PanelCount; ++p)
     {
-        uint32 OrdPanelIdx = PanelOrder[p];
+        int16 OrdPanelIdx = PanelOrder[p];
         uint8 *Cmd = (uint8*)RenderCmd[OrdPanelIdx];
         for(uint32 i = 0; i < RenderCmdCount[OrdPanelIdx]; ++i)
         {

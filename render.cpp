@@ -419,7 +419,7 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
 
         Font->LineGap = Ascent - Descent;
         Font->Ascent = Ascent;
-
+        Font->MaxGlyphWidth = 0;
 
         real32 X = 0, Y = 0;
 
@@ -453,6 +453,7 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
                 CW, CH, AdvanceX
             };
             Font->Glyphs[Codepoint-32] = TmpGlyph;
+            Font->MaxGlyphWidth += AdvanceX;//std::max(Font->MaxGlyphWidth, CW);
 
             int CharX = X + X0;
             int CharY = Y + Ascent + Y0;
@@ -462,6 +463,8 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
 
             X += AdvanceX;
         }
+
+        Font->MaxGlyphWidth /= real32(127-32);
 
         // Make Texture out of the Bitmap
         Font->AtlasTextureID = Make2DTexture(Font->Buffer, Font->Width, Font->Height, 1, false, false, 1.0f,
