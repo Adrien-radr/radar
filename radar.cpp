@@ -120,7 +120,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     game_system *System = (game_system*)Memory->PermanentMemPool;
 	resource_helper *RH = &Memory->ResourceHelper;
 
-    Context::RegisteredShaderClear(Context);
+    context::RegisteredShaderClear(Context);
 
     path VSPath;
     path FSPath;
@@ -131,7 +131,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
     CheckGLError("Text Shader");
 
-    Context::RegisterShader2D(Context, Program1);
+    context::RegisterShader2D(Context, Program1);
 
     MakeRelativePath(RH, VSPath, "data/shaders/vert.glsl");
     MakeRelativePath(RH, FSPath, "data/shaders/frag.glsl");
@@ -143,7 +143,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     SendInt(glGetUniformLocation(Program3D, "IrradianceCubemap"), 3);
     CheckGLError("Mesh Shader");
 
-    Context::RegisterShader3D(Context, Program3D);
+    context::RegisterShader3D(Context, Program3D);
 
     MakeRelativePath(RH, VSPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(RH, FSPath, "data/shaders/skybox_frag.glsl");
@@ -152,7 +152,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
     CheckGLError("Skybox Shader");
 
-    Context::RegisterShader3D(Context, ProgramSkybox);
+    context::RegisterShader3D(Context, ProgramSkybox);
 
     MakeRelativePath(RH, VSPath, "data/shaders/water_vert.glsl");
     MakeRelativePath(RH, FSPath, "data/shaders/water_frag.glsl");
@@ -162,12 +162,12 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     SendInt(glGetUniformLocation(System->WaterSystem->ProgramWater, "IrradianceCubemap"), 1);
     CheckGLError("Water Shader");
 
-    Context::RegisterShader3D(Context, System->WaterSystem->ProgramWater);
+    context::RegisterShader3D(Context, System->WaterSystem->ProgramWater);
 
     ui::ReloadShaders(Memory, Context);
     CheckGLError("UI Shader");
 
-    Context::UpdateShaderProjection(Context);
+    context::UpdateShaderProjection(Context);
     
     glUseProgram(0);
 }
@@ -217,10 +217,12 @@ void MakeUI(game_memory *Memory, game_context *Context)
 
 #if 1
     static uint32 id1, id2;
-    ui::BeginPanel(&id1, "Panel 1", vec3i(500, 100, 0), vec2i(200, 100), col4f(0,1,0,0.5));
+    static vec3i p1(100, 100, 0);
+    static vec3i p2(200, 150, 0);
+    ui::BeginPanel(&id1, "Panel 1", &p1, vec2i(200, 100), ui::DECORATION_TITLEBAR);
     ui::EndPanel();
 
-    ui::BeginPanel(&id2, "Panel 2", vec3i(600, 150, 0), vec2i(200, 100), col4f(1,0,0,0.5));
+    ui::BeginPanel(&id2, "Panel 2", &p2, vec2i(200, 100), ui::DECORATION_NONE);
     ui::EndPanel();
 #endif
 }
@@ -243,7 +245,7 @@ int RadarMain(int argc, char **argv)
         return 1;
     }
 
-    game_context *Context = Context::Init(Memory);
+    game_context *Context = context::Init(Memory);
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
     game_config const &Config = Memory->Config;
 
@@ -351,6 +353,7 @@ int RadarMain(int argc, char **argv)
          
 
         bool LastDisableMouse = false;
+        int LastMouseX = 0, LastMouseY = 0;
 
         while(Context->IsRunning)
         {
@@ -366,8 +369,13 @@ int RadarMain(int argc, char **argv)
             // TODO - Is this too often ? Maybe let it stay several frames
             ClearArena(&Memory->ScratchArena);
 
-            Context::GetFrameInput(Context, &Input);        
-            Context::WindowResized(Context);
+            context::GetFrameInput(Context, &Input);        
+            context::WindowResized(Context);
+
+            Input.MouseDX = Input.MousePosX - LastMouseX;
+            Input.MouseDY = Input.MousePosY - LastMouseY;
+            LastMouseX = Input.MousePosX;
+            LastMouseY = Input.MousePosY;
 
             if(CheckNewDllVersion(&Game, DllSrcPath))
             {
@@ -609,7 +617,7 @@ int RadarMain(int argc, char **argv)
         glDeleteProgram(ProgramSkybox);
     }
 
-    Context::Destroy(Context);
+    context::Destroy(Context);
     UnloadGameCode(&Game, DllDstPath);
     DestroyMemory(Memory);
 

@@ -29,6 +29,8 @@ input_state HoverNext;
 input_state Focus;
 input_state FocusNext;
 
+bool MouseHold;
+
 void *LastRootWidget; // Address of the last widget not attached to anything
 
 // TMP
@@ -55,6 +57,8 @@ memory_arena static RenderCmdArena[UI_MAX_PANELS];
 enum widget_type {
     WIDGET_PANEL,
     WIDGET_TEXT,
+    WIDGET_TITLEBAR,
+    WIDGET_BORDER,
     WIDGET_COUNT
 };
 
@@ -116,6 +120,8 @@ void Init(game_memory *Memory, game_context *Context)
         PanelOrder[i] = i;
     }
 
+    MouseHold = false;
+
     path ConfigPath; 
     MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "ui_config.json");
     ParseUIConfig(Memory, Context, ConfigPath);
@@ -133,7 +139,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     ProjMatrixUniformLoc = glGetUniformLocation(Program, "ProjMatrix");
     ColorUniformLoc = glGetUniformLocation(Program, "Color");
 
-    Context::RegisterShader2D(Context, Program);
+    context::RegisterShader2D(Context, Program);
 }
 
 void BeginFrame(game_memory *Memory, game_input *Input)
@@ -152,6 +158,7 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     LastRootWidget = RenderCmd[0];
 
     ui::Input = Input;
+    context::SetCursor(Context, context::CURSOR_NORMAL);
 
     ParentLayer = 0;
     Hover = HoverNext;
@@ -173,11 +180,15 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     snprintf(Text, 64, "Current Focus : %s", FocusTitleCurrent);
     MakeText(NULL, Text, FONT_DEFAULT, vec3f(600, 24, 0.0001f), COLOR_DEBUGFG, Context->WindowWidth);
 
-    // Reset the FocusID to None if we have a mouse click, future frame widgets will change that
+    // Reset the FocusID to None if we have a mouse click, future frame panels will change that
     if(MOUSE_HIT(Input->MouseLeft))
     {
         FocusNext = { NULL, 0, PanelOrder[0] };
         strncpy(FocusTitleNext, "None", 64);
+    }
+    if(MOUSE_UP(Input->MouseLeft))
+    {
+        MouseHold = false;
     }
 }
 
@@ -222,6 +233,39 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, 
     ++(RenderCmdCount[PanelIdx]);
 }
 
+void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
+{
+    bool const NoParent = IsRootWidget();
+    uint32 const PanelIdx = NoParent ? 0 : PanelCount;
+
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], 6 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_TITLEBAR;
+    RenderInfo->VertexCount = 4;
+    RenderInfo->IndexCount = 6;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+    RenderInfo->Color = Color;
+    RenderInfo->ID = ID;
+    RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
+
+    int const Y = Context->WindowHeight;
+    vec2f TL(Position.x, Y - Position.y);
+    vec2f BR(Position.x + Size.x, Y - Position.y - Size.y);
+
+    IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
+    VertData[0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
+    VertData[1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
+    VertData[2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
+    VertData[3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
+
+    ++(RenderCmdCount[PanelIdx]);
+
+    // Add panel title as text
+    MakeText(NULL, PanelTitle, FONT_DEFAULT, Position + vec3f(4,4,0), Theme.PanelFG, Size.x - 4);
+}
+
 static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec2f &BottomRight)
 {
     if(Point.x >= TopLeft.x && Point.x < BottomRight.x)
@@ -230,7 +274,50 @@ static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec
     return false;
 }
 
-void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
+void MakeBorder(vec2f const &TL, vec2f const &BR)
+{
+    uint32 const PanelIdx = PanelCount;
+
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], 16 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], 24 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_BORDER;
+    RenderInfo->VertexCount = 16;
+    RenderInfo->IndexCount = 24;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+    RenderInfo->Color = Theme.BorderBG;
+    RenderInfo->ID = NULL;
+    RenderInfo->ParentID = ParentID[ParentLayer];
+
+    IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
+    IdxData[6] = 4; IdxData[7] = 5; IdxData[8] = 6; IdxData[9] = 4; IdxData[10] = 6; IdxData[11] = 7; 
+    IdxData[12] = 8; IdxData[13] = 9; IdxData[14] = 10; IdxData[15] = 8; IdxData[16] = 10; IdxData[17] = 11; 
+    IdxData[18] = 12; IdxData[19] = 13; IdxData[20] = 14; IdxData[21] = 12; IdxData[22] = 14; IdxData[23] = 15; 
+    VertData[0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
+    VertData[1] = UIVertex(vec3f(TL.x, TL.y-1, 0), vec2f(0.f, 1.f));
+    VertData[2] = UIVertex(vec3f(BR.x, TL.y-1, 0), vec2f(1.f, 1.f));
+    VertData[3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
+
+    VertData[4] = UIVertex(vec3f(TL.x, BR.y+1, 0), vec2f(0.f, 0.f));
+    VertData[5] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
+    VertData[6] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
+    VertData[7] = UIVertex(vec3f(BR.x, BR.y+1, 0), vec2f(1.f, 0.f));
+
+    VertData[8] = UIVertex(vec3f(TL.x, TL.y-1, 0), vec2f(0.f, 0.f));
+    VertData[9] = UIVertex(vec3f(TL.x, BR.y+1, 0), vec2f(0.f, 1.f));
+    VertData[10] = UIVertex(vec3f(TL.x+1, BR.y+1, 0), vec2f(1.f, 1.f));
+    VertData[11] = UIVertex(vec3f(TL.x+1, TL.y-1, 0), vec2f(1.f, 0.f));
+
+    VertData[12] = UIVertex(vec3f(BR.x-1, TL.y-1, 0), vec2f(0.f, 0.f));
+    VertData[13] = UIVertex(vec3f(BR.x-1, BR.y+1, 0), vec2f(0.f, 1.f));
+    VertData[14] = UIVertex(vec3f(BR.x, BR.y+1, 0), vec2f(1.f, 1.f));
+    VertData[15] = UIVertex(vec3f(BR.x, TL.y-1, 0), vec2f(1.f, 0.f));
+
+    ++(RenderCmdCount[PanelIdx]);
+}
+
+void BeginPanel(void *ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags)
 {
     Assert(PanelCount < UI_MAX_PANELS);
     uint32 const PanelIdx = PanelCount;
@@ -255,8 +342,8 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     }
 
     int const Y = Context->WindowHeight;
-    vec2f TL(Position.x, Y - Position.y);
-    vec2f BR(Position.x + Size.x, Y - Position.y - Size.y);
+    vec2f TL(Position->x, Y - Position->y);
+    vec2f BR(Position->x + Size.x, Y - Position->y - Size.y);
 
     IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
     VertData[0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
@@ -267,25 +354,45 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, co
     ++(RenderCmdCount[PanelIdx]);
     ParentID[ParentLayer++] = ID;
 
-    // Add panel title as text
-    MakeText(NULL, PanelTitle, FONT_DEFAULT, Position + vec3f(5,5,0), Theme.PanelFG, Size.x - 5);
+    MakeBorder(TL, BR);
 
+    if(Flags & DECORATION_TITLEBAR)
+    {
+        MakeTitlebar(NULL, PanelTitle, *Position + vec3f(1, 1, 0), vec2i(Size.x - 2, 20), Theme.TitlebarBG);
+    }
 
     if(HoverNext.Priority <= PanelOrder[PanelIdx])
     {
-        if(PointInRectangle(vec2f(Input->MousePosX, Y - Input->MousePosY), TL, BR))
+        vec2f MousePos(Input->MousePosX, Y - Input->MousePosY);
+        if(PointInRectangle(MousePos, TL, BR))
         {
             HoverNext.ID = ID;
             HoverNext.Priority = PanelOrder[PanelIdx];
             HoverNext.Idx = PanelIdx;
             strncpy(HoverTitleNext, PanelTitle, 64);
+
+            // Test for Titlebar click
+            vec2f TB_TL = TL + vec2f(1,1);
+            vec2f TB_BR(Position->x + Size.x - 2, Y - Position->y - 20);
+            if(Flags & DECORATION_TITLEBAR && ID == Hover.ID && PointInRectangle(MousePos, TB_TL, TB_BR))
+            {
+                if(MOUSE_HIT(Input->MouseLeft))
+                {
+                    MouseHold = true;
+                }
+            }
         }
+    }
+
+    if(Focus.ID == ID && MouseHold)
+    {
+        Position->x += Input->MouseDX;
+        Position->y += Input->MouseDY;
     }
 }
 
 void EndPanel()
 {
-    // TODO - Keep track of per-panel info, stacking, layout etc
     --ParentLayer;
     ++PanelCount;
 }

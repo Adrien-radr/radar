@@ -10,6 +10,8 @@ namespace ui
 
         col4f PanelBG;
         col4f PanelFG;
+        col4f TitlebarBG;
+        col4f BorderBG;
 
         col4f DebugFG;
 
@@ -27,6 +29,8 @@ namespace ui
             case COLOR_BLACK : return Theme.Black;
             case COLOR_PANELBG : return Theme.PanelBG;
             case COLOR_PANELFG : return Theme.PanelFG;
+            case COLOR_TITLEBARBG : return Theme.TitlebarBG;
+            case COLOR_BORDERBG : return Theme.BorderBG;
             case COLOR_DEBUGFG : return Theme.DebugFG;
             default : return Theme.White;
         }
@@ -51,6 +55,8 @@ namespace ui
 
         Theme.PanelBG = col4f(0, 0, 0, 0.9);
         Theme.PanelFG = col4f(1, 1, 1, 1);
+        Theme.TitlebarBG = col4f(1, 1, 1, 0.1);
+        Theme.BorderBG = col4f(1, 1, 1, 0.2);
         Theme.DebugFG = col4f(1, 0, 0, 1);
 
 #ifdef RADAR_WIN32
@@ -68,7 +74,8 @@ namespace ui
             cJSON *root = cJSON_Parse((char*)Content);
             if(root)
             {
-                Theme.Red = JSON_Get(root, "PanelBG", col4f(1, 0, 0, 1));
+                // TODO - have a default storage in static here for all of those so that we dont repeat here + MakeDefault
+                Theme.Red = JSON_Get(root, "Red", col4f(1, 0, 0, 1));
                 Theme.Green = JSON_Get(root, "Green", col4f(0, 1, 0, 1));
                 Theme.Blue = JSON_Get(root, "Blue", col4f(0, 0, 1, 1));
                 Theme.Black = JSON_Get(root, "Black", col4f(0, 0, 0, 1));
@@ -76,9 +83,10 @@ namespace ui
 
                 Theme.PanelBG = JSON_Get(root, "PanelBG", col4f(0, 0, 0, 0.9));
                 Theme.PanelFG = JSON_Get(root, "PanelFG", col4f(1, 1, 1, 1));
+                Theme.TitlebarBG = JSON_Get(root, "TitlebarBG", col4f(1, 1, 1, 0.1));
+                Theme.BorderBG = JSON_Get(root, "BorderBG", col4f(1, 1, 1, 0.2));
                 Theme.DebugFG = JSON_Get(root, "DebugFG", col4f(1, 0, 0, 1));
 
-                // TODO - Load default font with font path in the .json
                 cJSON *FontInfo = cJSON_GetObjectItem(root, "DefaultFont");
                 if(FontInfo && cJSON_GetArraySize(FontInfo) == 2)
                 {

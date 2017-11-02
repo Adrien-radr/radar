@@ -38,8 +38,15 @@ struct game_context
     bool IsValid;
 };
 
-namespace Context
+namespace context
 {
+    enum cursor_type
+    {
+        CURSOR_NORMAL,
+        CURSOR_HRESIZE,
+        CURSOR_VRESIZE
+    };
+
     game_context *Init(game_memory *Memory);
     void Destroy(game_context *Context);
 
@@ -50,6 +57,8 @@ namespace Context
     void RegisteredShaderClear(game_context *Context);
     void RegisterShader3D(game_context *Context, uint32 ProgramID);
     void RegisterShader2D(game_context *Context, uint32 ProgramID);
+
+    void SetCursor(game_context *Context, cursor_type CursorType);
 }
 
 

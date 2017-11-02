@@ -18,6 +18,10 @@ int  static ResizeWidth;
 int  static ResizeHeight;
 bool static Resized = true;
 
+GLFWcursor static *CursorNormal = NULL;
+GLFWcursor static *CursorHResize = NULL;
+GLFWcursor static *CursorVResize = NULL;
+
 void ProcessKeyboardEvent(GLFWwindow *Window, int Key, int Scancode, int Action, int Mods)
 {
     if(Action == GLFW_PRESS)
@@ -91,237 +95,262 @@ mouse_state BuildMouseState(int32 MouseButton)
     return State;
 }
 
-namespace Context {
-void RegisterShader3D(game_context *Context, uint32 ProgramID)
-{
-    Assert(Context->Shaders3DCount < MAX_SHADERS);
-    Context->Shaders3D[Context->Shaders3DCount++] = ProgramID;
-}
-
-void RegisterShader2D(game_context *Context, uint32 ProgramID)
-{
-    Assert(Context->Shaders2DCount < MAX_SHADERS);
-    Context->Shaders2D[Context->Shaders2DCount++] = ProgramID;
-}
-
-void RegisteredShaderClear(game_context *Context)
-{
-    Context->Shaders3DCount = 0;
-    Context->Shaders2DCount = 0;
-}
-
-void UpdateShaderProjection(game_context *Context)
-{
-    // Notify the shaders that uses it
-    for(uint32 i = 0; i < Context->Shaders3DCount; ++i)
+namespace context {
+    void RegisterShader3D(game_context *Context, uint32 ProgramID)
     {
-        glUseProgram(Context->Shaders3D[i]);
-        SendMat4(glGetUniformLocation(Context->Shaders3D[i], "ProjMatrix"), Context->ProjectionMatrix3D);
+        Assert(Context->Shaders3DCount < MAX_SHADERS);
+        Context->Shaders3D[Context->Shaders3DCount++] = ProgramID;
     }
 
-    for(uint32 i = 0; i < Context->Shaders2DCount; ++i)
+    void RegisterShader2D(game_context *Context, uint32 ProgramID)
     {
-        glUseProgram(Context->Shaders2D[i]);
-        SendMat4(glGetUniformLocation(Context->Shaders2D[i], "ProjMatrix"), Context->ProjectionMatrix2D);
+        Assert(Context->Shaders2DCount < MAX_SHADERS);
+        Context->Shaders2D[Context->Shaders2DCount++] = ProgramID;
     }
-}
 
-void WindowResized(game_context *Context)
-{
-    if(Resized)
+    void RegisteredShaderClear(game_context *Context)
     {
-        Resized = false;
-
-        glViewport(0, 0, ResizeWidth, ResizeHeight);
-        Context->WindowWidth = ResizeWidth;
-        Context->WindowHeight = ResizeHeight;
-        Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
-                Context->WindowWidth / (real32)Context->WindowHeight, Context->GameConfig->NearPlane, Context->GameConfig->FarPlane);
-        Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1.f);
-
-        UpdateShaderProjection(Context);
+        Context->Shaders3DCount = 0;
+        Context->Shaders2DCount = 0;
     }
-}
 
-game_context *Init(game_memory *Memory)
-{
-    game_context *Context = (game_context*)PushArenaStruct(&Memory->SessionArena, game_context);
-    game_config &Config = Memory->Config;
-
-    bool GLFWValid = false, GLEWValid = false, SoundValid = false;
-
-    GLFWValid = glfwInit();
-    if(GLFWValid)
+    void UpdateShaderProjection(game_context *Context)
     {
-        char WindowName[64];
-        snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
+        // Notify the shaders that uses it
+        for(uint32 i = 0; i < Context->Shaders3DCount; ++i)
+        {
+            glUseProgram(Context->Shaders3D[i]);
+            SendMat4(glGetUniformLocation(Context->Shaders3D[i], "ProjMatrix"), Context->ProjectionMatrix3D);
+        }
 
-        glfwSetErrorCallback(ProcessErrorEvent);
+        for(uint32 i = 0; i < Context->Shaders2DCount; ++i)
+        {
+            glUseProgram(Context->Shaders2D[i]);
+            SendMat4(glGetUniformLocation(Context->Shaders2D[i], "ProjMatrix"), Context->ProjectionMatrix2D);
+        }
+    }
+
+    void WindowResized(game_context *Context)
+    {
+        if(Resized)
+        {
+            Resized = false;
+
+            glViewport(0, 0, ResizeWidth, ResizeHeight);
+            Context->WindowWidth = ResizeWidth;
+            Context->WindowHeight = ResizeHeight;
+            Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
+                    Context->WindowWidth / (real32)Context->WindowHeight, Context->GameConfig->NearPlane, Context->GameConfig->FarPlane);
+            Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1.f);
+
+            UpdateShaderProjection(Context);
+        }
+    }
+
+    game_context *Init(game_memory *Memory)
+    {
+        game_context *Context = (game_context*)PushArenaStruct(&Memory->SessionArena, game_context);
+        game_config &Config = Memory->Config;
+
+        bool GLFWValid = false, GLEWValid = false, SoundValid = false;
+
+        GLFWValid = glfwInit();
+        if(GLFWValid)
+        {
+            char WindowName[64];
+            snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
+
+            glfwSetErrorCallback(ProcessErrorEvent);
 #if 0
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+            glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
 #endif
 
-        Context->Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
-        if(Context->Window)
-        {
-            Context->RenderResources.RH = &Memory->ResourceHelper;
-            glfwMakeContextCurrent(Context->Window);
-
-            // TODO - Only in windowed mode for debug
-		    glfwSetWindowPos(Context->Window, Config.WindowX, Config.WindowY);
-            glfwSwapInterval(Config.VSync);
-
-            glfwSetKeyCallback(Context->Window, ProcessKeyboardEvent);
-            glfwSetMouseButtonCallback(Context->Window, ProcessMouseButtonEvent);
-            glfwSetScrollCallback(Context->Window, ProcessMouseWheelEvent);
-            glfwSetWindowSizeCallback(Context->Window, ProcessWindowSizeEvent);
-
-            GLEWValid = (GLEW_OK == glewInit());
-            if(GLEWValid)
+            Context->Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
+            if(Context->Window)
             {
-                GLubyte const *GLRenderer = glGetString(GL_RENDERER);
-                GLubyte const *GLVersion = glGetString(GL_VERSION);
-                printf("GL Renderer %s, %s\n", GLRenderer, GLVersion);
+                Context->RenderResources.RH = &Memory->ResourceHelper;
+                glfwMakeContextCurrent(Context->Window);
 
-                int MaxLayers;
-                glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
-                printf("GL Max Array Layers : %d\n", MaxLayers);
+                // TODO - Only in windowed mode for debug
+                glfwSetWindowPos(Context->Window, Config.WindowX, Config.WindowY);
+                glfwSwapInterval(Config.VSync);
 
-                int MaxSize;
-                glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxSize);
-                printf("GL Max Texture Width : %d\n", MaxSize);
+                glfwSetKeyCallback(Context->Window, ProcessKeyboardEvent);
+                glfwSetMouseButtonCallback(Context->Window, ProcessMouseButtonEvent);
+                glfwSetScrollCallback(Context->Window, ProcessMouseWheelEvent);
+                glfwSetWindowSizeCallback(Context->Window, ProcessWindowSizeEvent);
 
-                ResizeWidth = Config.WindowWidth;
-                ResizeHeight = Config.WindowHeight;
-                Context->WindowWidth = Config.WindowWidth;
-                Context->WindowHeight = Config.WindowHeight;
-                Context->FOV = Config.FOV;
+                CursorNormal = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+                CursorHResize = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+                CursorVResize = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
 
-                Context->WireframeMode = false;
-                Context->ClearColor = vec4f(0.01f, 0.19f, 0.31f, 0.f);
-                Context->GameConfig = &Config;
-
-                glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
-
-                glEnable(GL_CULL_FACE);
-                glCullFace(GL_BACK);
-                glFrontFace(GL_CCW);
-
-                glEnable(GL_DEPTH_TEST);
-                glDepthFunc(GL_LESS);
-
-                glEnable(GL_BLEND);
-                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-                glEnable(GL_POINT_SPRITE);
-                glEnable(GL_PROGRAM_POINT_SIZE);
-
+                GLEWValid = (GLEW_OK == glewInit());
+                if(GLEWValid)
                 {
-                    //image *Image;
+                    GLubyte const *GLRenderer = glGetString(GL_RENDERER);
+                    GLubyte const *GLVersion = glGetString(GL_VERSION);
+                    printf("GL Renderer %s, %s\n", GLRenderer, GLVersion);
 
-                    //Image = ResourceLoadImage(&Context.RenderResources, "data/default_diffuse.png", false);
-                    //Context.RenderResources.DefaultDiffuseTexture = Make2DTexture(Image, false, false, 1);
-                    Context->RenderResources.DefaultDiffuseTexture = 
-                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
+                    int MaxLayers;
+                    glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
+                    printf("GL Max Array Layers : %d\n", MaxLayers);
 
-                    //Image = ResourceLoadImage(&Context.RenderResources, "data/default_normal.png", false);
-                    //Context.RenderResources.DefaultNormalTexture = Make2DTexture(Image, false, false, 1);
-                    Context->RenderResources.DefaultNormalTexture= 
-                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
+                    int MaxSize;
+                    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxSize);
+                    printf("GL Max Texture Width : %d\n", MaxSize);
+
+                    ResizeWidth = Config.WindowWidth;
+                    ResizeHeight = Config.WindowHeight;
+                    Context->WindowWidth = Config.WindowWidth;
+                    Context->WindowHeight = Config.WindowHeight;
+                    Context->FOV = Config.FOV;
+
+                    Context->WireframeMode = false;
+                    Context->ClearColor = vec4f(0.01f, 0.19f, 0.31f, 0.f);
+                    Context->GameConfig = &Config;
+
+                    glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
+
+                    glEnable(GL_CULL_FACE);
+                    glCullFace(GL_BACK);
+                    glFrontFace(GL_CCW);
+
+                    glEnable(GL_DEPTH_TEST);
+                    glDepthFunc(GL_LESS);
+
+                    glEnable(GL_BLEND);
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+                    glEnable(GL_POINT_SPRITE);
+                    glEnable(GL_PROGRAM_POINT_SIZE);
+
+                    {
+                        //image *Image;
+
+                        //Image = ResourceLoadImage(&Context.RenderResources, "data/default_diffuse.png", false);
+                        //Context.RenderResources.DefaultDiffuseTexture = Make2DTexture(Image, false, false, 1);
+                        Context->RenderResources.DefaultDiffuseTexture = 
+                            ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
+
+                        //Image = ResourceLoadImage(&Context.RenderResources, "data/default_normal.png", false);
+                        //Context.RenderResources.DefaultNormalTexture = Make2DTexture(Image, false, false, 1);
+                        Context->RenderResources.DefaultNormalTexture= 
+                            ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
+                    }
+                }
+                else
+                {
+                    printf("Couldn't initialize GLEW.\n");
                 }
             }
             else
             {
-                printf("Couldn't initialize GLEW.\n");
+                printf("Couldn't create GLFW Window.\n");
             }
         }
         else
         {
-            printf("Couldn't create GLFW Window.\n");
+            printf("Couldn't init GLFW.\n");
         }
+
+        SoundValid = sound::Init();
+
+        if(GLFWValid && GLEWValid && SoundValid)
+        {
+            // NOTE - IsRunning might be better elsewhere ?
+            Context->IsRunning = true;
+            Context->IsValid = true;
+        }
+
+        return Context;
     }
-    else
+
+    void GetFrameInput(game_context *Context, game_input *Input)
     {
-        printf("Couldn't init GLFW.\n");
+        memset(FrameReleasedKeys, 0, sizeof(FrameReleasedKeys));
+        memset(FramePressedKeys, 0, sizeof(FramePressedKeys));
+        memset(FrameReleasedMouseButton, 0, sizeof(FrameReleasedMouseButton));
+        memset(FramePressedMouseButton, 0, sizeof(FramePressedMouseButton));
+
+        FrameMouseWheel = 0;
+
+        glfwPollEvents();
+
+        // NOTE - The mouse position can go outside the Window bounds in windowed mode
+        // See if this can cause problems in the future.
+        real64 MX, MY;
+        glfwGetCursorPos(Context->Window, &MX, &MY);
+        Input->MousePosX = (int)MX;
+        Input->MousePosY = (int)MY;
+
+        if(glfwWindowShouldClose(Context->Window))
+        {
+            Context->IsRunning = false;
+        }
+
+        if(FrameReleasedKeys[GLFW_KEY_ESCAPE])
+        {
+            Context->IsRunning = false;
+        }
+
+        // Get Player controls
+        Input->KeyW = BuildKeyState(GLFW_KEY_W);
+        Input->KeyA = BuildKeyState(GLFW_KEY_A);
+        Input->KeyS = BuildKeyState(GLFW_KEY_S);
+        Input->KeyD = BuildKeyState(GLFW_KEY_D);
+        Input->KeyR = BuildKeyState(GLFW_KEY_R);
+        Input->KeyF = BuildKeyState(GLFW_KEY_F);
+        Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
+        Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
+        Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
+        Input->KeySpace = BuildKeyState(GLFW_KEY_SPACE);
+        Input->KeyF1 = BuildKeyState(GLFW_KEY_F1);
+        Input->KeyF2 = BuildKeyState(GLFW_KEY_F2);
+        Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
+        Input->KeyNumPlus = BuildKeyState(GLFW_KEY_KP_ADD);
+        Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);
+        Input->KeyNumMultiply = BuildKeyState(GLFW_KEY_KP_MULTIPLY);
+        Input->KeyNumDivide = BuildKeyState(GLFW_KEY_KP_DIVIDE);
+
+        Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
+        Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
+
+        Input->dTimeFixed = 0.1f; // 100FPS
     }
 
-    SoundValid = sound::Init();
-
-    if(GLFWValid && GLEWValid && SoundValid)
+    void Destroy(game_context *Context)
     {
-        // NOTE - IsRunning might be better elsewhere ?
-        Context->IsRunning = true;
-        Context->IsValid = true;
+        sound::Destroy();
+        ResourceFree(&Context->RenderResources);
+
+        if(Context->Window)
+        {
+            glfwDestroyCursor(CursorNormal);
+            glfwDestroyCursor(CursorHResize);
+            glfwDestroyCursor(CursorVResize);
+            glfwDestroyWindow(Context->Window);
+        }
+        glfwTerminate();
     }
 
-    return Context;
-}
-
-void GetFrameInput(game_context *Context, game_input *Input)
-{
-    memset(FrameReleasedKeys, 0, sizeof(FrameReleasedKeys));
-    memset(FramePressedKeys, 0, sizeof(FramePressedKeys));
-    memset(FrameReleasedMouseButton, 0, sizeof(FrameReleasedMouseButton));
-    memset(FramePressedMouseButton, 0, sizeof(FramePressedMouseButton));
-
-    FrameMouseWheel = 0;
-
-    glfwPollEvents();
-
-    // NOTE - The mouse position can go outside the Window bounds in windowed mode
-    // See if this can cause problems in the future.
-    real64 MX, MY;
-    glfwGetCursorPos(Context->Window, &MX, &MY);
-    Input->MousePosX = (int)MX;
-    Input->MousePosY = (int)MY;
-
-    if(glfwWindowShouldClose(Context->Window))
+    void SetCursor(game_context *Context, cursor_type CursorType)
     {
-        Context->IsRunning = false;
+        GLFWcursor *c = NULL;
+        switch(CursorType)
+        {
+            case CURSOR_NORMAL:
+                c = CursorNormal; break;
+            case CURSOR_HRESIZE:
+                c = CursorHResize; break;
+            case CURSOR_VRESIZE:
+                c = CursorVResize; break;
+            default:
+                c = CursorNormal; break;
+        }
+
+        glfwSetCursor(Context->Window, c);
     }
-
-    if(FrameReleasedKeys[GLFW_KEY_ESCAPE])
-    {
-        Context->IsRunning = false;
-    }
-
-    // Get Player controls
-    Input->KeyW = BuildKeyState(GLFW_KEY_W);
-    Input->KeyA = BuildKeyState(GLFW_KEY_A);
-    Input->KeyS = BuildKeyState(GLFW_KEY_S);
-    Input->KeyD = BuildKeyState(GLFW_KEY_D);
-    Input->KeyR = BuildKeyState(GLFW_KEY_R);
-    Input->KeyF = BuildKeyState(GLFW_KEY_F);
-    Input->KeyLShift = BuildKeyState(GLFW_KEY_LEFT_SHIFT);
-    Input->KeyLCtrl = BuildKeyState(GLFW_KEY_LEFT_CONTROL);
-    Input->KeyLAlt = BuildKeyState(GLFW_KEY_LEFT_ALT);
-    Input->KeySpace = BuildKeyState(GLFW_KEY_SPACE);
-    Input->KeyF1 = BuildKeyState(GLFW_KEY_F1);
-    Input->KeyF2 = BuildKeyState(GLFW_KEY_F2);
-    Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
-    Input->KeyNumPlus = BuildKeyState(GLFW_KEY_KP_ADD);
-    Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);
-    Input->KeyNumMultiply = BuildKeyState(GLFW_KEY_KP_MULTIPLY);
-    Input->KeyNumDivide = BuildKeyState(GLFW_KEY_KP_DIVIDE);
-
-    Input->MouseLeft = BuildMouseState(GLFW_MOUSE_BUTTON_LEFT);
-    Input->MouseRight = BuildMouseState(GLFW_MOUSE_BUTTON_RIGHT);
-
-    Input->dTimeFixed = 0.1f; // 100FPS
-}
-
-void Destroy(game_context *Context)
-{
-    sound::Destroy();
-    ResourceFree(&Context->RenderResources);
-
-    if(Context->Window)
-    {
-        glfwDestroyWindow(Context->Window);
-    }
-    glfwTerminate();
-}
 }

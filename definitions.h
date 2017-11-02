@@ -167,6 +167,8 @@ struct game_input
 
     int32  MousePosX;
     int32  MousePosY;
+    int32  MouseDX;
+    int32  MouseDY;
 
     key_state KeyW;
     key_state KeyA;
@@ -203,6 +205,14 @@ namespace ui
         COLOR_DEBUGFG,
         COLOR_PANELFG,
         COLOR_PANELBG,
+        COLOR_TITLEBARBG,
+        COLOR_BORDERBG,
+    };
+
+    enum decoration_flag
+    {
+        DECORATION_NONE = 0x0,
+        DECORATION_TITLEBAR = 0x1
     };
 
     enum theme_font
