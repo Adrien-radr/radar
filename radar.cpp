@@ -75,8 +75,9 @@ void ParseConfig(game_memory *Memory, char *ConfigPath)
             Config.FullScreen = JSON_Get(root, "bFullScreen", 0) != 0;
             Config.VSync = JSON_Get(root, "bVSync", 0) != 0;
             Config.FOV = (real32)JSON_Get(root, "fFOV", 75.0);
-            Config.AnisotropicFiltering = JSON_Get(root, "iAnisotropicFiltering", 1);
             Config.NearPlane = (real32)JSON_Get(root, "fNearPlane", 0.1);
+            Config.FarPlane = (real32)JSON_Get(root, "fFarPlane", 10000.0);
+            Config.AnisotropicFiltering = JSON_Get(root, "iAnisotropicFiltering", 1);
 
             Config.CameraSpeedBase = (real32)JSON_Get(root, "fCameraSpeedBase", 20.0);
             Config.CameraSpeedMult = (real32)JSON_Get(root, "fCameraSpeedMult", 2.0);
