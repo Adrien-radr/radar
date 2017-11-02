@@ -156,6 +156,12 @@ game_context *Init(game_memory *Memory)
         char WindowName[64];
         snprintf(WindowName, 64, "Radar v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
 
+        glfwSetErrorCallback(ProcessErrorEvent);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
+
         Context->Window = glfwCreateWindow(Config.WindowWidth, Config.WindowHeight, WindowName, NULL, NULL);
         if(Context->Window)
         {
@@ -170,7 +176,6 @@ game_context *Init(game_memory *Memory)
             glfwSetMouseButtonCallback(Context->Window, ProcessMouseButtonEvent);
             glfwSetScrollCallback(Context->Window, ProcessMouseWheelEvent);
             glfwSetWindowSizeCallback(Context->Window, ProcessWindowSizeEvent);
-            glfwSetErrorCallback(ProcessErrorEvent);
 
             GLEWValid = (GLEW_OK == glewInit());
             if(GLEWValid)
