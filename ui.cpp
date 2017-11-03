@@ -18,8 +18,7 @@ struct input_state
     int16  Priority;
 };
 
-uint16 PanelCount;
-uint16 PanelCountNext;
+uint16 PanelCount;         // Total number of panels ever registered
 void *ParentID[UI_PARENT_SIZE]; // ID stack of the parent of the current widgets, changes when a panel is begin and ended
 int16 PanelOrder[UI_MAX_PANELS];
 int16 RenderOrder[UI_MAX_PANELS];
@@ -28,10 +27,11 @@ input_state Hover;
 input_state HoverNext;
 input_state Focus;
 input_state FocusNext;
+int16 ForcePanelFocus;
 
 bool MouseHold;
 
-void *LastRootWidget; // Address of the last widget not attached to anything
+int16 LastRootWidget; // Address of the last widget not attached to anything
 
 // TMP
 char HoverTitleCurrent[64];
@@ -110,7 +110,7 @@ void Init(game_memory *Memory, game_context *Context)
     memset(FocusTitleCurrent, 0, 64);
 
     // 1 panel at the start : the 'backpanel' where floating widgets are stored
-    PanelCount = PanelCountNext = 1;
+    PanelCount = 1;
 
     ParentLayer = 0;
     memset(ParentID, 0, sizeof(void*) * UI_PARENT_SIZE);
@@ -155,18 +155,16 @@ void BeginFrame(game_memory *Memory, game_input *Input)
         InitArena(&RenderCmdArena[p], UI_STACK_SIZE/UI_MAX_PANELS, RenderCmd[p]);
     }
     memset(RenderCmdCount, 0, UI_MAX_PANELS * sizeof(uint32));
-    LastRootWidget = RenderCmd[0];
 
     ui::Input = Input;
     context::SetCursor(Context, context::CURSOR_NORMAL);
 
+    LastRootWidget = 0;
+    ForcePanelFocus = 0;
     ParentLayer = 0;
     Hover = HoverNext;
     HoverNext = { NULL, 0, 0 };
     Focus = FocusNext;
-
-    PanelCount = PanelCountNext;
-    PanelCountNext = 1;
 
     // TMP
     strncpy(HoverTitleCurrent, HoverTitleNext, 64);
@@ -209,7 +207,7 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, 
     uint32 const IndexCount = MsgLength * 6;
 
     bool const NoParent = IsRootWidget();
-    uint32 const PanelIdx = NoParent ? 0 : PanelCount;
+    uint16 const PanelIdx = LastRootWidget;
 
 
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
@@ -235,12 +233,10 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, 
 
 void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
 {
-    bool const NoParent = IsRootWidget();
-    uint32 const PanelIdx = NoParent ? 0 : PanelCount;
-
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], 4 * sizeof(vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], 6 * sizeof(uint16));
+    int16 const ParentPanelIdx = LastRootWidget;
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 6 * sizeof(uint16));
 
     RenderInfo->Type = WIDGET_TITLEBAR;
     RenderInfo->VertexCount = 4;
@@ -248,7 +244,7 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
     RenderInfo->Color = Color;
     RenderInfo->ID = ID;
-    RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
+    RenderInfo->ParentID = ParentID[ParentLayer];
 
     int const Y = Context->WindowHeight;
     vec2f TL(Position.x, Y - Position.y);
@@ -260,7 +256,7 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
     VertData[2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
     VertData[3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
 
-    ++(RenderCmdCount[PanelIdx]);
+    ++(RenderCmdCount[ParentPanelIdx]);
 
     // Add panel title as text
     MakeText(NULL, PanelTitle, FONT_DEFAULT, Position + vec3f(4,4,0), Theme.PanelFG, Size.x - 4);
@@ -276,11 +272,10 @@ static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec
 
 void MakeBorder(vec2f const &TL, vec2f const &BR)
 {
-    uint32 const PanelIdx = PanelCount;
-
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], 16 * sizeof(vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], 24 * sizeof(uint16));
+    int16 const ParentPanelIdx = LastRootWidget;
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 16 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 24 * sizeof(uint16));
 
     RenderInfo->Type = WIDGET_BORDER;
     RenderInfo->VertexCount = 16;
@@ -314,19 +309,29 @@ void MakeBorder(vec2f const &TL, vec2f const &BR)
     VertData[14] = UIVertex(vec3f(BR.x, BR.y+1, 0), vec2f(1.f, 1.f));
     VertData[15] = UIVertex(vec3f(BR.x, TL.y-1, 0), vec2f(1.f, 0.f));
 
-    ++(RenderCmdCount[PanelIdx]);
+    ++(RenderCmdCount[ParentPanelIdx]);
 }
 
-void BeginPanel(void *ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags)
+void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags)
 {
     Assert(PanelCount < UI_MAX_PANELS);
-    uint32 const PanelIdx = PanelCount;
+    uint32 PanelIdx;
+
+    // NOTE - Init stage of the panel, storing the first time Panel Idx, as well as forcing Focus on it
+    if(*ID == 0)
+    {
+        PanelIdx = PanelCount++;
+        *ID = PanelIdx;
+        ForcePanelFocus = PanelIdx;
+    }
+    else
+    {
+        PanelIdx = *ID;
+    }
 
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
     vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], 4 * sizeof(vertex));
     uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], 6 * sizeof(uint16));
-
-    bool NoParent = IsRootWidget();
 
     RenderInfo->Type = WIDGET_PANEL;
     RenderInfo->VertexCount = 4;
@@ -334,12 +339,8 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i *Position, vec2i Size, d
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
     RenderInfo->Color = Theme.PanelBG;
     RenderInfo->ID = ID;
-    RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
-
-    if(NoParent)
-    {
-        LastRootWidget = ID;
-    }
+    RenderInfo->ParentID = NULL;
+    LastRootWidget = *ID;
 
     int const Y = Context->WindowHeight;
     vec2f TL(Position->x, Y - Position->y);
@@ -394,13 +395,31 @@ void BeginPanel(void *ID, char const *PanelTitle, vec3i *Position, vec2i Size, d
 void EndPanel()
 {
     --ParentLayer;
-    ++PanelCount;
 }
 
-static void UpdateOrder()
+// Reorders the panel focus and render orders by pushing panel Idx to the front
+static void FocusReorder(int16 Idx)
 {
-    // TODO - if a panel is closed, the order should be updated
-    // i.e. the panel is removed in PanelOrder and the other slots are updated for next frame
+    int16 OldPriority = PanelOrder[Idx];
+
+    for(uint32 p = 1; p < PanelCount; ++p)
+        if(PanelOrder[p] > OldPriority)
+            --PanelOrder[p];
+    PanelOrder[Idx] = PanelCount - 1;
+
+    for(uint32 i = 0; i < PanelCount; ++i)
+    {
+        RenderOrder[PanelOrder[i]] = i;
+    }
+}
+
+static void Update()
+{
+    if(ForcePanelFocus > 0)
+    { // NOTE - push focus on a specific panel if needed (usually when it first appear or if the caller asks it)
+        FocusReorder(ForcePanelFocus);
+    }
+
     if(MOUSE_HIT(Input->MouseLeft))
     {
         FocusNext = Hover;
@@ -409,17 +428,7 @@ static void UpdateOrder()
         // Reorder panel rendering order if focus has changed
         if(Hover.Priority > 0 && Hover.Priority < (PanelCount-1))
         {
-            int16 OldPriority = PanelOrder[Hover.Idx];
-
-            for(uint32 p = 1; p < PanelCount; ++p)
-                if(PanelOrder[p] > OldPriority)
-                    --PanelOrder[p];
-            PanelOrder[Hover.Idx] = PanelCount - 1;
-
-            for(uint32 i = 0; i < PanelCount; ++i)
-            {
-                RenderOrder[PanelOrder[i]] = i;
-            }
+            FocusReorder(Hover.Idx);
         }
     }
 }
@@ -433,7 +442,7 @@ static void *RenderCmdOffset(uint8 *CmdList, size_t *OffsetAccum, size_t Size)
 
 void Draw()
 {
-    UpdateOrder();
+    Update();
     glUseProgram(Program);
 
     glDisable(GL_DEPTH_TEST);
@@ -441,7 +450,7 @@ void Draw()
     // TODO - 1 DrawCall for the whole AI ? just need to prepare the buffer with each RenderCmd beforehand
     for(int p = 0; p < PanelCount; ++p)
     {
-        int16 OrdPanelIdx = PanelOrder[p];
+        int16 OrdPanelIdx = RenderOrder[p];
         uint8 *Cmd = (uint8*)RenderCmd[OrdPanelIdx];
         for(uint32 i = 0; i < RenderCmdCount[OrdPanelIdx]; ++i)
         {

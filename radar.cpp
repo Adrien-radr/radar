@@ -204,7 +204,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     int LogHeight = LineGap * Log->StringCount;
 
     static bool   ConsoleShow = false;
-    static uint32 ConsolePanel;
+    static uint32 ConsolePanel = 0;
     static vec3i  ConsolePanelPos(0,0,0);
 
     if(KEY_HIT(Input->KeyTilde)) ConsoleShow = !ConsoleShow;
@@ -223,7 +223,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 
     ui::frame_stack *UIStack = System->UIStack;
     int UIStackHeight = LineGap * UIStack->TextLineCount;
-    static uint32 UIStackPanel;
+    static uint32 UIStackPanel = 0;
     static vec3i  UIStackPanelPos(0,0,0);
     static vec2i  UIStackPanelSize(350, UIStackHeight + 30);
     ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, UIStackPanelSize, ui::DECORATION_NONE);
@@ -237,7 +237,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     ui::EndPanel();
 
 #if 1
-    static uint32 id1, id2;
+    static uint32 id1 = 0, id2 = 0;
     static vec3i p1(100, 100, 0);
     static vec3i p2(200, 150, 0);
     ui::BeginPanel(&id1, "Panel 1", &p1, vec2i(200, 100), ui::DECORATION_TITLEBAR);

@@ -9,7 +9,11 @@ namespace ui {
 
     void Init(game_memory *Memory, game_context *Context);
     void BeginFrame(game_memory *Memory, game_input *Input);
-    void BeginPanel(void* ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags);
+
+    /// ID's value must be initialized to 0 in the calling code.
+    /// This insure that BeginPanel will give the focus to this panel automatically in an "init stage"
+    /// ID's value will be set at the "init stage" to the Idx value of this panel in the UI priority array
+    void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags);
     void EndPanel();
     void Draw();
 
