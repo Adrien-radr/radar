@@ -72,7 +72,7 @@ void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
 
 void ProcessErrorEvent(int Error, const char* Description)
 {
-    printf("GLFW Error : %s\n", Description);
+    LogMsg("GLFW Error : %s\n", Description);
 }
 
 key_state BuildKeyState(int32 Key)
@@ -192,15 +192,15 @@ namespace context {
                 {
                     GLubyte const *GLRenderer = glGetString(GL_RENDERER);
                     GLubyte const *GLVersion = glGetString(GL_VERSION);
-                    printf("GL Renderer %s, %s\n", GLRenderer, GLVersion);
+                    LogMsg("GL Renderer %s, %s", GLRenderer, GLVersion);
 
                     int MaxLayers;
                     glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
-                    printf("GL Max Array Layers : %d\n", MaxLayers);
+                    LogMsg("GL Max Array Layers : %d", MaxLayers);
 
                     int MaxSize;
                     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxSize);
-                    printf("GL Max Texture Width : %d\n", MaxSize);
+                    LogMsg("GL Max Texture Width : %d", MaxSize);
 
                     ResizeWidth = Config.WindowWidth;
                     ResizeHeight = Config.WindowHeight;
@@ -243,17 +243,17 @@ namespace context {
                 }
                 else
                 {
-                    printf("Couldn't initialize GLEW.\n");
+                    LogMsg("Couldn't initialize GLEW.\n");
                 }
             }
             else
             {
-                printf("Couldn't create GLFW Window.\n");
+                LogMsg("Couldn't create GLFW Window.\n");
             }
         }
         else
         {
-            printf("Couldn't init GLFW.\n");
+            LogMsg("Couldn't init GLFW.\n");
         }
 
         SoundValid = sound::Init();
@@ -309,6 +309,7 @@ namespace context {
         Input->KeySpace = BuildKeyState(GLFW_KEY_SPACE);
         Input->KeyF1 = BuildKeyState(GLFW_KEY_F1);
         Input->KeyF2 = BuildKeyState(GLFW_KEY_F2);
+        Input->KeyF3 = BuildKeyState(GLFW_KEY_F3);
         Input->KeyF11 = BuildKeyState(GLFW_KEY_F11);
         Input->KeyNumPlus = BuildKeyState(GLFW_KEY_KP_ADD);
         Input->KeyNumMinus = BuildKeyState(GLFW_KEY_KP_SUBTRACT);

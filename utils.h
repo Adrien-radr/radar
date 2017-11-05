@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include "definitions.h"
+#include "log.h"
 #include "cJSON.h"
 
 void *ReadFileContents(memory_arena *Arena, path const Filename, int *FileSize);

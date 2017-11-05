@@ -1,7 +1,6 @@
-#include <cstdio>
 #include <cstdlib>
-#include <cstring>
 #include <string>
+#include <algorithm>
 
 #include "utils.h"
 #include "context.h"
@@ -254,6 +253,11 @@ int RadarMain(int argc, char **argv)
     path DllDstPath;
 
     game_memory *Memory = InitMemory();
+    game_system *System = (game_system*)Memory->PermanentMemPool;
+    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
+
+    rlog::Init(Memory);
+    System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
 
     MakeRelativePath(&Memory->ResourceHelper, DllSrcPath, DllName);
     MakeRelativePath(&Memory->ResourceHelper, DllDstPath, DllDynamicCopyName);
@@ -277,12 +281,6 @@ int RadarMain(int argc, char **argv)
         real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
 
         ui::Init(Memory, Context);
-
-        game_system *System = (game_system*)Memory->PermanentMemPool;
-        game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
-
-        System->ConsoleLog = (console_log*)PushArenaStruct(&Memory->SessionArena, console_log);
-        System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
 
         glActiveTexture(GL_TEXTURE0);
         CheckGLError("Start");

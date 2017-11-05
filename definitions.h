@@ -22,7 +22,6 @@ real32 static const g_G = 9.807f;
 // NOTE - Systems fwd declarations
 struct water_system;    //water.h
 struct tmp_sound_data;  //sound.h
-struct console_log;
 
 struct game_config
 {
@@ -40,7 +39,7 @@ struct game_config
 
     real32 CameraSpeedBase;
     real32 CameraSpeedMult;
-	real32 CameraSpeedAngular;
+    real32 CameraSpeedAngular;
     vec3f  CameraPosition;
     vec3f  CameraTarget;
 
@@ -63,7 +62,7 @@ inline void InitArena(memory_arena *Arena, uint64 Capacity, void *BasePtr)
 
 inline void ClearArena(memory_arena *Arena)
 {
-    // TODO - Do we need to wipe this to 0 each time ? Profile it to see if its 
+    // TODO - Do we need to wipe this to 0 each time ? Profile it to see if its
     // a problem. It seems like best practice
     memset(Arena->BasePtr, 0, sizeof(uint8) * Arena->Capacity);
     Arena->Size = 0;
@@ -182,6 +181,7 @@ struct game_input
     key_state KeySpace;
     key_state KeyF1;
     key_state KeyF2;
+    key_state KeyF3;
     key_state KeyF11;
     key_state KeyNumPlus;
     key_state KeyNumMinus;
@@ -223,7 +223,7 @@ namespace ui
 
     struct text_line
     {
-        char        String[UI_STRINGLEN]; 
+        char        String[UI_STRINGLEN];
         vec3f       Position;
         theme_font  Font;
         theme_color Color;
@@ -235,6 +235,15 @@ namespace ui
         uint32 TextLineCount;
     };
 }
+
+typedef char console_log_string[CONSOLE_STRINGLEN];
+struct console_log
+{
+    console_log_string MsgStack[CONSOLE_CAPACITY];
+    uint32 WriteIdx;
+    uint32 ReadIdx;
+    uint32 StringCount;
+};
 
 struct game_system
 {
@@ -258,15 +267,6 @@ struct game_state
     real32 WaterStateInterp;
     real32 WaterDirection;
     int    WaterState;
-};
-
-typedef char console_log_string[CONSOLE_STRINGLEN];
-struct console_log
-{
-    console_log_string MsgStack[CONSOLE_CAPACITY];
-    uint32 WriteIdx;
-    uint32 ReadIdx;
-    uint32 StringCount;
 };
 
 struct tmp_sound_data

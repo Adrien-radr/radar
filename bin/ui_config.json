@@ -12,5 +12,7 @@
 
     "DebugFG" : [ 1, 0, 0, 1 ],
 
-    "DefaultFont" : [ "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14 ]
+    "DefaultFont" : [ "C:/Windows/Fonts/DejaVuSansMono.ttf", 14 ],
+    "UNIXDefaultFont" : [ "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14 ],
+    "Dummy" : 0
 }

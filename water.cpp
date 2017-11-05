@@ -23,7 +23,6 @@ struct wave_vector
 
 // TODO - Should return a vec2f, with complex having vec2f cast
 // TODO - Use precomputed and better random variables, not rand()
-#include <stdlib.h>
 complex GaussianRandomVariable()
 {
     float U, V, W;

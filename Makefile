@@ -19,6 +19,7 @@ SRCS= \
 	sampling.cpp \
 	render.cpp \
 	utils.cpp \
+	log.cpp \
 	context.cpp \
 	sound.cpp \
 	ui.cpp \
@@ -52,7 +53,7 @@ STATICLIB=lib /nologo
 LINK=/link /MACHINE:X64 -subsystem:console,5.02 /INCREMENTAL:NO
 GENERAL_CFLAGS=-Gm- -EHa- -GR- -EHsc
 CFLAGS=-MT $(GENERAL_CFLAGS) /W1
-DLL_CFLAGS=-MD $(GENERAL_CFLAGS)
+DLL_CFLAGS=-MD -DLIBEXPORT $(GENERAL_CFLAGS)
 DEBUG_FLAGS=-DDEBUG -Zi -Od -W1 -wd4100 -wd4189 -wd4514
 RELEASE_FLAGS=-O2 -Oi
 VERSION_FLAGS=$(DEBUG_FLAGS)

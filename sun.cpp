@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "sun.h"
 #include "SFMT.h"
 
@@ -24,24 +25,6 @@ struct sun_storage
     ui::text_line WaterText;
     ui::text_line CameraText;
 };
-
-void LogString(console_log *Log, char const *String)
-{
-    // NOTE - Have an exposed Queue of Console String on Platform
-    // The Game sends Console Log strings to that queue
-    // The platform process the queue in order each frame and draws them in console
-    memcpy(Log->MsgStack[Log->WriteIdx], String, CONSOLE_STRINGLEN);
-    Log->WriteIdx = (Log->WriteIdx + 1) % CONSOLE_CAPACITY;
-
-    if(Log->StringCount >= CONSOLE_CAPACITY)
-    {
-        Log->ReadIdx = (Log->ReadIdx + 1) % CONSOLE_CAPACITY;
-    }
-    else
-    {
-        Log->StringCount++;
-    }
-}
 
 void FillAudioBuffer(tmp_sound_data *SoundData)
 {
@@ -199,7 +182,7 @@ void MovePlayer(game_state *State, game_input *Input)
             if(Camera.Phi > M_TWO_PI) Camera.Phi -= M_TWO_PI;
             if(Camera.Phi < 0.0f) Camera.Phi += M_TWO_PI;
 
-            Camera.Theta = Max(1e-5f, Min(M_PI - 1e-5f, Camera.Theta));
+            Camera.Theta = std::max(1e-5f, std::min(real32(M_PI) - 1e-5f, Camera.Theta));
             Camera.Forward = SphericalToCartesian(Camera.Theta, Camera.Phi);
 
             Camera.Right = Normalize(Cross(Camera.Forward, vec3f(0, 1, 0)));
@@ -290,7 +273,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         }
         else
         {
-            State->WaterStateInterp = Min(1.f, State->WaterStateInterp);
+            State->WaterStateInterp = std::min(1.f, State->WaterStateInterp);
         }
     }
 
@@ -308,7 +291,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
         }
         else
         {
-            State->WaterStateInterp = Max(0.f, State->WaterStateInterp);
+            State->WaterStateInterp = std::max(0.f, State->WaterStateInterp);
         }
     }
 
@@ -320,6 +303,11 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     if(KEY_DOWN(Input->KeyNumDivide))
     {
         State->WaterDirection -= Input->dTime * 0.05;
+    }
+
+    if(KEY_HIT(Input->KeyF3))
+    {
+        //rlog::Msg("Test Console text");
     }
 
     UpdateSky(Local, State, System, Input);

@@ -19,7 +19,11 @@
 // Platform
 #if defined(_WIN32) || defined(_WIN64)
 #   define RADAR_WIN32 1
+#ifdef LIBEXPORT
 #   define DLLEXPORT extern "C" __declspec(dllexport)
+#else
+#   define DLLEXPORT
+#endif
 #elif defined(__unix__) || defined (__unix) || defined(unix)
 #   define RADAR_UNIX 1
 #   define DLLEXPORT extern "C"
@@ -44,7 +48,6 @@ typedef unsigned long long  uint64;
 typedef char path[MAX_PATH];
 
 #ifdef DEBUG
-#include <stdio.h>
 #ifndef Assert
 #define Assert(expr) if(!(expr)) { printf("Assert %s %d.\n", __FILE__, __LINE__); *(int*)0 = 0; }
 #endif
@@ -54,6 +57,12 @@ typedef char path[MAX_PATH];
 #define Assert(expr) 
 #endif
 #define DebugPrint(str, ...)
+#endif
+
+#ifdef _DEBUG
+#define DEBUGONLY(x) x
+#else
+#define DEBUGONLY(x)
 #endif
 
 #define Kilobytes(num) (1024LL*(num))

@@ -27,11 +27,13 @@
 #define RAD2DEG 57.2957795
 
 #define Square(num) ((num)*(num))
-#ifndef Min
-#define Min(a,b) ((a) <= (b) ? (a) : (b))
+#if 0
+#ifndef min
+#define min(a,b) ((a) <= (b) ? (a) : (b))
 #endif
-#ifndef Max
-#define Max(a,b) ((a) >= (b) ? (a) : (b))
+#ifndef max
+#define max(a,b) ((a) >= (b) ? (a) : (b))
+#endif
 #endif
 #ifndef Clamp
 #define Clamp(v,a,b) (Max((a), Min((b), (v))))

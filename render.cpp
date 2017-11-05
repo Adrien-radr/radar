@@ -23,7 +23,7 @@ static resource_store *GetStore(render_resources *RenderResources, render_resour
 void *ResourceCheckExist(render_resources *RenderResources, render_resource_type Type, path const Filename)
 {
     Assert(Type < RESOURCE_COUNT);
-    printf("Checking for resource %s\n", (char*)Filename);
+    LogMsg("Checking for resource %s", (char*)Filename);
 
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
@@ -32,7 +32,7 @@ void *ResourceCheckExist(render_resources *RenderResources, render_resource_type
         {
             if(!strncmp(Store->Keys[i], Filename, MAX_PATH))
             {
-                printf("Found %s, returning it\n", Filename);
+                LogMsg("Found %s, returning it", Filename);
                 return Store->Values[i];
             }
         }
@@ -48,7 +48,7 @@ void ResourceStore(render_resources *RenderResources, render_resource_type Type,
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
     {
-        printf("Storing %s [%llu]\n", Filename, (uint64)Resource);
+        LogMsg("Storing %s [%llu]", Filename, (uint64)Resource);
         Store->Keys.push_back((char*)Filename);
         Store->Values.push_back(Resource);
     }
@@ -61,7 +61,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Images;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            printf("Destroying image %s\n", Store->Keys[i]);
+            LogMsg("Destroying image %s", Store->Keys[i]);
             DestroyImage((image*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -71,7 +71,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Fonts;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            printf("Destroying font %s\n", Store->Keys[i]);
+            LogMsg("Destroying font %s", Store->Keys[i]);
         }
         Store->Values.clear();
         Store->Keys.clear();
@@ -80,7 +80,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Textures;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            printf("Destroying texture %s\n", Store->Keys[i]);
+            LogMsg("Destroying texture %s", Store->Keys[i]);
             glDeleteTextures(1, (uint32*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -109,7 +109,7 @@ void CheckGLError(const char *Mark)
                 snprintf(ErrName, 32, "UNKNOWN [%u]", Err);
                 break;
         }
-        printf("[%s] GL Error %s\n", Mark, ErrName);
+        LogMsg("[%s] GL Error %s", Mark, ErrName);
     }
 }
 
@@ -135,7 +135,7 @@ image *ResourceLoadImage(render_resources *RenderResources, path const Filename,
 
     if(!Image->Buffer)
     {
-        printf("Error loading Image from %s. Aborting..\n", ResourceName);
+        LogMsg("Error loading Image from %s. Aborting..", ResourceName);
         return NULL;
     }
 
@@ -337,7 +337,7 @@ frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size)
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        printf("Framebuffer creation error : not complete.\n");
+        LogMsg("Framebuffer creation error : not complete.");
         DestroyFramebuffer(&FB);
     }
 
@@ -372,7 +372,7 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        printf("Framebuffer creation error : Attachment %u error.\n", Attachment);
+        LogMsg("Framebuffer creation error : Attachment %u error.", Attachment);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -494,10 +494,10 @@ uint32 _CompileShader(game_memory *Memory, char *Src, int Type)
         GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
         glGetShaderInfoLog(Shader, Len, NULL, Log);
 
-        printf("Shader Compilation Error\n"
+        LogMsg("Shader Compilation Error\n"
                 "------------------------------------------\n"
                 "%s"
-                "------------------------------------------\n", Log);
+                "------------------------------------------", Log);
 
         Shader = 0;
     }
@@ -521,14 +521,14 @@ uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
         uint32 VShader = _CompileShader(Memory, VSrc, GL_VERTEX_SHADER);
         if(!VShader)
         {
-            printf("Failed to build %s Vertex Shader.\n", VSPath);
+            LogMsg("Failed to build %s Vertex Shader.", VSPath);
             glDeleteProgram(ProgramID);
             return 0;
         }
         uint32 FShader = _CompileShader(Memory, FSrc, GL_FRAGMENT_SHADER);
         if(!VShader)
         {
-            printf("Failed to build %s Vertex Shader.\n", VSPath);
+            LogMsg("Failed to build %s Vertex Shader.", VSPath);
             glDeleteShader(VShader);
             glDeleteProgram(ProgramID);
             return 0;
@@ -553,7 +553,7 @@ uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
             GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
             glGetProgramInfoLog(ProgramID, Len, NULL, Log);
 
-            printf("Shader Program link error : \n"
+            LogMsg("Shader Program link error : \n"
                     "-----------------------------------------------------\n"
                     "%s"
                     "-----------------------------------------------------", Log);
