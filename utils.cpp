@@ -1,3 +1,4 @@
+#include <ctime>
 #include "utils.h"
 
 void MakeRelativePath(resource_helper *RH, path Dst, path const Filename)
@@ -39,3 +40,13 @@ void *ReadFileContents(memory_arena *Arena, path const Filename, int32 *FileSize
     return (void*)Contents;
 }
 
+size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt)
+{
+    time_t rawtime;
+    struct tm * timeinfo;
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    return strftime(Dst, DstSize, Fmt, timeinfo);
+}

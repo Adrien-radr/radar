@@ -638,6 +638,7 @@ int RadarMain(int argc, char **argv)
 
     context::Destroy(Context);
     UnloadGameCode(&Game, DllDstPath);
+    rlog::Destroy();
     DestroyMemory(Memory);
 
     return 0;

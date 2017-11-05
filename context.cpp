@@ -72,7 +72,7 @@ void ProcessWindowSizeEvent(GLFWwindow *Window, int Width, int Height)
 
 void ProcessErrorEvent(int Error, const char* Description)
 {
-    LogMsg("GLFW Error : %s\n", Description);
+    LogInfo("GLFW Error : %s\n", Description);
 }
 
 key_state BuildKeyState(int32 Key)
@@ -192,15 +192,15 @@ namespace context {
                 {
                     GLubyte const *GLRenderer = glGetString(GL_RENDERER);
                     GLubyte const *GLVersion = glGetString(GL_VERSION);
-                    LogMsg("GL Renderer %s, %s", GLRenderer, GLVersion);
+                    LogInfo("GL Renderer %s, %s", GLRenderer, GLVersion);
 
                     int MaxLayers;
                     glGetIntegerv(GL_MAX_SPARSE_ARRAY_TEXTURE_LAYERS, &MaxLayers);
-                    LogMsg("GL Max Array Layers : %d", MaxLayers);
+                    LogInfo("GL Max Array Layers : %d", MaxLayers);
 
                     int MaxSize;
                     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &MaxSize);
-                    LogMsg("GL Max Texture Width : %d", MaxSize);
+                    LogInfo("GL Max Texture Width : %d", MaxSize);
 
                     ResizeWidth = Config.WindowWidth;
                     ResizeHeight = Config.WindowHeight;
@@ -243,17 +243,17 @@ namespace context {
                 }
                 else
                 {
-                    LogMsg("Couldn't initialize GLEW.\n");
+                    LogInfo("Couldn't initialize GLEW.\n");
                 }
             }
             else
             {
-                LogMsg("Couldn't create GLFW Window.\n");
+                LogInfo("Couldn't create GLFW Window.\n");
             }
         }
         else
         {
-            LogMsg("Couldn't init GLFW.\n");
+            LogInfo("Couldn't init GLFW.\n");
         }
 
         SoundValid = sound::Init();

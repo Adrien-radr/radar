@@ -23,7 +23,7 @@ static resource_store *GetStore(render_resources *RenderResources, render_resour
 void *ResourceCheckExist(render_resources *RenderResources, render_resource_type Type, path const Filename)
 {
     Assert(Type < RESOURCE_COUNT);
-    LogMsg("Checking for resource %s", (char*)Filename);
+    LogInfo("Checking for resource %s", (char*)Filename);
 
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
@@ -32,7 +32,7 @@ void *ResourceCheckExist(render_resources *RenderResources, render_resource_type
         {
             if(!strncmp(Store->Keys[i], Filename, MAX_PATH))
             {
-                LogMsg("Found %s, returning it", Filename);
+                LogInfo("Found %s, returning it", Filename);
                 return Store->Values[i];
             }
         }
@@ -48,7 +48,7 @@ void ResourceStore(render_resources *RenderResources, render_resource_type Type,
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
     {
-        LogMsg("Storing %s [%llu]", Filename, (uint64)Resource);
+        LogInfo("Storing %s [%llu]", Filename, (uint64)Resource);
         Store->Keys.push_back((char*)Filename);
         Store->Values.push_back(Resource);
     }
@@ -61,7 +61,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Images;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogMsg("Destroying image %s", Store->Keys[i]);
+            LogInfo("Destroying image %s", Store->Keys[i]);
             DestroyImage((image*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -71,7 +71,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Fonts;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogMsg("Destroying font %s", Store->Keys[i]);
+            LogInfo("Destroying font %s", Store->Keys[i]);
         }
         Store->Values.clear();
         Store->Keys.clear();
@@ -80,7 +80,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Textures;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogMsg("Destroying texture %s", Store->Keys[i]);
+            LogInfo("Destroying texture %s", Store->Keys[i]);
             glDeleteTextures(1, (uint32*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -109,7 +109,7 @@ void CheckGLError(const char *Mark)
                 snprintf(ErrName, 32, "UNKNOWN [%u]", Err);
                 break;
         }
-        LogMsg("[%s] GL Error %s", Mark, ErrName);
+        LogInfo("[%s] GL Error %s", Mark, ErrName);
     }
 }
 
@@ -135,7 +135,7 @@ image *ResourceLoadImage(render_resources *RenderResources, path const Filename,
 
     if(!Image->Buffer)
     {
-        LogMsg("Error loading Image from %s. Aborting..", ResourceName);
+        LogInfo("Error loading Image from %s. Aborting..", ResourceName);
         return NULL;
     }
 
@@ -158,19 +158,19 @@ void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, 
         {
             case 1:
                 *BaseFormat = FloatHalfPrecision ? GL_R16F : GL_R32F;
-                *Format = GL_RED; 
+                *Format = GL_RED;
                 break;
             case 2:
                 *BaseFormat = FloatHalfPrecision ? GL_RG16F : GL_RG32F;
-                *Format = GL_RG; 
+                *Format = GL_RG;
                 break;
             case 3:
                 *BaseFormat = FloatHalfPrecision ? GL_RGB16F : GL_RGB32F;
-                *Format = GL_RGB; 
+                *Format = GL_RGB;
                 break;
             case 4:
                 *BaseFormat = FloatHalfPrecision ? GL_RGBA16F : GL_RGBA32F;
-                *Format = GL_RGBA; 
+                *Format = GL_RGBA;
                 break;
         }
     }
@@ -190,7 +190,7 @@ void FormatFromChannels(uint32 Channels, bool IsFloat, bool FloatHalfPrecision, 
     }
 }
 
-uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat, 
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat,
         bool FloatHalfPrecision, real32 AnisotropicLevel, int MagFilter, int MinFilter, int WrapS, int WrapT)
 {
     uint32 Texture;
@@ -245,7 +245,7 @@ uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const File
 
     game_memory *Memory = RenderResources->RH->Memory;
     uint32 *Tex = (uint32*)PushArenaStruct(&Memory->SessionArena, uint32);
-    *Tex = Make2DTexture(ResourceLoadImage(RenderResources, Filename, IsFloat, ForceNumChannel), 
+    *Tex = Make2DTexture(ResourceLoadImage(RenderResources, Filename, IsFloat, ForceNumChannel),
                          IsFloat, FloatHalfPrecision, AnisotropicLevel);
 
     ResourceStore(RenderResources, RESOURCE_TEXTURE, Filename, Tex);
@@ -259,7 +259,7 @@ uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat,
     glGenTextures(1, &Cubemap);
     glBindTexture(GL_TEXTURE_CUBE_MAP, Cubemap);
     CheckGLError("SkyboxGen");
-    
+
     for(int i = 0; i < 6; ++i)
     { // Load each face
         if(Paths)
@@ -277,7 +277,7 @@ uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat,
         else
         { // Empty Cubemap
             GLint BaseFormat = IsFloat ? (FloatHalfPrecision ? GL_RGB16F : GL_RGB32F) : GL_RGB16;
-            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat, 
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, BaseFormat,
                     Width, Height, 0, GL_RGB, IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE, NULL);
         }
     }
@@ -294,10 +294,10 @@ uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat,
 }
 
 #define MAX_FBO_ATTACHMENTS 5
-static GLuint FBOAttachments[MAX_FBO_ATTACHMENTS] = 
-{ 
+static GLuint FBOAttachments[MAX_FBO_ATTACHMENTS] =
+{
     GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
-    GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 
+    GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4
 };
 
 struct frame_buffer
@@ -337,7 +337,7 @@ frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size)
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        LogMsg("Framebuffer creation error : not complete.");
+        LogInfo("Framebuffer creation error : not complete.");
         DestroyFramebuffer(&FB);
     }
 
@@ -372,7 +372,7 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        LogMsg("Framebuffer creation error : Attachment %u error.", Attachment);
+        LogInfo("Framebuffer creation error : Attachment %u error.", Attachment);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -446,10 +446,10 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
                 Assert((Y + Ascent - Descent) < Font->Height);
             }
 
-             glyph TmpGlyph = { 
+             glyph TmpGlyph = {
                 X0, Y0,
-                (X + X0)/(real32)Font->Width, (Y + Ascent + Y0)/(real32)Font->Height, 
-                (X + X1)/(real32)Font->Width, (Y + Ascent + Y1)/(real32)Font->Height, 
+                (X + X0)/(real32)Font->Width, (Y + Ascent + Y0)/(real32)Font->Height,
+                (X + X1)/(real32)Font->Width, (Y + Ascent + Y1)/(real32)Font->Height,
                 CW, CH, AdvanceX
             };
             Font->Glyphs[Codepoint-32] = TmpGlyph;
@@ -494,7 +494,7 @@ uint32 _CompileShader(game_memory *Memory, char *Src, int Type)
         GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
         glGetShaderInfoLog(Shader, Len, NULL, Log);
 
-        LogMsg("Shader Compilation Error\n"
+        LogInfo("Shader Compilation Error\n"
                 "------------------------------------------\n"
                 "%s"
                 "------------------------------------------", Log);
@@ -516,19 +516,19 @@ uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
 
     if(IsValid)
     {
-        ProgramID = glCreateProgram(); 
+        ProgramID = glCreateProgram();
 
         uint32 VShader = _CompileShader(Memory, VSrc, GL_VERTEX_SHADER);
         if(!VShader)
         {
-            LogMsg("Failed to build %s Vertex Shader.", VSPath);
+            LogInfo("Failed to build %s Vertex Shader.", VSPath);
             glDeleteProgram(ProgramID);
             return 0;
         }
         uint32 FShader = _CompileShader(Memory, FSrc, GL_FRAGMENT_SHADER);
         if(!VShader)
         {
-            LogMsg("Failed to build %s Vertex Shader.", VSPath);
+            LogInfo("Failed to build %s Vertex Shader.", VSPath);
             glDeleteShader(VShader);
             glDeleteProgram(ProgramID);
             return 0;
@@ -553,7 +553,7 @@ uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
             GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
             glGetProgramInfoLog(ProgramID, Len, NULL, Log);
 
-            LogMsg("Shader Program link error : \n"
+            LogInfo("Shader Program link error : \n"
                     "-----------------------------------------------------\n"
                     "%s"
                     "-----------------------------------------------------", Log);
@@ -612,7 +612,7 @@ uint32 AddEmptyVBO(uint32 Size, uint32 Usage)
     glGenBuffers(1, &Buffer);
     glBindBuffer(GL_ARRAY_BUFFER, Buffer);
     glBufferData(GL_ARRAY_BUFFER, Size, NULL, Usage);
-    
+
     return Buffer;
 }
 
@@ -627,7 +627,7 @@ void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type,
     CheckGLError("VAP");
 }
 
-uint32 AddVBO(uint32 Attrib, uint32 AttribStride, uint32 Type, 
+uint32 AddVBO(uint32 Attrib, uint32 AttribStride, uint32 Type,
               uint32 Usage, uint32 Size, void const *Data)
 {
     glEnableVertexAttribArray(Attrib);
@@ -666,7 +666,7 @@ void DestroyMesh(mesh *Mesh)
 }
 
 
-void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth, 
+void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
                                 real32 *VertData, uint16 *Indices)
 {
     uint32 VertexCount = TextLength * 4;
@@ -969,7 +969,7 @@ mesh Make2DQuad(vec2i Start, vec2i End)
     FillVBO(0, 2, GL_FLOAT, 0, sizeof(Position), Position);
     FillVBO(1, 2, GL_FLOAT, sizeof(Position), sizeof(Texcoord), Texcoord);
     glBindVertexArray(0);
-    
+
     return Quad;
 }
 
@@ -1038,7 +1038,7 @@ mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint
 mesh MakeUnitSphere(bool MakeAdditionalAttribs)
 {
     mesh Sphere = {};
-    
+
     real32 const Radius = 1.f;
     uint32 const nLon = 32, nLat = 24;
 
@@ -1142,7 +1142,7 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs)
     return Sphere;
 }
 
-void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDREnvmapFilename, 
+void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDREnvmapFilename,
         uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap)
 {
     game_memory *Memory = RenderResources->RH->Memory;
@@ -1236,7 +1236,7 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
     glViewport(0, 0, IrradianceCubemapWidth, IrradianceCubemapWidth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 32, 32);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, *HDRCubemapEnvmap); 
+    glBindTexture(GL_TEXTURE_CUBE_MAP, *HDRCubemapEnvmap);
     for(int i = 0; i < 6; ++i)
     {
         SendMat4(ViewLoc, ViewDirs[i]);

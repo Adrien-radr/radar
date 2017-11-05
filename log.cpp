@@ -1,15 +1,47 @@
 #include <cstdarg>
 #include "log.h"
+#include "utils.h"
 
 namespace rlog
 {
-    game_system *System;
+    game_system     *System;
+
+    FILE static     *LogFile;
+    path static     LogPath = "radar.log";
+    double static   LogTime = 0.0;
 
     void Init(game_memory *Memory)
     {
         game_system *Sys = (game_system*)Memory->PermanentMemPool;
         System = Sys;
         System->ConsoleLog = (console_log*)PushArenaStruct(&Memory->SessionArena, console_log);
+
+        LogFile = fopen(LogPath, "w");
+        if(!LogFile)
+        {
+            printf("Error opening engine log file %s\n", LogPath);
+        }
+
+		char CurrDate[128], CurrTime[64];
+		size_t WrittenChar = GetDateTime(CurrDate, 64, DEFAULT_DATE_FMT);
+        CurrTime[0] = ' ';
+        GetDateTime(CurrTime + 1, 63, DEFAULT_TIME_FMT);
+        strncat(CurrDate + WrittenChar, CurrTime, 64);
+
+        LogInfo("Radar Engine Log v%d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH );
+        LogInfo("%s", CurrDate);
+        LogInfo( "========================" );
+    }
+
+    void Destroy()
+    {
+        if(LogFile)
+        {
+            char CurrTime[64];
+            GetDateTime(CurrTime, 64, DEFAULT_TIME_FMT);
+            LogInfo("Radar Engine Log End. %s\n", CurrTime);
+            fclose(LogFile);
+        }
     }
 
     static void LogString(console_log *Log, char const *String)
@@ -27,79 +59,21 @@ namespace rlog
         }
     }
 
-    void _Msg(char const *File, int Line, char const *Fmt, ...)
+    void _Msg(log_level LogLevel, char const *File, int Line, char const *Fmt, ...)
     {
+        char static *LogLevelStr[] = {
+            "II",
+            "EE",
+            "DEB"
+        };
+
         char LocalBuf[256];
         va_list args;
         va_start(args, Fmt);
         vsnprintf(LocalBuf, 256, Fmt, args);
         va_end(args);
 
-        printf("<%s:%d> %s\n", File, Line, LocalBuf);
+        printf("%s <%s:%d> %s\n", LogLevelStr[LogLevel], File, Line, LocalBuf);
+        fprintf(LogFile, "%s <%s:%d> %s\n", LogLevelStr[LogLevel], File, Line, LocalBuf);
     }
-
-#if 0
-    bool LogOpened = false;
-    double LogTime = 0.0;
-    path LogPath = "rengine.log";
-    std::stringstream LogSS = std::stringstream();
-    std::ofstream Log::log_file = std::ofstream();
-
-#if 0
-#ifdef RADAR_WIN32
-void Sleep
-#else
-#ifdef RADAR_UNIX
-#endif
-#endif
-#endif
-
-void get_date_time( char *buffer, u32 bsize, const char *fmt )
-{
-	time_t ti = time( NULL );
-	struct tm *lt = localtime( &ti );
-	strftime( buffer, bsize, fmt, lt );
-}
-
-void Log::Init()
-{
-	if ( !log_opened )
-	{
-		log_opened = true;
-		log_file = std::ofstream( log_name );
-		if ( !log_file.is_open() )
-		{
-			std::cout << "Error while opening log " << log_name << std::endl;
-			exit( 1 );
-		}
-		log_ss.str( std::string() );
-		log_ss.setf( std::ios::fixed, std::ios::floatfield );
-		log_ss.precision( 2 );
-
-		char da[64], ti[64];
-		get_date_time( da, 64, DEFAULT_DATE_FMT );
-		get_date_time( ti, 64, DEFAULT_TIME_FMT );
-		std::string dastr( da );
-		std::string tistr( ti );
-		std::string dt = dastr + " - " + tistr;
-		LogInfo( "\t    Radar Log v", RADAR_MAJOR, ".", RADAR_MINOR, ".", RADAR_PATCH );
-		LogInfo( "\t", dt.c_str() );
-		LogInfo( "================================" );
-	}
-}
-
-void Log::Close()
-{
-	if ( log_opened )
-	{
-		log_opened = false;
-		log_file.close();
-	}
-}
-
-double Log::get_engine_time()
-{
-	return glfwGetTime();
-}
-#endif
 }
