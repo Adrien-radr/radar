@@ -17,6 +17,9 @@ namespace ui {
     void EndPanel();
     void Draw();
 
+    /// ID's value will be the slider relative position
+    void BeginSlider(real32 *ID, real32 MinVal, real32 MaxVal);
+
     // This version of MakeText is prefered to keep with the ui Coloring scheme
     // Use the 2nd version if a specific color is needed
     void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth);

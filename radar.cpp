@@ -123,7 +123,7 @@ uint32 Program1, Program3D, ProgramSkybox;
 void ReloadShaders(game_memory *Memory, game_context *Context)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
-	resource_helper *RH = &Memory->ResourceHelper;
+    resource_helper *RH = &Memory->ResourceHelper;
 
     context::RegisteredShaderClear(Context);
 
@@ -173,7 +173,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     CheckGLError("UI Shader");
 
     context::UpdateShaderProjection(Context);
-    
+
     glUseProgram(0);
 }
 
@@ -203,25 +203,37 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
 
+    static real32 ConsoleMargin = 10.f;
+
     console_log *Log = System->ConsoleLog;
     font *FontInfo = ui::GetFont(ui::FONT_DEFAULT);
-    int LineGap = FontInfo->LineGap;
-    int LogHeight = LineGap * Log->StringCount;
+    int32 LineGap = FontInfo->LineGap;
+    int32 LogHeight = Context->WindowHeight/3;
+    int32 LogCapacity = Log->StringCount - std::ceil((LogHeight-(2*ConsoleMargin)) / (real32)LineGap);
 
     static bool   ConsoleShow = false;
     static uint32 ConsolePanel = 0;
     static vec3i  ConsolePanelPos(0,0,0);
+    static real32 ConsoleSlider = 0.f;
 
     if(KEY_HIT(Input->KeyTilde)) ConsoleShow = !ConsoleShow;
 
     if(ConsoleShow)
     {
-        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, vec2i(Context->WindowWidth, LogHeight + 20), ui::DECORATION_NONE);
+        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, vec2i(Context->WindowWidth, LogHeight), ui::DECORATION_NONE);
+        ui::BeginSlider(&ConsoleSlider, 0.f, (real32)LogCapacity);
         for(uint32 i = 0; i < Log->StringCount; ++i)
         {
             uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-            ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_DEFAULT, vec3f(10, 10 + i * LineGap, 0.01f), 
-                    ui::COLOR_DEBUGFG, Context->WindowWidth - 10);
+            real32 YOffset = (real32)i + ConsoleSlider - (real32)Log->StringCount;
+            real32 YPos = LogHeight + YOffset * LineGap;
+            if(YPos < ConsoleMargin)
+                continue;
+            if(YPos >= LogHeight)
+                break;
+            vec3f Position(ConsoleMargin, YPos - ConsoleMargin, 0);
+            ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_CONSOLE, Position,
+                    ui::COLOR_CONSOLEFG, Context->WindowWidth - ConsoleMargin);
         }
         ui::EndPanel();
     }
@@ -245,10 +257,13 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static uint32 id1 = 0, id2 = 0;
     static vec3i p1(100, 100, 0);
     static vec3i p2(200, 150, 0);
+    static real32 s1=0, s2=0;
     ui::BeginPanel(&id1, "Panel 1", &p1, vec2i(200, 100), ui::DECORATION_TITLEBAR);
+    ui::BeginSlider(&s1, 0.f, 0.f);
     ui::EndPanel();
 
     ui::BeginPanel(&id2, "Panel 2", &p2, vec2i(200, 100), ui::DECORATION_NONE);
+    ui::BeginSlider(&s2, 0.f, 0.f);
     ui::EndPanel();
 #endif
 }
@@ -303,7 +318,7 @@ int RadarMain(int argc, char **argv)
 
         // Texture Test
         //image *Image = ResourceLoadImage(&Context.RenderResources, "data/crate1_diffuse.png", false);
-        uint32 *Texture1 = ResourceLoad2DTexture(&Context->RenderResources, "data/crate1_diffuse.png", 
+        uint32 *Texture1 = ResourceLoad2DTexture(&Context->RenderResources, "data/crate1_diffuse.png",
                 false, false, Config.AnisotropicFiltering);
 
 #if 0
@@ -368,14 +383,13 @@ int RadarMain(int argc, char **argv)
 
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
         ComputeIrradianceCubemap(&Context->RenderResources, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
-        uint32 EnvmapToUse = HDRIrradianceEnvmap; 
+        uint32 EnvmapToUse = HDRIrradianceEnvmap;
 
         model gltfCube = {};
         mesh defCube = MakeUnitCube();
         //if(!ResourceLoadGLTFModel(&gltfCube, "data/gltftest/PBRSpheres/MetalRoughSpheres.gltf", &Context))
         if(!ResourceLoadGLTFModel(&Context->RenderResources, &gltfCube, "data/gltftest/suzanne/Suzanne.gltf", Context))
             return 1;
-         
 
         bool LastDisableMouse = false;
         int LastMouseX = 0, LastMouseY = 0;
@@ -394,7 +408,7 @@ int RadarMain(int argc, char **argv)
             // TODO - Is this too often ? Maybe let it stay several frames
             ClearArena(&Memory->ScratchArena);
 
-            context::GetFrameInput(Context, &Input);        
+            context::GetFrameInput(Context, &Input);
             context::WindowResized(Context);
 
             Input.MouseDX = Input.MousePosX - LastMouseX;
@@ -415,7 +429,7 @@ int RadarMain(int argc, char **argv)
             if(!Memory->IsInitialized)
             {
                 InitializeFromGame(Memory);
-				ReloadShaders(Memory, Context);			// First Shader loading after the game is initialized
+                ReloadShaders(Memory, Context);			// First Shader loading after the game is initialize
             }
 
 #if 0

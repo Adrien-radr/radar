@@ -50,7 +50,7 @@ OBJS=$(patsubst %.cpp,$(OBJ_DIR)%.obj,$(SRCS))
 
 CC=cl /nologo
 STATICLIB=lib /nologo
-LINK=/link /MACHINE:X64 -subsystem:console,5.02 /INCREMENTAL:NO
+LINK=/link /MACHINE:X64 -subsystem:console,5.02 /INCREMENTAL:NO /ignore:4204
 GENERAL_CFLAGS=-Gm- -EHa- -GR- -EHsc
 CFLAGS=-MT $(GENERAL_CFLAGS) /W1
 DLL_CFLAGS=-MD -DLIBEXPORT $(GENERAL_CFLAGS)

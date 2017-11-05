@@ -2,7 +2,7 @@
 #include "utils.h"
 
 #define UI_STACK_SIZE Megabytes(8)
-#define UI_MAX_PANELS 64
+#define UI_MAX_PANELS 32
 #define UI_PARENT_SIZE 10
 
 #include "ui_theme.cpp"
@@ -59,6 +59,7 @@ enum widget_type {
     WIDGET_TEXT,
     WIDGET_TITLEBAR,
     WIDGET_BORDER,
+    WIDGET_SLIDER,
     WIDGET_COUNT
 };
 
@@ -71,6 +72,9 @@ struct render_info
     void        *ID;
     void        *ParentID;
     widget_type Type;
+    vec2i       Position;
+    vec2i       Size;
+    int32       Flags;
 };
 
 struct vertex
@@ -122,7 +126,7 @@ void Init(game_memory *Memory, game_context *Context)
 
     MouseHold = false;
 
-    path ConfigPath; 
+    path ConfigPath;
     MakeRelativePath(&Memory->ResourceHelper, ConfigPath, Memory->Config.UIConfigFilename);
     ParseUIConfig(Memory, Context, ConfigPath);
 }
@@ -151,7 +155,7 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     // TODO -  probably this can be done with 1 'alloc' and redirections in the buffer
     for(uint32 p = 0; p < UI_MAX_PANELS; ++p)
     {
-        RenderCmd[p] = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE/UI_MAX_PANELS);    
+        RenderCmd[p] = PushArenaData(&Memory->ScratchArena, UI_STACK_SIZE/UI_MAX_PANELS);
         InitArena(&RenderCmdArena[p], UI_STACK_SIZE/UI_MAX_PANELS, RenderCmd[p]);
     }
     memset(RenderCmdCount, 0, UI_MAX_PANELS * sizeof(uint32));
@@ -193,6 +197,30 @@ void BeginFrame(game_memory *Memory, game_input *Input)
 static bool IsRootWidget()
 {
     return ParentLayer == 0;
+}
+
+render_info *GetParentRenderInfo(int16 ParentIdx)
+{
+    return (render_info*)(RenderCmdArena[ParentIdx].BasePtr);
+}
+
+static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec2f &BottomRight)
+{
+    if(Point.x >= TopLeft.x && Point.x < BottomRight.x)
+        if(Point.y > BottomRight.y && Point.y <= TopLeft.y)
+            return true;
+    return false;
+}
+
+void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f const &TL, vec2f const &BR)
+{
+    IdxData[I1+0] = V1+0; IdxData[I1+1] = V1+1; IdxData[I1+2] = V1+2;
+    IdxData[I1+3] = V1+0; IdxData[I1+4] = V1+2; IdxData[I1+5] = V1+3;
+
+    VertData[V1+0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
+    VertData[V1+1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
+    VertData[V1+2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
+    VertData[V1+3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
 }
 
 void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth)
@@ -250,27 +278,14 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
     vec2f TL(Position.x, Y - Position.y);
     vec2f BR(Position.x + Size.x, Y - Position.y - Size.y);
 
-    IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
-    VertData[0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
-    VertData[1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
-    VertData[2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
-    VertData[3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
-
+    FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[ParentPanelIdx]);
 
     // Add panel title as text
     MakeText(NULL, PanelTitle, FONT_DEFAULT, Position + vec3f(4,4,0), Theme.PanelFG, Size.x - 4);
 }
 
-static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec2f &BottomRight)
-{
-    if(Point.x >= TopLeft.x && Point.x < BottomRight.x)
-        if(Point.y > BottomRight.y && Point.y <= TopLeft.y)
-            return true;
-    return false;
-}
-
-void MakeBorder(vec2f const &TL, vec2f const &BR)
+void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
 {
     int16 const ParentPanelIdx = LastRootWidget;
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
@@ -285,31 +300,91 @@ void MakeBorder(vec2f const &TL, vec2f const &BR)
     RenderInfo->ID = NULL;
     RenderInfo->ParentID = ParentID[ParentLayer];
 
-    IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
-    IdxData[6] = 4; IdxData[7] = 5; IdxData[8] = 6; IdxData[9] = 4; IdxData[10] = 6; IdxData[11] = 7; 
-    IdxData[12] = 8; IdxData[13] = 9; IdxData[14] = 10; IdxData[15] = 8; IdxData[16] = 10; IdxData[17] = 11; 
-    IdxData[18] = 12; IdxData[19] = 13; IdxData[20] = 14; IdxData[21] = 12; IdxData[22] = 14; IdxData[23] = 15; 
-    VertData[0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
-    VertData[1] = UIVertex(vec3f(TL.x, TL.y-1, 0), vec2f(0.f, 1.f));
-    VertData[2] = UIVertex(vec3f(BR.x, TL.y-1, 0), vec2f(1.f, 1.f));
-    VertData[3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
+    vec2f TL(OrigTL);
+    vec2f BR(OrigBR.x, OrigTL.y-1);
+    FillSquare(VertData, IdxData, 0, 0, TL, BR);
 
-    VertData[4] = UIVertex(vec3f(TL.x, BR.y+1, 0), vec2f(0.f, 0.f));
-    VertData[5] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
-    VertData[6] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
-    VertData[7] = UIVertex(vec3f(BR.x, BR.y+1, 0), vec2f(1.f, 0.f));
+    TL = vec2f(OrigTL.x, OrigBR.y+1);
+    BR = vec2f(OrigBR);
+    FillSquare(VertData, IdxData, 4, 6, TL, BR);
 
-    VertData[8] = UIVertex(vec3f(TL.x, TL.y-1, 0), vec2f(0.f, 0.f));
-    VertData[9] = UIVertex(vec3f(TL.x, BR.y+1, 0), vec2f(0.f, 1.f));
-    VertData[10] = UIVertex(vec3f(TL.x+1, BR.y+1, 0), vec2f(1.f, 1.f));
-    VertData[11] = UIVertex(vec3f(TL.x+1, TL.y-1, 0), vec2f(1.f, 0.f));
+    TL = vec2f(OrigTL.x, OrigTL.y-1);
+    BR = vec2f(OrigTL.x+1, OrigBR.y+1);
+    FillSquare(VertData, IdxData, 8, 12, TL, BR);
 
-    VertData[12] = UIVertex(vec3f(BR.x-1, TL.y-1, 0), vec2f(0.f, 0.f));
-    VertData[13] = UIVertex(vec3f(BR.x-1, BR.y+1, 0), vec2f(0.f, 1.f));
-    VertData[14] = UIVertex(vec3f(BR.x, BR.y+1, 0), vec2f(1.f, 1.f));
-    VertData[15] = UIVertex(vec3f(BR.x, TL.y-1, 0), vec2f(1.f, 0.f));
+    TL = vec2f(OrigBR.x-1, OrigTL.y-1);
+    BR = vec2f(OrigBR.x, OrigBR.y+1);
+    FillSquare(VertData, IdxData, 12, 18, TL, BR);
 
     ++(RenderCmdCount[ParentPanelIdx]);
+}
+
+void BeginSlider(real32 *ID, real32 MinVal, real32 MaxVal)
+{
+    int16 const ParentPanelIdx = LastRootWidget;
+    // TODO - this is pretty redundant, all this work for 2 squares...
+    // Maybe allow color attribute to vertices instead of having it uniform
+
+    // NOTE - Background square
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 6 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_SLIDER;
+    RenderInfo->VertexCount = 4;
+    RenderInfo->IndexCount = 6;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+    RenderInfo->Color = Theme.SliderBG;
+    RenderInfo->ID = ID;
+    RenderInfo->ParentID = ParentID[ParentLayer];
+
+    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
+    int const Y = Context->WindowHeight;
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
+    vec2i Size = vec2i(5, ParentRI->Size.y - TitlebarOffset - 2);
+    vec2i Pos(ParentRI->Position.x + ParentRI->Size.x - Size.x - 1,
+              Y - ParentRI->Position.y - TitlebarOffset - 1);
+
+    vec2f TL(Pos);
+    vec2f BR(Pos.x+Size.x, Pos.y-Size.y);
+
+    FillSquare(VertData, IdxData, 0, 0, TL, BR);
+    ++(RenderCmdCount[ParentPanelIdx]);
+
+    // NOTE - Foreground slider
+    RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
+    IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 6 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_SLIDER;
+    RenderInfo->VertexCount = 4;
+    RenderInfo->IndexCount = 6;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+    RenderInfo->Color = Theme.SliderFG;
+    RenderInfo->ID = ID;
+    RenderInfo->ParentID = ParentID[ParentLayer];
+
+    real32 const HalfSliderHeight = 10.f;
+    //real32 const X = Min(MaxVal Max(MinVal *ID));
+    real32 const Ratio = 1.f - ((*ID - MinVal) / (MaxVal - MinVal));
+    real32 const PXHeight = Size.y - 2.f * HalfSliderHeight;
+    TL = vec2f(Pos.x, Pos.y - HalfSliderHeight - Ratio * PXHeight + HalfSliderHeight);
+    BR = vec2f(Pos.x + Size.x, Pos.y - HalfSliderHeight - Ratio * PXHeight - HalfSliderHeight);
+
+    FillSquare(VertData, IdxData, 0, 0, TL, BR);
+    ++(RenderCmdCount[ParentPanelIdx]);
+
+    //vec2i TL(ParentRI->Position.x, Y - ParentRI->Position.y);
+    //vec2i BR(ParentRI->Position.x + ParentRI->Size.x, Y - ParentRI->Position.y - ParentRI->Size.y);
+    if(Hover.ID == ParentRI->ID)
+    {
+        //vec2f MousePos(Input->MousePosX, Y - Input->MousePosY);
+        if(Input->MouseDZ!=0)// && PointInRectangle(MousePos, TL, BR))
+        {
+            *ID += 1.0f * Input->MouseDZ;
+            *ID = Min(MaxVal, Max(MinVal, *ID));
+        }
+    }
 }
 
 void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags)
@@ -340,18 +415,16 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i Size,
     RenderInfo->Color = Theme.PanelBG;
     RenderInfo->ID = ID;
     RenderInfo->ParentID = NULL;
+    RenderInfo->Position = vec2i(Position->x, Position->y);
+    RenderInfo->Size = Size;
+    RenderInfo->Flags = Flags;
     LastRootWidget = *ID;
 
     int const Y = Context->WindowHeight;
     vec2f TL(Position->x, Y - Position->y);
     vec2f BR(Position->x + Size.x, Y - Position->y - Size.y);
 
-    IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2; IdxData[3] = 0; IdxData[4] = 2; IdxData[5] = 3; 
-    VertData[0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
-    VertData[1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
-    VertData[2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
-    VertData[3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
-
+    FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[PanelIdx]);
     ParentID[ParentLayer++] = ID;
 

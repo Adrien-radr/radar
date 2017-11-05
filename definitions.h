@@ -14,7 +14,7 @@ real32 static const g_G = 9.807f;
 #define POOL_OFFSET(Pool, Structure) ((uint8*)(Pool) + sizeof(Structure))
 
 // TODO - See if 256 is enough for more one liner ui strings
-#define CONSOLE_CAPACITY 8
+#define CONSOLE_CAPACITY 128
 #define CONSOLE_STRINGLEN 256
 #define UI_STRINGLEN 256
 #define UI_MAXSTACKOBJECT 256
@@ -171,6 +171,7 @@ struct game_input
     int32  MousePosY;
     int32  MouseDX;
     int32  MouseDY;
+    int32  MouseDZ; // wheel
 
     key_state KeyW;
     key_state KeyA;
@@ -211,6 +212,9 @@ namespace ui
         COLOR_PANELBG,
         COLOR_TITLEBARBG,
         COLOR_BORDERBG,
+        COLOR_CONSOLEFG,
+        COLOR_SLIDERBG,
+        COLOR_SLIDERFG,
     };
 
     enum decoration_flag
@@ -221,7 +225,8 @@ namespace ui
 
     enum theme_font
     {
-        FONT_DEFAULT
+        FONT_DEFAULT,
+        FONT_CONSOLE
     };
 
     struct text_line

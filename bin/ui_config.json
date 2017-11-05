@@ -9,10 +9,14 @@
     "PanelFG" : [ 0.8, 0.8, 0.8, 1 ],
     "TitlebarBG" : [ 1, 1, 1, 0.1 ],
     "BorderBG" : [ 1, 1, 1, 0.20 ],
+    "ConsoleFG" : [ 1, 1, 1, 0.9 ],
+    "SliderBG" : [ 1, 1, 1, 0.2 ],
+    "SliderFG" : [ 0, 0, 0, 0.2 ],
 
     "DebugFG" : [ 1, 0, 0, 1 ],
 
-    "DefaultFont" : [ "C:/Windows/Fonts/DejaVuSansMono.ttf", 14 ],
+    "ConsoleFont" : [ "C:/Windows/Fonts/Consola.ttf", 13 ],
+    "DefaultFont" : [ "C:/Windows/Fonts/Consola.ttf", 13 ],
     "UNIXDefaultFont" : [ "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14 ],
     "Dummy" : 0
 }

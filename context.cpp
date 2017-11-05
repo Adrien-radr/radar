@@ -285,6 +285,7 @@ namespace context {
         glfwGetCursorPos(Context->Window, &MX, &MY);
         Input->MousePosX = (int)MX;
         Input->MousePosY = (int)MY;
+        Input->MouseDZ = FrameMouseWheel;
 
         if(glfwWindowShouldClose(Context->Window))
         {

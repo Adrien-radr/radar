@@ -12,10 +12,14 @@ namespace ui
         col4f PanelFG;
         col4f TitlebarBG;
         col4f BorderBG;
+        col4f ConsoleFG;
+        col4f SliderBG;
+        col4f SliderFG;
 
         col4f DebugFG;
 
         font  *DefaultFont;
+        font  *ConsoleFont;
     } Theme;
 
     col4f const &GetColor(theme_color Col)
@@ -31,7 +35,10 @@ namespace ui
             case COLOR_PANELFG : return Theme.PanelFG;
             case COLOR_TITLEBARBG : return Theme.TitlebarBG;
             case COLOR_BORDERBG : return Theme.BorderBG;
+            case COLOR_CONSOLEFG : return Theme.ConsoleFG;
             case COLOR_DEBUGFG : return Theme.DebugFG;
+            case COLOR_SLIDERBG : return Theme.SliderBG;
+            case COLOR_SLIDERFG : return Theme.SliderFG;
             default : return Theme.White;
         }
     }
@@ -41,6 +48,7 @@ namespace ui
         switch(Font)
         {
             case FONT_DEFAULT : return Theme.DefaultFont;
+            case FONT_CONSOLE : return Theme.ConsoleFont;
             default : return Theme.DefaultFont;
         }
     }
@@ -58,12 +66,38 @@ namespace ui
         Theme.TitlebarBG = col4f(1, 1, 1, 0.1);
         Theme.BorderBG = col4f(1, 1, 1, 0.2);
         Theme.DebugFG = col4f(1, 0, 0, 1);
+        Theme.ConsoleFG = col4f(1, 1, 1, 0.9);
+        Theme.SliderBG = col4f(1, 1, 1, 0.2);
+        Theme.SliderFG = col4f(0, 0, 0, 0.2);
 
 #ifdef RADAR_WIN32
-        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
+        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 13);
+        Theme.ConsoleFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/Consola.ttf", 13);
 #else
-        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
+        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 13);
+        Theme.ConsoleFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 13);
 #endif
+    }
+
+    static font *ParseConfigFont(cJSON *root, game_context *Context, char const *Name)
+    {
+        cJSON *FontInfo = cJSON_GetObjectItem(root, Name);
+        if(FontInfo && cJSON_GetArraySize(FontInfo) == 2)
+        {
+            path FontPath;
+            strncpy(FontPath, cJSON_GetArrayItem(FontInfo, 0)->valuestring, MAX_PATH);
+            int FontSize = cJSON_GetArrayItem(FontInfo, 1)->valueint;
+            return ResourceLoadFont(&Context->RenderResources, FontPath, FontSize);
+        }
+        else
+        {
+            printf("Error loading UI Theme Font %s, loading default DejaVuSansMono.\n", Name);
+#ifdef RADAR_WIN32
+            return ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 13);
+#else
+            return ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 13);
+#endif
+        }
     }
 
     static void ParseUIConfig(game_memory *Memory, game_context *Context, path const ConfigPath)
@@ -85,25 +119,13 @@ namespace ui
                 Theme.PanelFG = JSON_Get(root, "PanelFG", col4f(1, 1, 1, 1));
                 Theme.TitlebarBG = JSON_Get(root, "TitlebarBG", col4f(1, 1, 1, 0.1));
                 Theme.BorderBG = JSON_Get(root, "BorderBG", col4f(1, 1, 1, 0.2));
+                Theme.ConsoleFG = JSON_Get(root, "ConsoleFG", col4f(1, 1, 1, 0.9));
                 Theme.DebugFG = JSON_Get(root, "DebugFG", col4f(1, 0, 0, 1));
+                Theme.SliderBG = JSON_Get(root, "SliderBG", col4f(1, 1, 1, 0.2));
+                Theme.SliderFG = JSON_Get(root, "SliderFG", col4f(0, 0, 0, 0.2));
 
-                cJSON *FontInfo = cJSON_GetObjectItem(root, "DefaultFont");
-                if(FontInfo && cJSON_GetArraySize(FontInfo) == 2)
-                {
-                    path FontPath;
-                    strncpy(FontPath, cJSON_GetArrayItem(FontInfo, 0)->valuestring, MAX_PATH);
-                    int FontSize = cJSON_GetArrayItem(FontInfo, 1)->valueint;
-                    Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, FontPath, FontSize);
-                }
-                else
-                {
-                    printf("Error loading UI Theme Font, loading default DejaVuSansMono.\n");
-#ifdef RADAR_WIN32
-                    Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 14);
-#else
-                    Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 14);
-#endif
-                }
+                Theme.DefaultFont = ParseConfigFont(root, Context, "DefaultFont");
+                Theme.ConsoleFont = ParseConfigFont(root, Context, "ConsoleFont");
             }
             else
             {

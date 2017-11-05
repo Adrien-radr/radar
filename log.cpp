@@ -1,4 +1,5 @@
 #include <cstdarg>
+#include <algorithm>
 #include "log.h"
 #include "utils.h"
 
@@ -45,9 +46,11 @@ namespace rlog
         }
     }
 
-    static void LogString(console_log *Log, char const *String)
+    static void ConsoleLog(console_log *Log, char const *String, size_t CharCount)
     {
-        memcpy(Log->MsgStack[Log->WriteIdx], String, CONSOLE_STRINGLEN);
+        CharCount = std::min(size_t(CONSOLE_STRINGLEN-1), CharCount);
+        strncpy(Log->MsgStack[Log->WriteIdx], String, CharCount);
+        Log->MsgStack[Log->WriteIdx][CharCount] = 0; // EOL
         Log->WriteIdx = (Log->WriteIdx + 1) % CONSOLE_CAPACITY;
 
         if(Log->StringCount >= CONSOLE_CAPACITY)
@@ -74,7 +77,17 @@ namespace rlog
         vsnprintf(LocalBuf, 256, Fmt, args);
         va_end(args);
 
-        printf("%s <%s:%d> %s\n", LogLevelStr[LogLevel], File, Line, LocalBuf);
-        fprintf(LogFile, "%s <%s:%d> %s\n", LogLevelStr[LogLevel], File, Line, LocalBuf);
+        char Str[512];
+        int CharCount = snprintf(Str, 512, "%s <%s:%d> %s", LogLevelStr[LogLevel], File, Line, LocalBuf);
+        //int CharCount = snprintf(Str, 512, "%s <%s:%d> %s\n", LogLevelStr[LogLevel], File, Line, LocalBuf);
+
+        // STD Output
+        printf("%s\n", Str);
+
+        // FILE Output
+        fprintf(LogFile, "%s\n", Str);
+
+        // CONSOLE Output
+        ConsoleLog(System->ConsoleLog, Str, CharCount);
     }
 }
