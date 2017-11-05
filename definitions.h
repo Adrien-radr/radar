@@ -25,25 +25,28 @@ struct tmp_sound_data;  //sound.h
 
 struct game_config
 {
-    int32  WindowX;
-    int32  WindowY;
-    int32  WindowWidth;
-    int32  WindowHeight;
-    int32  MSAA;
-    bool   FullScreen;
-    bool   VSync;
-    real32 FOV;
-    real32 NearPlane;
-    real32 FarPlane;
-    int32  AnisotropicFiltering;
+    path    LogFilename;
+    path    UIConfigFilename;
 
-    real32 CameraSpeedBase;
-    real32 CameraSpeedMult;
-    real32 CameraSpeedAngular;
-    vec3f  CameraPosition;
-    vec3f  CameraTarget;
+    int32   WindowX;
+    int32   WindowY;
+    int32   WindowWidth;
+    int32   WindowHeight;
+    int32   MSAA;
+    bool    FullScreen;
+    bool    VSync;
+    real32  FOV;
+    real32  NearPlane;
+    real32  FarPlane;
+    int32   AnisotropicFiltering;
 
-    col4f  DebugFontColor;
+    real32  CameraSpeedBase;
+    real32  CameraSpeedMult;
+    real32  CameraSpeedAngular;
+    vec3f   CameraPosition;
+    vec3f   CameraTarget;
+
+    col4f   DebugFontColor;
 };
 
 struct memory_arena

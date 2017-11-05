@@ -123,7 +123,7 @@ void Init(game_memory *Memory, game_context *Context)
     MouseHold = false;
 
     path ConfigPath; 
-    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "ui_config.json");
+    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, Memory->Config.UIConfigFilename);
     ParseUIConfig(Memory, Context, ConfigPath);
 }
 

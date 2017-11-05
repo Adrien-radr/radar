@@ -66,6 +66,12 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
         cJSON *root = cJSON_Parse((char*)Content);
         if(root)
         {
+            // TODO - Holy shit this is ugly. maybe do it C style instead of dirty templates
+            std::string tmp = JSON_Get(root, "sLogFile", std::string("radar.log"));
+            strncpy(Config.LogFilename, tmp.c_str(), MAX_PATH);
+            tmp = JSON_Get(root, "sUIConfigFile", std::string("ui_config.json"));
+            strncpy(Config.UIConfigFilename, tmp.c_str(), MAX_PATH);
+
             Config.WindowX = JSON_Get(root, "iWindowX", 200);
             Config.WindowY = JSON_Get(root, "iWindowY", 200);
             Config.WindowWidth = JSON_Get(root, "iWindowWidth", 960);
@@ -256,12 +262,6 @@ int RadarMain(int argc, char **argv)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
-    rlog::Init(Memory);
-    System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
-
-    MakeRelativePath(&Memory->ResourceHelper, DllSrcPath, DllName);
-    MakeRelativePath(&Memory->ResourceHelper, DllDstPath, DllDynamicCopyName);
-
     path ConfigPath;
     MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "config.json");
 
@@ -269,6 +269,12 @@ int RadarMain(int argc, char **argv)
     {
         return 1;
     }
+
+    rlog::Init(Memory);
+    System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
+
+    MakeRelativePath(&Memory->ResourceHelper, DllSrcPath, DllName);
+    MakeRelativePath(&Memory->ResourceHelper, DllDstPath, DllDynamicCopyName);
 
     game_context *Context = context::Init(Memory);
     game_code Game = LoadGameCode(DllSrcPath, DllDstPath);

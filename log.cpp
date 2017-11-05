@@ -7,7 +7,6 @@ namespace rlog
     game_system     *System;
 
     FILE static     *LogFile;
-    path static     LogPath = "radar.log";
     double static   LogTime = 0.0;
 
     void Init(game_memory *Memory)
@@ -16,6 +15,8 @@ namespace rlog
         System = Sys;
         System->ConsoleLog = (console_log*)PushArenaStruct(&Memory->SessionArena, console_log);
 
+        path LogPath;
+        MakeRelativePath(&Memory->ResourceHelper, LogPath, Memory->Config.LogFilename);
         LogFile = fopen(LogPath, "w");
         if(!LogFile)
         {

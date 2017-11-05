@@ -85,4 +85,16 @@ inline col4f JSON_Get(cJSON *Root, char const *ValueName, col4f const &DefaultVa
     return DefaultValue;
 }
 
+template<>
+inline std::string JSON_Get(cJSON *Root, char const *ValueName, std::string const &DefaultValue)
+{
+    cJSON *Obj = cJSON_GetObjectItem(Root, ValueName);
+    std::string Ret;
+    if(Obj)
+        Ret = std::string(Obj->valuestring);
+    else
+        Ret = DefaultValue;
+    return Ret;
+}
+
 #endif
