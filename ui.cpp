@@ -57,6 +57,7 @@ memory_arena static RenderCmdArena[UI_MAX_PANELS];
 enum widget_type {
     WIDGET_PANEL,
     WIDGET_TEXT,
+    WIDGET_BUTTON,
     WIDGET_TITLEBAR,
     WIDGET_BORDER,
     WIDGET_SLIDER,
@@ -212,15 +213,15 @@ static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec
     return false;
 }
 
-void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f const &TL, vec2f const &BR)
+void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f const &TL, vec2f const &BR, float TexScale = 1.f)
 {
     IdxData[I1+0] = V1+0; IdxData[I1+1] = V1+1; IdxData[I1+2] = V1+2;
     IdxData[I1+3] = V1+0; IdxData[I1+4] = V1+2; IdxData[I1+5] = V1+3;
 
     VertData[V1+0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
-    VertData[V1+1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, 1.f));
-    VertData[V1+2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
-    VertData[V1+3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(1.f, 0.f));
+    VertData[V1+1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, TexScale));
+    VertData[V1+2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(TexScale, TexScale));
+    VertData[V1+3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(TexScale, 0.f));
 }
 
 void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth)
@@ -319,9 +320,11 @@ void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
     ++(RenderCmdCount[ParentPanelIdx]);
 }
 
-void BeginSlider(real32 *ID, real32 MinVal, real32 MaxVal)
+void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal)
 {
     int16 const ParentPanelIdx = LastRootWidget;
+    if(ParentPanelIdx == 0) return;
+
     // TODO - this is pretty redundant, all this work for 2 squares...
     // Maybe allow color attribute to vertices instead of having it uniform
 
@@ -383,6 +386,67 @@ void BeginSlider(real32 *ID, real32 MinVal, real32 MaxVal)
         {
             *ID += 1.0f * Input->MouseDZ;
             *ID = Min(MaxVal, Max(MinVal, *ID));
+        }
+    }
+}
+
+bool MakeButton(uint32 *ID, vec2i PositionOffset, vec2i Size)
+{
+#if 0
+    int16 const ParentPanelIdx = LastRootWidget;
+    if(ParentPanelIdx == 0) return;
+
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 6 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_BUTTON;
+    RenderInfo->VertexCount = 4;
+    RenderInfo->IndexCount = 6;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+    RenderInfo->Color = Theme.SliderBG;
+    RenderInfo->ID = ID;
+    RenderInfo->ParentID = ParentID[ParentLayer];
+
+    void *TmpLast = LastRootWidget;
+    LastRootWidget = ID;
+    MakeBorder(TL, BR);
+#endif
+    return true;
+}
+
+void MakeImage(real32 *ID, uint32 TextureID)
+{
+    int16 const ParentPanelIdx = LastRootWidget;
+    if(ParentPanelIdx == 0) return;
+
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 6 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_BUTTON;
+    RenderInfo->VertexCount = 4;
+    RenderInfo->IndexCount = 6;
+    RenderInfo->TextureID = TextureID;
+    RenderInfo->Color = Theme.White;
+    RenderInfo->ID = ID;
+    RenderInfo->ParentID = ParentID[ParentLayer];
+
+    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
+    int const Y = Context->WindowHeight;
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
+    vec2f TL(ParentRI->Position.x+1, Y - ParentRI->Position.y - TitlebarOffset - 1);
+    vec2f BR(ParentRI->Position.x + ParentRI->Size.x - 1, Y - ParentRI->Position.y - ParentRI->Size.y - 1);
+
+    FillSquare(VertData, IdxData, 0, 0, TL, BR, 1.f/ *ID);
+    ++(RenderCmdCount[ParentPanelIdx]);
+
+    if(Hover.ID == ParentRI->ID)
+    {
+        if(Input->MouseDZ != 0)
+        {
+            *ID *= (1.f + 0.1f * Input->MouseDZ);
+            *ID = Max(0.0001f, *ID);
         }
     }
 }

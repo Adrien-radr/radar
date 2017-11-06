@@ -404,8 +404,8 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
     void *Contents = ReadFileContents(&Memory->ScratchArena, Filename, 0);
     if(Contents)
     {
-        Font->Width = 1024;
-        Font->Height = 1024;
+        Font->Width = 2048;
+        Font->Height = 2048;
         Font->Buffer = (uint8*)PushArenaData(&Memory->SessionArena, Font->Width*Font->Height);
 
         stbtt_fontinfo STBFont;
@@ -428,47 +428,47 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
         {
             int Glyph = stbtt_FindGlyphIndex(&STBFont, Codepoint);
 
-            real32 ShiftX = X - (real32)floor(X);
-            int AdvX;
+            //real32 ShiftX = X - (real32)floor(X);
+            int AdvX, Lsb;
             int X0, X1, Y0, Y1;
-            stbtt_GetGlyphBitmapBoxSubpixel(&STBFont, Glyph, PixelScale, PixelScale, ShiftX, 0, &X0, &Y0, &X1, &Y1);
-            stbtt_GetGlyphHMetrics(&STBFont, Glyph, &AdvX, 0);
+            stbtt_GetGlyphBitmapBox(&STBFont, Glyph, PixelScale, PixelScale, &X0, &Y0, &X1, &Y1);
+            stbtt_GetGlyphHMetrics(&STBFont, Glyph, &AdvX, &Lsb);
             //int AdvKern = stbtt_GetCodepointKernAdvance(&STBFont, Codepoint, Codepoint+1);
 
             int CW = X1 - X0;
             int CH = Y1 - Y0;
-            real32 AdvanceX = (AdvX /*+ AdvKern*/) * PixelScale;
+            real32 AdvanceX = AdvX * PixelScale;
 
-            if(X + CW >= Font->Width)
+            if(X + AdvanceX >= Font->Width)
             {
                 X = 0;
                 Y += LineGap + Ascent + Descent;
                 Assert((Y + Ascent - Descent) < Font->Height);
             }
 
-             glyph TmpGlyph = {
+            glyph TmpGlyph = {
                 X0, Y0,
-                (X + X0)/(real32)Font->Width, (Y + Ascent + Y0)/(real32)Font->Height,
-                (X + X1)/(real32)Font->Width, (Y + Ascent + Y1)/(real32)Font->Height,
+                (X + 0)/(real32)Font->Width, (Y + Ascent + Y0)/(real32)Font->Height,
+                (X + CW)/(real32)Font->Width, (Y + Ascent + Y1)/(real32)Font->Height,
                 CW, CH, AdvanceX
             };
             Font->Glyphs[Codepoint-32] = TmpGlyph;
-            Font->MaxGlyphWidth += AdvanceX;//std::max(Font->MaxGlyphWidth, CW);
+            Font->MaxGlyphWidth += AdvanceX;
 
-            int CharX = X + X0;
+            int CharX = X;
             int CharY = Y + Ascent + Y0;
 
             uint8 *BitmapPtr = Font->Buffer + (CharY * Font->Width + CharX);
-            stbtt_MakeGlyphBitmapSubpixel(&STBFont, BitmapPtr, CW, CH, Font->Width, PixelScale, PixelScale, ShiftX, 0, Glyph);
+            stbtt_MakeGlyphBitmap(&STBFont, BitmapPtr, CW, CH, Font->Width, PixelScale, PixelScale, Glyph);
 
-            X += AdvanceX;
+            X += CW;
         }
 
         Font->MaxGlyphWidth /= real32(127-32);
 
         // Make Texture out of the Bitmap
         Font->AtlasTextureID = Make2DTexture(Font->Buffer, Font->Width, Font->Height, 1, false, false, 1.0f,
-                             GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
+                             GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
     }
 
     ResourceStore(RenderResources, RESOURCE_FONT, *ResourceName, Font);
@@ -667,7 +667,7 @@ void DestroyMesh(mesh *Mesh)
 
 
 void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
-                                real32 *VertData, uint16 *Indices)
+                                real32 *VertData, uint16 *Indices, real32 Scale)
 {
     uint32 VertexCount = TextLength * 4;
     uint32 IndexCount = TextLength * 6;
@@ -706,13 +706,13 @@ void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font,
         real32 BaseY = (real32)(Y - Font->Ascent - Glyph.Y);
         vec3f TL = Pos + vec3f(BaseX, BaseY, 0);
         vec3f BR = TL  + vec3f(Glyph.CW, -Glyph.CH, 0);
-        VertData[i*Stride+0+0] = TL.x;         VertData[i*Stride+0+1] = TL.y;        VertData[i*Stride+0+2] = TL.z;
+        VertData[i*Stride+0+0] = Scale * TL.x; VertData[i*Stride+0+1] = Scale * TL.y;   VertData[i*Stride+0+2] = TL.z;
         VertData[i*Stride+3+0] = Glyph.TexX0;  VertData[i*Stride+3+1] = Glyph.TexY0;
-        VertData[i*Stride+5+0] = TL.x;         VertData[i*Stride+5+1] = BR.y;        VertData[i*Stride+5+2] = TL.z;
+        VertData[i*Stride+5+0] = Scale * TL.x; VertData[i*Stride+5+1] = Scale * BR.y;   VertData[i*Stride+5+2] = TL.z;
         VertData[i*Stride+8+0] = Glyph.TexX0;  VertData[i*Stride+8+1] = Glyph.TexY1;
-        VertData[i*Stride+10+0] = BR.x;        VertData[i*Stride+10+1] = BR.y;       VertData[i*Stride+10+2] = TL.z;
+        VertData[i*Stride+10+0] = Scale * BR.x;VertData[i*Stride+10+1] = Scale * BR.y;  VertData[i*Stride+10+2] = TL.z;
         VertData[i*Stride+13+0] = Glyph.TexX1; VertData[i*Stride+13+1] = Glyph.TexY1;
-        VertData[i*Stride+15+0] = BR.x;        VertData[i*Stride+15+1] = TL.y;       VertData[i*Stride+15+2] = TL.z;
+        VertData[i*Stride+15+0] = Scale * BR.x;VertData[i*Stride+15+1] = Scale * TL.y;  VertData[i*Stride+15+2] = TL.z;
         VertData[i*Stride+18+0] = Glyph.TexX1; VertData[i*Stride+18+1] = Glyph.TexY0;
 
         Indices[i*6+0] = i*4+0;Indices[i*6+1] = i*4+1;Indices[i*6+2] = i*4+2;

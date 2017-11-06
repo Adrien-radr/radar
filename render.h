@@ -144,7 +144,7 @@ void UpdateVBO(uint32 VBO, size_t ByteOffset, uint32 Size, void *Data);
 void DestroyMesh(mesh *Mesh);
 
 void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
-                                real32 *VertData, uint16 *Indices);
+                                real32 *VertData, uint16 *Indices, real32 Scale = 1.0f);
 
 bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path const Filename, game_context *Context);
 #endif

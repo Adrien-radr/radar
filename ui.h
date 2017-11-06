@@ -3,28 +3,32 @@
 
 #include "context.h"
 
+/// Panels are created by giving a permanent uint32 ID pointer
+/// This ID should be set to 0 by the caller at first, to signify an uninitialized state.
+/// This ID's value will be filled by the Panel Index in the internal panel focus/sorting system
+/// This ID once set shouldn't be modified to another value, but can be reset to 0 if the panel has to be
+/// reinitialized for some reason.
+
 namespace ui {
     col4f const &GetColor(theme_color Col);
     font  *GetFont(theme_font Font);
 
     void Init(game_memory *Memory, game_context *Context);
+    void ReloadShaders(game_memory *Memory, game_context *Context);
     void BeginFrame(game_memory *Memory, game_input *Input);
-
-    /// ID's value must be initialized to 0 in the calling code.
-    /// This insure that BeginPanel will give the focus to this panel automatically in an "init stage"
-    /// ID's value will be set at the "init stage" to the Idx value of this panel in the UI priority array
-    void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags);
-    void EndPanel();
     void Draw();
 
+    void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags);
+    void EndPanel();
+
     /// ID's value will be the slider relative position
-    void BeginSlider(real32 *ID, real32 MinVal, real32 MaxVal);
+    void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal);
+
+    void MakeImage(real32 *ID, uint32 TextureID);
 
     // This version of MakeText is prefered to keep with the ui Coloring scheme
     // Use the 2nd version if a specific color is needed
     void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth);
     void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, col4f Color, int MaxWidth);
-
-    void ReloadShaders(game_memory *Memory, game_context *Context);
 }
 #endif
