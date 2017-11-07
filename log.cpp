@@ -65,7 +65,7 @@ namespace rlog
 
     void _Msg(log_level LogLevel, char const *File, int Line, char const *Fmt, ...)
     {
-        char static *LogLevelStr[] = {
+        static char const *LogLevelStr[] = {
             "II",
             "EE",
             "DEB"

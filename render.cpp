@@ -20,10 +20,24 @@ static resource_store *GetStore(render_resources *RenderResources, render_resour
     }
 }
 
+static char const *GetResourceTypeName(render_resource_type Type)
+{
+    Assert(Type < RESOURCE_COUNT);
+    static char const *ResourceTypeName[] =
+    {
+        "Image",
+        "Texture",
+        "Font",
+        "Unknown"
+    };
+
+    return ResourceTypeName[Type];
+}
+
 void *ResourceCheckExist(render_resources *RenderResources, render_resource_type Type, path const Filename)
 {
     Assert(Type < RESOURCE_COUNT);
-    LogInfo("Checking for resource %s", (char*)Filename);
+    LogInfo("Checking for %s resource %s", GetResourceTypeName(Type), (char*)Filename);
 
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)

@@ -83,7 +83,6 @@ struct model
 enum render_resource_type
 {
     RESOURCE_IMAGE,
-    //RESOURCE_PROGRAM,
     RESOURCE_TEXTURE,
     RESOURCE_FONT,
     RESOURCE_COUNT

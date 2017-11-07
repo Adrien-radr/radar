@@ -227,19 +227,11 @@ namespace context {
                     glEnable(GL_POINT_SPRITE);
                     glEnable(GL_PROGRAM_POINT_SIZE);
 
-                    {
-                        //image *Image;
+                    Context->RenderResources.DefaultDiffuseTexture = 
+                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
 
-                        //Image = ResourceLoadImage(&Context.RenderResources, "data/default_diffuse.png", false);
-                        //Context.RenderResources.DefaultDiffuseTexture = Make2DTexture(Image, false, false, 1);
-                        Context->RenderResources.DefaultDiffuseTexture = 
-                            ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
-
-                        //Image = ResourceLoadImage(&Context.RenderResources, "data/default_normal.png", false);
-                        //Context.RenderResources.DefaultNormalTexture = Make2DTexture(Image, false, false, 1);
-                        Context->RenderResources.DefaultNormalTexture= 
-                            ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
-                    }
+                    Context->RenderResources.DefaultNormalTexture= 
+                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
                 }
                 else
                 {
