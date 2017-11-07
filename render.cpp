@@ -123,7 +123,7 @@ void CheckGLError(const char *Mark)
                 snprintf(ErrName, 32, "UNKNOWN [%u]", Err);
                 break;
         }
-        LogInfo("[%s] GL Error %s", Mark, ErrName);
+        LogError("[%s] GL Error %s", Mark, ErrName);
     }
 }
 
@@ -307,20 +307,10 @@ uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat,
     return Cubemap;
 }
 
-#define MAX_FBO_ATTACHMENTS 5
 static GLuint FBOAttachments[MAX_FBO_ATTACHMENTS] =
 {
     GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
     GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4
-};
-
-struct frame_buffer
-{
-    vec2i Size;
-    uint32 NumAttachments;
-    uint32 FBO;
-    uint32 DepthBufferID;
-    uint32 BufferIDs[MAX_FBO_ATTACHMENTS];
 };
 
 void DestroyFramebuffer(frame_buffer *FB)
@@ -363,7 +353,7 @@ frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size)
     return FB;
 }
 
-void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision)
+void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision)
 {
     Assert(Attachment < MAX_FBO_ATTACHMENTS);
 
@@ -378,8 +368,8 @@ void AttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool Is
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glFramebufferTexture2D(GL_FRAMEBUFFER, (GLenum) ( GL_COLOR_ATTACHMENT0 + Attachment ), GL_TEXTURE_2D, *BufferID, 0 );
@@ -935,6 +925,7 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs)
     }
 
     Cube.IndexCount = 36;
+    Cube.IndexType = GL_UNSIGNED_INT;
     Cube.VAO = MakeVertexArrayObject();
     Cube.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     if(MakeAdditionalAttribs)
@@ -977,6 +968,7 @@ mesh Make2DQuad(vec2i Start, vec2i End)
     uint32 Indices[6] = { 0, 1, 2, 0, 2, 3 };
 
     Quad.IndexCount = 6;
+    Quad.IndexType = GL_UNSIGNED_INT;
     Quad.VAO = MakeVertexArrayObject();
     Quad.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     Quad.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
@@ -1036,6 +1028,7 @@ mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint
     }
 
     Plane.IndexCount = 6 * BaseSize;
+    Plane.IndexType = GL_UNSIGNED_INT;
     Plane.VAO = MakeVertexArrayObject();
     Plane.VBO[0] = AddIBO(GL_STATIC_DRAW, IndicesSize, Indices);
     // Positions and Normals in the 1st VBO
@@ -1138,6 +1131,7 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs)
     }
 
     Sphere.IndexCount = nIndices;
+    Sphere.IndexType = GL_UNSIGNED_INT;
     Sphere.VAO = MakeVertexArrayObject();
     Sphere.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     if(MakeAdditionalAttribs)

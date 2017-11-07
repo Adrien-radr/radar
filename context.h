@@ -50,7 +50,7 @@ namespace context
     game_context *Init(game_memory *Memory);
     void Destroy(game_context *Context);
 
-    void WindowResized(game_context *Context);
+    bool WindowResized(game_context *Context);
     void UpdateShaderProjection(game_context *Context);
     void GetFrameInput(game_context *Context, game_input *Input);
 

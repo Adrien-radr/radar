@@ -119,6 +119,7 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
 }
 
 uint32 Program1, Program3D, ProgramSkybox;
+uint32 ProgramHDR;
 
 void ReloadShaders(game_memory *Memory, game_context *Context)
 {
@@ -168,6 +169,13 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     CheckGLError("Water Shader");
 
     context::RegisterShader3D(Context, System->WaterSystem->ProgramWater);
+
+    MakeRelativePath(RH, VSPath, "data/shaders/screenquad_vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/hdr_frag.glsl");
+    ProgramHDR = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProgramHDR);
+    SendInt(glGetUniformLocation(ProgramHDR, "HDRFB"), 0);
+    CheckGLError("HDR Shader");
 
     ui::ReloadShaders(Memory, Context);
     CheckGLError("UI Shader");
@@ -268,9 +276,11 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     ui::EndPanel();
 
     static real32 imgscale = 5.0f;
+#if 0
     ui::BeginPanel(&id2, "Panel 2", &p2, vec2i(400, 200), ui::DECORATION_NONE);
     ui::MakeImage(&imgscale, FontInfo->AtlasTextureID);
     ui::EndPanel();
+#endif
 }
 
 int RadarMain(int argc, char **argv)
@@ -399,6 +409,13 @@ int RadarMain(int argc, char **argv)
         bool LastDisableMouse = false;
         int LastMouseX = 0, LastMouseY = 0;
 
+        mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+        frame_buffer FPBackbuffer;
+
+        real32 HDRExposure = 2.2f;
+
+        real64 TimeCounter = 0.0;
+
         while(Context->IsRunning)
         {
             game_input Input = {};
@@ -408,13 +425,20 @@ int RadarMain(int argc, char **argv)
 
             LastTime = CurrentTime;
             State->EngineTime += Input.dTime;
+            TimeCounter += Input.dTime;
 
             // NOTE - Each frame, clear the Scratch Arena Data
             // TODO - Is this too often ? Maybe let it stay several frames
             ClearArena(&Memory->ScratchArena);
 
             context::GetFrameInput(Context, &Input);
-            context::WindowResized(Context);
+            if(context::WindowResized(Context))
+            {
+                // Resize FBO
+                DestroyFramebuffer(&FPBackbuffer);
+                FPBackbuffer = MakeFramebuffer(1, vec2i(Context->WindowWidth, Context->WindowHeight));
+                FramebufferAttachBuffer(&FPBackbuffer, 0, 4, true, true); // RGBA16F attachment
+            }
 
             Input.MouseDX = Input.MousePosX - LastMouseX;
             Input.MouseDY = Input.MousePosY - LastMouseY;
@@ -431,13 +455,21 @@ int RadarMain(int argc, char **argv)
 
             ui::BeginFrame(Memory, &Input);
             Game.GameUpdate(Memory, &Input);
+
             if(!Memory->IsInitialized)
             {
                 InitializeFromGame(Memory);
                 ReloadShaders(Memory, Context);			// First Shader loading after the game is initialize
             }
 
-#if 0
+            // Local timed stuff
+            //if(TimeCounter > 0.1)
+            {
+                HDRExposure = 0.9f + Max(0.01f, 1.3f * 0.5f * (1.f + sin(State->EngineTime)));
+                TimeCounter = 0.0;
+            }
+
+#if 0 // NOTE - Sound play
                 tmp_sound_data *SoundData = System->SoundData;
                 if(SoundData->ReloadSoundBuffer)
                 {
@@ -490,9 +522,12 @@ int RadarMain(int argc, char **argv)
             mat4f &ViewMatrix = Camera.ViewMatrix;
             ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
+            // 1 . Render the scene on the HDR Floating point FBO
+            glBindFramebuffer(GL_FRAMEBUFFER, FPBackbuffer.FBO);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-#if 0
-            { // NOTE - Model rendering test
+#if 0 // NOTE - Model rendering test
+            {
                 glCullFace(GL_BACK);
                 glUseProgram(Program3D);
                 {
@@ -535,8 +570,8 @@ int RadarMain(int argc, char **argv)
             }
 #endif
 
-#if 0
-            { // NOTE - CUBE DRAWING Test Put somewhere else
+#if 0 // NOTE - CUBE DRAWING Test Put somewhere else
+            {
                 glUseProgram(Program3D);
                 {
 
@@ -560,14 +595,14 @@ int RadarMain(int argc, char **argv)
                     ModelMatrix.FromTRS(CubePos[i], CubeRot[i], vec3f(1.f));
                     SendMat4(Loc, ModelMatrix);
                     CheckGLError("ModelMatrix");
-                    glDrawElements(GL_TRIANGLES, Cube.IndexCount, GL_UNSIGNED_INT, 0);
+                    glDrawElements(GL_TRIANGLES, Cube.IndexCount, Cube.IndexType, 0);
                 }
 
                 real32 hW = PlaneWidth/2.f;
                 ModelMatrix.FromTRS(vec3f(-hW, -7.f, -hW), vec3f(0), vec3f(1));
                 SendMat4(Loc, ModelMatrix);
                 glBindVertexArray(UnderPlane.VAO);
-                glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, GL_UNSIGNED_INT, 0);
+                glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, UnderPlane.IndexType, 0);
             }
 #endif
 
@@ -612,14 +647,14 @@ int RadarMain(int argc, char **argv)
                         SendFloat(RoughnessLoc, (i+1)/(real32)Count);
                         ModelMatrix.FromTRS(vec3f(0, 3*(j+1), 3*(i+1)), vec3f(0.f), vec3f(1.f));
                         SendMat4(Loc, ModelMatrix);
-                        glDrawElements(GL_TRIANGLES, Sphere.IndexCount, GL_UNSIGNED_INT, 0);
+                        glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
                     }
                 }
                 glActiveTexture(GL_TEXTURE0);
             }
 #endif
 
-#if 0
+#if 1
             Water::Update(State, System->WaterSystem, &Input);
             Water::Render(State, System->WaterSystem, EnvmapToUse, HDRIrradianceEnvmap);
 #endif
@@ -641,14 +676,31 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE0);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
                 glBindVertexArray(SkyboxCube.VAO);
-                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, SkyboxCube.IndexType, 0);
 
                 glDepthFunc(GL_LESS);
                 glEnable(GL_CULL_FACE);
             }
 
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            CheckGLError("FBO Bind");
+
+            // Render what's in the Floatingpoint FBO to a screen quad
+            glUseProgram(ProgramHDR);
+            uint32 ExposureLoc = glGetUniformLocation(ProgramHDR, "Exposure");
+            SendFloat(ExposureLoc, HDRExposure);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, FPBackbuffer.BufferIDs[0]);
+            CheckGLError("TexBind");
+
+            glBindVertexArray(ScreenQuad.VAO);
+            CheckGLError("Quad Bind");
+            glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+            CheckGLError("Quad Draw");
+
             MakeUI(Memory, Context, &Input);
             ui::Draw();
+
 
             glfwSwapBuffers(Context->Window);
         }
@@ -656,6 +708,7 @@ int RadarMain(int argc, char **argv)
         // TODO - Destroy Console meshes
         DestroyMesh(&Cube);
         DestroyMesh(&SkyboxCube);
+        DestroyFramebuffer(&FPBackbuffer);
         glDeleteProgram(Program1);
         glDeleteProgram(Program3D);
         glDeleteProgram(ProgramSkybox);

@@ -116,9 +116,5 @@ void main()
 
     vec3 color = Ambient + LightColor.xyz * (Diffuse + Specular);
 
-    // Tone mapping and Gamma correction
-    color = color / (color + vec3(1));
-    color = pow(color, vec3(1.0/2.2));
-
     frag_color = vec4(color, 1.0);
 }

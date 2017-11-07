@@ -130,7 +130,7 @@ namespace context {
         }
     }
 
-    void WindowResized(game_context *Context)
+    bool WindowResized(game_context *Context)
     {
         if(Resized)
         {
@@ -144,7 +144,9 @@ namespace context {
             Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1.f);
 
             UpdateShaderProjection(Context);
+            return true;
         }
+        return false;
     }
 
     game_context *Init(game_memory *Memory)

@@ -22,7 +22,7 @@ namespace rlog
 } while(0)
 
 #define LogError(...) do {\
-    rlog::_Msg(rlog::LOG_INFO, __FILE__, __LINE__, ##__VA_ARGS__);\
+    rlog::_Msg(rlog::LOG_ERROR, __FILE__, __LINE__, ##__VA_ARGS__);\
 } while(0)
 
 #define LogDebug(...) do {\

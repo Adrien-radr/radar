@@ -5,6 +5,8 @@
 #include "GL/glew.h"
 #include <map>
 
+#define MAX_FBO_ATTACHMENTS 5
+
 struct game_context;
 
 struct image
@@ -80,6 +82,15 @@ struct model
     std::vector<material> Material;
 };
 
+struct frame_buffer
+{
+    vec2i Size;
+    uint32 NumAttachments;
+    uint32 FBO;
+    uint32 DepthBufferID;
+    uint32 BufferIDs[MAX_FBO_ATTACHMENTS];
+};
+
 enum render_resource_type
 {
     RESOURCE_IMAGE,
@@ -134,6 +145,10 @@ void SendVec4(uint32 Loc, vec4f value);
 void SendMat4(uint32 Loc, mat4f value);
 void SendInt(uint32 Loc, int value);
 void SendFloat(uint32 Loc, real32 value);
+
+frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size);
+void DestroyFramebuffer(frame_buffer *FB);
+void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision);
 
 uint32 MakeVertexArrayObject();
 uint32 AddIBO(uint32 Usage, uint32 Size, void const *Data);

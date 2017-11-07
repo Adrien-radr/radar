@@ -22,9 +22,10 @@ const float SigmaA = 0.00055;
 const float SigmaS = 0.0000;
 const float SigmaT = SigmaA + SigmaS;
 const vec3 FogColor = 0.1*vec3(0.10, 0.20, 0.35);
-const vec3 WaterColor = vec3(0.08, 0.15, 0.80);
+const vec3 WaterColor = vec3(0.08, 0.15, 0.40);
+const vec3 WaterCrestColor = vec3(0.80, 0.70, 0.90);
 const vec3 AmbWaterColor = vec3(0.01, 0.10, 0.20);
-const vec3 SSSColor = vec3(0, 0.8, 0.5);
+const vec3 SSSColor = vec3(0, 0.1, 0.065);
 const float SeaHeight = -10.0;
 const float DiffusePart = 0.05;
 const float SpecularPart = 4.0;
@@ -37,36 +38,9 @@ const vec2 WindDirection = normalize(vec2(1,0));
 const vec2 WaveChopiness = vec2(0.81, 0.13);
 const vec2 WaveInvScale = vec2(0.15, 0.25);
 
-#if 0
-float FresnelF0(in float n1, in float n2) {
-    float f0 = (n1 - n2)/(n1 + n2);
-    return f0 * f0;
-}
-
-
-vec3 FresnelSchlick(in vec3 f0, in vec3 f90, in float u) {
-    return f0 + (f90 - f0) * FresnelRatio(u);
-}
-#endif
-
-float FresnelRatio(in float u)
+vec3 FresnelSchlick(float u, vec3 f0, float f90)
 {
-    return pow(1.0 - u, 5.0);
-}
-
-vec3 FresnelColor(float Ratio, vec3 F0, vec3 F90)
-{
-    return F0 + (F90 - F0) * Ratio;
-}
-
-vec3 FresnelSchlickColor(float FRatio, vec3 F0, vec3 F90)
-{
-    return F0 + (F90 - F0) * FRatio;
-}
-
-vec3 FresnelSchlick(float FRatio, vec3 F0)
-{
-    return F0 + (1.0 - F0) * FRatio;
+    return f0 + (vec3(f90) - f0) * pow(1 - u, 5);
 }
 
 float DistributionGGX(float NdotH, float roughness)
@@ -102,35 +76,65 @@ float GeometrySmith(float NdotV, float NdotL, float roughness)
     return ggx1 * ggx2;
 }
 
+float DisneyFrostbite(float NdotV, float NdotL, float LdotH, float linearRoughness)
+{
+    float eBias = mix(0.0, 0.5, linearRoughness);
+    float eFactor = mix(1.0, 1.0 / 1.51, linearRoughness);
+    float f90 = eBias + 2.0 * LdotH * LdotH * linearRoughness;
+    vec3 f0 = vec3(1);
+    float lightScatter = FresnelSchlick(NdotL, f0, f90).r;
+    float viewScatter = FresnelSchlick(NdotV, f0, f90).r;
+    return lightScatter * viewScatter * eFactor;
+}
+
 vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
 {
     vec3 V = -Rd;
     vec3 H = normalize(V + L);
     vec3 R = reflect(V, N);
     float NdotL = max(0.0, dot(N, L));
-    float NdotV = max(1e-3, dot(N, V));
+    float NdotV = min(1, abs(dot(N, V)) + 1e-1);
     float NdotH = max(0.0, dot(N, H));
+    float LdotH = max(0.0, dot(L, H));
 
     vec3 Envmap = pow(texture(Skybox, -R).xyz, vec3(2.2));
     vec3 Irradiance = pow(texture(IrradianceCubemap, -R).xyz, vec3(2.2));
     float spec = pow(NdotH, SpecularRoughness);
 
-    float F = FresnelRatio(dot(N, V));
+    vec3 f0 = vec3(0.0001);
+    float roughness = 0.999991;
 
-    vec3 FCol = FresnelSchlick(F, AmbWaterColor);
-    float G = GeometrySmith(NdotV, NdotL, 0.02);
-    float D = GeometrySchlickGGX(NdotH, 0.02);
+    vec3 F = FresnelSchlick(LdotH, f0, 1);
+    float G = GeometrySmith(NdotV, NdotL, roughness);
+    float D = GeometrySchlickGGX(NdotH, roughness);
 
     vec3 light = vec3(0);
 
     // Diffuse
+    #if 0
     float ks = F;
     float kd = 1 - ks;
     float fake_kd = min(1, 1.5 - ks);
     float fake_ks = 1 - fake_kd;
+    #endif
 
-    if(F > 0.0)
-    {
+    vec3 nom = F*D*G;
+    float denom = (4.0 * NdotV * NdotL + 1e-4);
+
+    vec3 Specular = nom * NdotL * WaterCrestColor / denom;
+    vec3 Diffuse = DisneyFrostbite(NdotV, NdotL, LdotH, 1.0-roughness) * WaterColor * NdotL / PI;
+
+    float ks = FresnelSchlick(min(1, abs(dot(N,V))+1e-1), f0, roughness).x;
+    float kd = 1.0 - ks;
+    vec3 ambient_diffuse = kd * Irradiance * WaterColor;
+    //vec3 ambient_specular = (1-min(1, 1.3-ks)) * WaterCrestColor.xyz;
+    vec3 ambient_specular = min(1, 1.3-ks) * WaterCrestColor.xyz;
+    vec3 Ambient = ambient_specular + ambient_diffuse;
+
+    light = Ambient + LightColor.xyz * (Specular);
+
+    //if(F > 0.0)
+    //{
     #if 0
         vec3 env_light = mix(Irradiance, Envmap, 0.07 * exp(-water_dist * 0.001));//0.085);
         light += F*G*D * NdotL / (4.0 * NdotV * NdotL + 1e-4) * env_light * FCol;
@@ -141,11 +145,12 @@ vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
         light += kd * 0.04 * AmbWaterColor;
     #else
 
-        light += fake_kd * WaterColor;
-        light += fake_ks * LightColor.xyz;
-        light += kd * SSSColor * pow(max(0.0, dot(V, -L)), 5);//* NdotV;// * NdotV * NdotV;
+        //light += F*D*G * NdotL / (4.0 * NdotV * NdotL + 1e-4) * FCol;
+        //light += fake_kd * WaterColor;
+        //light += fake_ks * WaterCrestColor.xyz;
+        light += kd * LightColor.xyz * SSSColor * pow(max(0.0, dot(V, -L)), 5)* NdotV * NdotV * NdotV;
     #endif
-    }
+    //}
     return light;
 }
 
@@ -265,10 +270,6 @@ void main()
 
     vec3 shading = Shading(v_position, water_dist, Rd, FractN, L);
     vec3 color = Fog(shading, Rd, L, FogColor, water_dist, SigmaT);
-
-    // Gamma correction
-    color = color / (color + vec3(1));
-    color = pow(color, vec3(1.0/2.2));
 
     frag_color = vec4(color, 1);
 }
