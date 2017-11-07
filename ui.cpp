@@ -390,11 +390,10 @@ void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal)
     }
 }
 
-bool MakeButton(uint32 *ID, vec2i PositionOffset, vec2i Size)
+bool MakeButton(uint32 *ID, char *ButtonText, vec2i PositionOffset, vec2i Size)
 {
-#if 0
     int16 const ParentPanelIdx = LastRootWidget;
-    if(ParentPanelIdx == 0) return;
+    if(ParentPanelIdx == 0) return false;
 
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
     vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
@@ -404,15 +403,44 @@ bool MakeButton(uint32 *ID, vec2i PositionOffset, vec2i Size)
     RenderInfo->VertexCount = 4;
     RenderInfo->IndexCount = 6;
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
-    RenderInfo->Color = Theme.SliderBG;
+    RenderInfo->Color = *ID > 0 ? Theme.ButtonPressedBG : Theme.ButtonBG;
     RenderInfo->ID = ID;
     RenderInfo->ParentID = ParentID[ParentLayer];
 
-    void *TmpLast = LastRootWidget;
-    LastRootWidget = ID;
+    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
+    int const Y = Context->WindowHeight;
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
+    vec2f const OffsetPos(ParentRI->Position.x + PositionOffset.x + 1, ParentRI->Position.y + PositionOffset.y + TitlebarOffset + 1);
+    vec2f const TL(OffsetPos.x, Y - OffsetPos.y);
+    vec2f const BR(TL.x + Size.x, TL.y - Size.y);
+
+    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(1,-1), BR + vec2i(-1,1));
+    ++(RenderCmdCount[ParentPanelIdx]);
+
     MakeBorder(TL, BR);
-#endif
-    return true;
+    MakeText(NULL, ButtonText, FONT_DEFAULT, vec3i(OffsetPos.x + 4, OffsetPos.y + 4, 0), Theme.PanelFG, Size.x - 4);
+
+    vec2f const MousePos(Input->MousePosX, Y - Input->MousePosY);
+    if(Hover.ID == ParentRI->ID)
+    {
+        if(MOUSE_HIT(Input->MouseLeft) && PointInRectangle(MousePos, TL, BR))
+        {
+            *ID = 1;
+        }
+        else if(MOUSE_UP(Input->MouseLeft) && PointInRectangle(MousePos, TL, BR))
+        {
+            *ID = 0;
+            return true;
+        }
+    }
+
+    // Release button (without activation) if it was pressed but not released within bounds
+    if(*ID > 0 && MOUSE_UP(Input->MouseLeft) && !PointInRectangle(MousePos, TL, BR))
+    {
+        *ID = 0;
+    }
+
+    return false;
 }
 
 void MakeImage(real32 *ID, uint32 TextureID)
@@ -436,7 +464,7 @@ void MakeImage(real32 *ID, uint32 TextureID)
     int const Y = Context->WindowHeight;
     int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
     vec2f TL(ParentRI->Position.x+1, Y - ParentRI->Position.y - TitlebarOffset - 1);
-    vec2f BR(ParentRI->Position.x + ParentRI->Size.x - 1, Y - ParentRI->Position.y - ParentRI->Size.y - 1);
+    vec2f BR(ParentRI->Position.x + ParentRI->Size.x - 1, Y - ParentRI->Position.y - ParentRI->Size.y);
 
     FillSquare(VertData, IdxData, 0, 0, TL, BR, 1.f/ *ID);
     ++(RenderCmdCount[ParentPanelIdx]);

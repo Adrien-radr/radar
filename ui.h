@@ -25,6 +25,7 @@ namespace ui {
     void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal);
 
     void MakeImage(real32 *ID, uint32 TextureID);
+    bool MakeButton(uint32 *ID, char *ButtonText, vec2i PositionOffset, vec2i Size);
 
     // This version of MakeText is prefered to keep with the ui Coloring scheme
     // Use the 2nd version if a specific color is needed

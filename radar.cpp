@@ -253,21 +253,24 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     }
     ui::EndPanel();
 
-#if 1
+    // TMP TEST Panels
     static uint32 id1 = 0, id2 = 0;
     static vec3i p1(100, 100, 0);
     static vec3i p2(300, 150, 0);
     static real32 s1=0, s2=0;
+    static uint32 buttonid = 0;
+    static char ButtonText[16] = "Button";
     ui::BeginPanel(&id1, "Panel 1", &p1, vec2i(200, 100), ui::DECORATION_TITLEBAR);
-    ui::MakeSlider(&s1, 0.f, 0.f);
+    if(ui::MakeButton(&buttonid, ButtonText, vec2i(10, 10), vec2i(60, 20)))
+    {
+        printf("Button Press\n");
+    }
     ui::EndPanel();
 
     static real32 imgscale = 5.0f;
     ui::BeginPanel(&id2, "Panel 2", &p2, vec2i(400, 200), ui::DECORATION_NONE);
-    ui::MakeSlider(&s2, 0.f, 0.f);
     ui::MakeImage(&imgscale, FontInfo->AtlasTextureID);
     ui::EndPanel();
-#endif
 }
 
 int RadarMain(int argc, char **argv)

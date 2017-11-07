@@ -15,6 +15,8 @@ namespace ui
         col4f ConsoleFG;
         col4f SliderBG;
         col4f SliderFG;
+        col4f ButtonBG;
+        col4f ButtonPressedBG;
 
         col4f DebugFG;
 
@@ -39,6 +41,8 @@ namespace ui
             case COLOR_DEBUGFG : return Theme.DebugFG;
             case COLOR_SLIDERBG : return Theme.SliderBG;
             case COLOR_SLIDERFG : return Theme.SliderFG;
+            case COLOR_BUTTONBG : return Theme.ButtonBG;
+            case COLOR_BUTTONPRESSEDBG : return Theme.ButtonPressedBG;
             default : return Theme.White;
         }
     }
@@ -69,6 +73,8 @@ namespace ui
         Theme.ConsoleFG = col4f(1, 1, 1, 0.9);
         Theme.SliderBG = col4f(1, 1, 1, 0.2);
         Theme.SliderFG = col4f(0, 0, 0, 0.2);
+        Theme.ButtonBG = col4f(1, 1, 1, 0.1);
+        Theme.ButtonPressedBG = col4f(1, 1, 1, 0.1);
 
 #ifdef RADAR_WIN32
         Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 13);
@@ -123,6 +129,8 @@ namespace ui
                 Theme.DebugFG = JSON_Get(root, "DebugFG", col4f(1, 0, 0, 1));
                 Theme.SliderBG = JSON_Get(root, "SliderBG", col4f(1, 1, 1, 0.2));
                 Theme.SliderFG = JSON_Get(root, "SliderFG", col4f(0, 0, 0, 0.2));
+                Theme.ButtonBG = JSON_Get(root, "ButtonBG", col4f(1, 1, 1, 0.1));
+                Theme.ButtonPressedBG = JSON_Get(root, "ButtonPressedBG", col4f(1, 1, 1, 0.1));
 
                 Theme.DefaultFont = ParseConfigFont(root, Context, "DefaultFont");
                 Theme.ConsoleFont = ParseConfigFont(root, Context, "ConsoleFont");

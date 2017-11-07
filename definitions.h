@@ -215,6 +215,8 @@ namespace ui
         COLOR_CONSOLEFG,
         COLOR_SLIDERBG,
         COLOR_SLIDERFG,
+        COLOR_BUTTONBG,
+        COLOR_BUTTONPRESSEDBG,
     };
 
     enum decoration_flag
