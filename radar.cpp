@@ -465,7 +465,7 @@ int RadarMain(int argc, char **argv)
             // Local timed stuff
             //if(TimeCounter > 0.1)
             {
-                HDRExposure = 0.9f + Max(0.01f, 1.3f * 0.5f * (1.f + sin(State->EngineTime)));
+                HDRExposure = 0.25f + 0.75f * 0.5f * (1.f+sin(State->EngineTime));
                 TimeCounter = 0.0;
             }
 
