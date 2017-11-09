@@ -351,4 +351,20 @@ namespace context {
 
         glfwSetCursor(Context->Window, c);
     }
+
+    GLenum SetWireframeMode(game_context *Context, GLenum Mode)
+    {
+        GLenum CurrWireframe = Context->WireframeMode ? GL_LINE : GL_FILL;
+        if(0 == Mode)
+        { // NOTE - toggle
+            Context->WireframeMode = !Context->WireframeMode;
+        }
+        else
+        { // NOTE - set
+            Context->WireframeMode = Mode == GL_LINE ? true : false;
+        }
+
+        glPolygonMode(GL_FRONT_AND_BACK, Context->WireframeMode ? GL_LINE : GL_FILL);
+        return CurrWireframe;
+    }
 }

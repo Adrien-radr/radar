@@ -61,6 +61,7 @@ namespace context
     void RegisterShader2D(game_context *Context, uint32 ProgramID);
 
     void SetCursor(game_context *Context, cursor_type CursorType);
+    GLenum SetWireframeMode(game_context *Context, GLenum Mode = 0);
 }
 
 

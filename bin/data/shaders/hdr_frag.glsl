@@ -1,5 +1,7 @@
 #version 400
 
+#define ACCURATE_GAMMA
+
 #ifndef FXAA_REDUCE_MIN
     #define FXAA_REDUCE_MIN   (1.0/ 4.0)
 #endif
@@ -52,7 +54,15 @@ vec3 ToneMapping(vec3 Col, float Exposure)
 
 vec3 GammaCorrection(vec3 Col)
 {
+#ifdef ACCURATE_GAMMA
+    float Y = dot(Col, vec3(0.2126, 0.7152, 0.0722));
+    vec3 srgblo = Col * 12.92;
+    vec3 srgbhi = (pow(abs(Col), vec3(1.0/2.4)) * 1.055) - 0.055;
+    vec3 srgb = (Y <= 0.0031308) ? srgblo : srgbhi;
+    return srgb;
+#else
     return pow(Col, vec3(1.0/2.2));
+#endif
 }
 
 vec3 PostProcess(vec3 Col, float Exposure)

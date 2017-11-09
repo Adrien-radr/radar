@@ -502,8 +502,7 @@ int RadarMain(int argc, char **argv)
 
             if(KEY_UP(Input.KeyF1))
             {
-                Context->WireframeMode = !Context->WireframeMode;
-                glPolygonMode(GL_FRONT_AND_BACK, Context->WireframeMode ? GL_LINE : GL_FILL);
+                context::SetWireframeMode(Context); // toggle
             }
 
             if(KEY_UP(Input.KeyF2))
@@ -683,6 +682,8 @@ int RadarMain(int argc, char **argv)
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             CheckGLError("FBO Bind");
 
+            GLenum CurrWireframemode = context::SetWireframeMode(Context, GL_FILL);
+
             // Draw the floatingpoint FBO to a screen quad
             glUseProgram(ProgramHDR);
             uint32 MipmapLogLoc = glGetUniformLocation(ProgramHDR, "MipmapQueryLevel");
@@ -702,6 +703,7 @@ int RadarMain(int argc, char **argv)
             MakeUI(Memory, Context, &Input);
             ui::Draw();
 
+            context::SetWireframeMode(Context, CurrWireframemode);
 
             glfwSwapBuffers(Context->Window);
         }
