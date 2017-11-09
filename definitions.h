@@ -241,7 +241,7 @@ namespace ui
 
     struct frame_stack
     {
-        text_line TextLines[UI_MAXSTACKOBJECT];
+        text_line *TextLines[UI_MAXSTACKOBJECT];
         uint32 TextLineCount;
     };
 }

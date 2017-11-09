@@ -16,6 +16,7 @@ namespace rlog
     void Init(game_memory *Memory);
     void Destroy();
     void _Msg(log_level LogLevel, char const *File, int Line, char const *Fmt, ... );
+}
 
 #define LogInfo(...) do {\
     rlog::_Msg(rlog::LOG_INFO, __FILE__, __LINE__, ##__VA_ARGS__);\
@@ -26,8 +27,7 @@ namespace rlog
 } while(0)
 
 #define LogDebug(...) do {\
-    D(rlog::_Msg(rlog::LOG_DEBUG, __FILE__, __LINE__ ##__VA_ARGS__);)\
+    D(rlog::_Msg(rlog::LOG_DEBUG, __FILE__, __LINE__, ##__VA_ARGS__);)\
 } while(0)
-}
 
 #endif

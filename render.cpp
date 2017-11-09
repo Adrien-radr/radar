@@ -353,7 +353,7 @@ frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size)
     return FB;
 }
 
-void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision)
+void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Mipmap)
 {
     Assert(Attachment < MAX_FBO_ATTACHMENTS);
 
@@ -363,15 +363,21 @@ void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channe
     glGenTextures(1, BufferID);
     glBindTexture(GL_TEXTURE_2D, *BufferID);
 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, Mipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
     GLint BaseFormat, Format;
     FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
     glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    if(Mipmap)
+    {
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+
     glFramebufferTexture2D(GL_FRAMEBUFFER, (GLenum) ( GL_COLOR_ATTACHMENT0 + Attachment ), GL_TEXTURE_2D, *BufferID, 0 );
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)

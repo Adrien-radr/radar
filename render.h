@@ -148,7 +148,7 @@ void SendFloat(uint32 Loc, real32 value);
 
 frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size);
 void DestroyFramebuffer(frame_buffer *FB);
-void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision);
+void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Mipmap);
 
 uint32 MakeVertexArrayObject();
 uint32 AddIBO(uint32 Usage, uint32 Size, void const *Data);

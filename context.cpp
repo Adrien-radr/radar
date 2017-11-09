@@ -142,6 +142,7 @@ namespace context {
             Context->ProjectionMatrix3D = mat4f::Perspective(Context->FOV, 
                     Context->WindowWidth / (real32)Context->WindowHeight, Context->GameConfig->NearPlane, Context->GameConfig->FarPlane);
             Context->ProjectionMatrix2D = mat4f::Ortho(0, Context->WindowWidth, 0, Context->WindowHeight, 0.1f, 1.f);
+            Context->WindowSizeLogLevel = log2(Max(Context->WindowHeight, Context->WindowWidth));
 
             UpdateShaderProjection(Context);
             return true;

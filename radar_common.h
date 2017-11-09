@@ -59,10 +59,10 @@ typedef char path[MAX_PATH];
 #define DebugPrint(str, ...)
 #endif
 
-#ifdef _DEBUG
-#define DEBUGONLY(x) x
+#ifdef DEBUG
+#define D(x) x
 #else
-#define DEBUGONLY(x)
+#define D(x)
 #endif
 
 #define Kilobytes(num) (1024LL*(num))

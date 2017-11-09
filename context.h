@@ -27,6 +27,8 @@ struct game_context
     int WindowWidth;
     int WindowHeight;
 
+    real32 WindowSizeLogLevel;
+
     uint32 Shaders3D[MAX_SHADERS];
     uint32 Shaders3DCount;
     uint32 Shaders2D[MAX_SHADERS];

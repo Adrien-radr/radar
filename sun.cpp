@@ -233,6 +233,11 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
     State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
 }
 
+void MakeUIText(ui::frame_stack *Stack, ui::text_line *Text)
+{
+    Stack->TextLines[Stack->TextLineCount++] = Text;
+}
+
 DLLEXPORT GAMEUPDATE(GameUpdate)
 {
     if(!Memory->IsGameInitialized)
@@ -345,8 +350,8 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     }
 
     // TODO - streamline this a bit
-    UIStack->TextLines[UIStack->TextLineCount++] = Local->FPSText;
-    UIStack->TextLines[UIStack->TextLineCount++] = Local->CameraText;
-    UIStack->TextLines[UIStack->TextLineCount++] = Local->WaterText;
-    UIStack->TextLines[UIStack->TextLineCount++] = Local->NightDayText;
+    MakeUIText(UIStack, &Local->FPSText);
+    MakeUIText(UIStack, &Local->CameraText);
+    MakeUIText(UIStack, &Local->WaterText);
+    MakeUIText(UIStack, &Local->NightDayText);
 }

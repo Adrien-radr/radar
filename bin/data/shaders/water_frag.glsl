@@ -21,10 +21,10 @@ out vec4 frag_color;
 const float SigmaA = 0.00055;
 const float SigmaS = 0.0000;
 const float SigmaT = SigmaA + SigmaS;
-const vec3 FogColor = 0.1*vec3(0.10, 0.20, 0.35);
-const vec3 WaterColor = vec3(0.08, 0.15, 0.40);
+const vec3 FogColor = vec3(0.20, 0.40, 0.70);
+const vec3 WaterColor = vec3(0.40, 0.60, 0.80);
 const vec3 WaterCrestColor = vec3(0.80, 0.70, 0.90);
-const vec3 AmbWaterColor = vec3(0.01, 0.10, 0.20);
+const vec3 AmbWaterColor = vec3(0.16, 0.30, 0.40);
 const vec3 SSSColor = vec3(0, 0.1, 0.065);
 const float SeaHeight = -10.0;
 const float DiffusePart = 0.05;
@@ -122,13 +122,13 @@ vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
     float denom = (4.0 * NdotV * NdotL + 1e-4);
 
     vec3 Specular = nom * NdotL * WaterCrestColor / denom;
-    vec3 Diffuse = DisneyFrostbite(NdotV, NdotL, LdotH, 1.0-roughness) * WaterColor * NdotL / PI;
+    //vec3 Diffuse = DisneyFrostbite(NdotV, NdotL, LdotH, 1.0-roughness) * WaterColor * NdotL / PI;
 
     float ks = FresnelSchlick(min(1, abs(dot(N,V))+1e-1), f0, roughness).x;
     float kd = 1.0 - ks;
     vec3 ambient_diffuse = kd * Irradiance * WaterColor;
-    //vec3 ambient_specular = (1-min(1, 1.3-ks)) * WaterCrestColor.xyz;
-    vec3 ambient_specular = min(1, 1.3-ks) * WaterCrestColor.xyz;
+    vec3 ambient_specular = (1-min(1, 1.3-ks)) * WaterCrestColor.xyz * FogColor.xyz;
+    //vec3 ambient_specular = min(1, 1.3-ks) * WaterCrestColor.xyz;
     vec3 Ambient = ambient_specular + ambient_diffuse;
 
     light = Ambient + LightColor.xyz * (Specular);
@@ -252,7 +252,6 @@ vec3 GetFractalNormal(in vec3 Pos, in vec3 N)
 
 void main()
 {
-
     vec3 Rd = v_position - CameraPos;
     float water_dist = length(Rd);
     if(water_dist <= 0) discard;

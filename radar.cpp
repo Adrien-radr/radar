@@ -255,7 +255,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     UIStackPanelSize.x = 0;
     for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
     {
-        ui::text_line *Line = &UIStack->TextLines[i];
+        ui::text_line *Line = UIStack->TextLines[i];
         ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, Context->WindowWidth);
         UIStackPanelSize.x = std::max(UIStackPanelSize.x, int(Line->Position.x + strlen(Line->String) * FontInfo->MaxGlyphWidth));
     }
@@ -412,8 +412,6 @@ int RadarMain(int argc, char **argv)
         mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
         frame_buffer FPBackbuffer;
 
-        real32 HDRExposure = 2.2f;
-
         real64 TimeCounter = 0.0;
 
         while(Context->IsRunning)
@@ -437,7 +435,8 @@ int RadarMain(int argc, char **argv)
                 // Resize FBO
                 DestroyFramebuffer(&FPBackbuffer);
                 FPBackbuffer = MakeFramebuffer(1, vec2i(Context->WindowWidth, Context->WindowHeight));
-                FramebufferAttachBuffer(&FPBackbuffer, 0, 4, true, true); // RGBA16F attachment
+                FramebufferAttachBuffer(&FPBackbuffer, 0, 4, true, true, true); // RGBA16F attachment
+                CheckGLError("FramebufferAttach");
             }
 
             Input.MouseDX = Input.MousePosX - LastMouseX;
@@ -463,9 +462,8 @@ int RadarMain(int argc, char **argv)
             }
 
             // Local timed stuff
-            //if(TimeCounter > 0.1)
+            if(TimeCounter > 0.1)
             {
-                HDRExposure = 0.25f + 0.75f * 0.5f * (1.f+sin(State->EngineTime));
                 TimeCounter = 0.0;
             }
 
@@ -655,7 +653,7 @@ int RadarMain(int argc, char **argv)
 #endif
 
 #if 1
-            Water::Update(State, System->WaterSystem, &Input);
+            //Water::Update(State, System->WaterSystem, &Input);
             Water::Render(State, System->WaterSystem, EnvmapToUse, HDRIrradianceEnvmap);
 #endif
 
@@ -685,12 +683,15 @@ int RadarMain(int argc, char **argv)
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             CheckGLError("FBO Bind");
 
-            // Render what's in the Floatingpoint FBO to a screen quad
+            // Draw the floatingpoint FBO to a screen quad
             glUseProgram(ProgramHDR);
-            uint32 ExposureLoc = glGetUniformLocation(ProgramHDR, "Exposure");
-            SendFloat(ExposureLoc, HDRExposure);
+            uint32 MipmapLogLoc = glGetUniformLocation(ProgramHDR, "MipmapQueryLevel");
+            uint32 ResolutionLoc = glGetUniformLocation(ProgramHDR, "Resolution");
+            SendFloat(MipmapLogLoc, Context->WindowSizeLogLevel);
+            SendVec2(ResolutionLoc, vec2f(Context->WindowWidth, Context->WindowHeight));
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, FPBackbuffer.BufferIDs[0]);
+            glGenerateMipmap(GL_TEXTURE_2D); // generate mipmap for the color buffer
             CheckGLError("TexBind");
 
             glBindVertexArray(ScreenQuad.VAO);
