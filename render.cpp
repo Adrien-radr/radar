@@ -675,60 +675,82 @@ void DestroyMesh(mesh *Mesh)
     Mesh->IndexCount = 0;
 }
 
+static void FillCharInterleaved(real32 *VertData, uint16 *IdxData, uint32 i, uint8 c, font *Font, int *X, int *Y, vec3i const &Pos, real32 Scale)
+{
+    uint32 const Stride = 5 * 4;
+    glyph &Glyph = Font->Glyphs[c];
+
+#if 0
+    // Modify DisplayWidth to always be at least the length of each character
+    if(MaxPixelWidth < Glyph.CW)
+    {
+        MaxPixelWidth = Glyph.CW;
+    }
+
+    if((X + Glyph.CW) >= MaxPixelWidth)
+    {
+        X = 0;
+        Y -= Font->LineGap;
+    }
+#endif
+
+    // Position (TL, BL, BR, TR)
+    real32 BaseX = (real32)(*X + Glyph.X);
+    real32 BaseY = (real32)(*Y - Font->Ascent - Glyph.Y);
+    vec3f TL = Pos + vec3f(BaseX, BaseY, 0);
+    vec3f BR = TL  + vec3f(Glyph.CW, -Glyph.CH, 0);
+    VertData[i*Stride+0+0] = Scale * TL.x; VertData[i*Stride+0+1] = Scale * TL.y;   VertData[i*Stride+0+2] = TL.z;
+    VertData[i*Stride+3+0] = Glyph.TexX0;  VertData[i*Stride+3+1] = Glyph.TexY0;
+    VertData[i*Stride+5+0] = Scale * TL.x; VertData[i*Stride+5+1] = Scale * BR.y;   VertData[i*Stride+5+2] = TL.z;
+    VertData[i*Stride+8+0] = Glyph.TexX0;  VertData[i*Stride+8+1] = Glyph.TexY1;
+    VertData[i*Stride+10+0] = Scale * BR.x;VertData[i*Stride+10+1] = Scale * BR.y;  VertData[i*Stride+10+2] = TL.z;
+    VertData[i*Stride+13+0] = Glyph.TexX1; VertData[i*Stride+13+1] = Glyph.TexY1;
+    VertData[i*Stride+15+0] = Scale * BR.x;VertData[i*Stride+15+1] = Scale * TL.y;  VertData[i*Stride+15+2] = TL.z;
+    VertData[i*Stride+18+0] = Glyph.TexX1; VertData[i*Stride+18+1] = Glyph.TexY0;
+
+    IdxData[i*6+0] = i*4+0;IdxData[i*6+1] = i*4+1;IdxData[i*6+2] = i*4+2;
+    IdxData[i*6+3] = i*4+0;IdxData[i*6+4] = i*4+2;IdxData[i*6+5] = i*4+3;
+
+    *X += Glyph.AdvX;
+}
 
 void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
-                                real32 *VertData, uint16 *Indices, real32 Scale)
+                                real32 *VertData, uint16 *IdxData, real32 Scale)
 {
-    uint32 VertexCount = TextLength * 4;
-    uint32 IndexCount = TextLength * 6;
+    // Precalculate if the text is larger than the authorized width
+    real32 TextWidth = TextLength * Font->MaxGlyphWidth;
+    uint32 AdditionalLen = 0;
+    if(TextWidth >= MaxPixelWidth)
+    { // remove necessary charcount + 1
+        TextLength -= ((TextWidth - MaxPixelWidth) / Font->MaxGlyphWidth) + 1;
+        AdditionalLen = 2; // 2 dots
+    }
 
-    uint32 Stride = 5 * 4;
+    uint32 VertexCount = (TextLength + AdditionalLen) * 4;
+    uint32 IndexCount = (TextLength + AdditionalLen) * 6;
 
     int X = 0, Y = 0;
     for(uint32 i = 0; i < TextLength; ++i)
     {
         uint8 AsciiIdx = Text[i] - 32; // 32 is the 1st Ascii idx
-        glyph &Glyph = Font->Glyphs[AsciiIdx];
-
-        // Modify DisplayWidth to always be at least the length of each character
-        if(MaxPixelWidth < Glyph.CW)
-        {
-            MaxPixelWidth = Glyph.CW;
-        }
 
         if(Text[i] == '\n')
         {
             X = 0;
             Y -= Font->LineGap;
             AsciiIdx = Text[++i] - 32;
-            Glyph = Font->Glyphs[AsciiIdx];
             IndexCount -= 6;
         }
 
-        if((X + Glyph.CW) >= MaxPixelWidth)
-        {
-            X = 0;
-            Y -= Font->LineGap;
-        }
+        FillCharInterleaved(VertData, IdxData, i, AsciiIdx, Font, &X, &Y, Pos, Scale);
+    }
 
-        // Position (TL, BL, BR, TR)
-        real32 BaseX = (real32)(X + Glyph.X);
-        real32 BaseY = (real32)(Y - Font->Ascent - Glyph.Y);
-        vec3f TL = Pos + vec3f(BaseX, BaseY, 0);
-        vec3f BR = TL  + vec3f(Glyph.CW, -Glyph.CH, 0);
-        VertData[i*Stride+0+0] = Scale * TL.x; VertData[i*Stride+0+1] = Scale * TL.y;   VertData[i*Stride+0+2] = TL.z;
-        VertData[i*Stride+3+0] = Glyph.TexX0;  VertData[i*Stride+3+1] = Glyph.TexY0;
-        VertData[i*Stride+5+0] = Scale * TL.x; VertData[i*Stride+5+1] = Scale * BR.y;   VertData[i*Stride+5+2] = TL.z;
-        VertData[i*Stride+8+0] = Glyph.TexX0;  VertData[i*Stride+8+1] = Glyph.TexY1;
-        VertData[i*Stride+10+0] = Scale * BR.x;VertData[i*Stride+10+1] = Scale * BR.y;  VertData[i*Stride+10+2] = TL.z;
-        VertData[i*Stride+13+0] = Glyph.TexX1; VertData[i*Stride+13+1] = Glyph.TexY1;
-        VertData[i*Stride+15+0] = Scale * BR.x;VertData[i*Stride+15+1] = Scale * TL.y;  VertData[i*Stride+15+2] = TL.z;
-        VertData[i*Stride+18+0] = Glyph.TexX1; VertData[i*Stride+18+1] = Glyph.TexY0;
-
-        Indices[i*6+0] = i*4+0;Indices[i*6+1] = i*4+1;Indices[i*6+2] = i*4+2;
-        Indices[i*6+3] = i*4+0;Indices[i*6+4] = i*4+2;Indices[i*6+5] = i*4+3;
-
-        X += Glyph.AdvX;
+    // Add '..' to the string if it's too long and clamped
+    if(AdditionalLen > 0)
+    {
+        uint8 AsciiIdx = '.' - 32;
+        FillCharInterleaved(VertData, IdxData, TextLength++, AsciiIdx, Font, &X, &Y, Pos, Scale);
+        FillCharInterleaved(VertData, IdxData, TextLength, AsciiIdx, Font, &X, &Y, Pos, Scale);
     }
 
 }

@@ -183,6 +183,15 @@ float Dot(const vec2<T> &a, const vec2<T> &b)
 }
 
 template<typename T>
+inline vec2<T> Cross(const vec2<T> &a, const vec2<T> &b)
+{
+	vec2<T> r;
+	r.x = a.y * b.x;
+	r.y = a.x * b.y;
+	return r;
+}
+
+template<typename T>
 float Length(const vec2<T> &v)
 {
 	const float dot = Dot(v, v);

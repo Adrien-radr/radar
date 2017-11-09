@@ -222,13 +222,15 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static bool   ConsoleShow = false;
     static uint32 ConsolePanel = 0;
     static vec3i  ConsolePanelPos(0,0,0);
+    static vec2i  ConsolePanelSize(Context->WindowWidth, LogHeight);
     static real32 ConsoleSlider = 0.f;
 
     if(KEY_HIT(Input->KeyTilde)) ConsoleShow = !ConsoleShow;
 
     if(ConsoleShow)
     {
-        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, vec2i(Context->WindowWidth, LogHeight), ui::DECORATION_NONE);
+        ConsolePanelSize = vec2i(Context->WindowWidth, LogHeight);
+        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, &ConsolePanelSize, ui::DECORATION_NONE);
         ui::MakeSlider(&ConsoleSlider, 0.f, (real32)LogCapacity);
         for(uint32 i = 0; i < Log->StringCount; ++i)
         {
@@ -251,7 +253,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static uint32 UIStackPanel = 0;
     static vec3i  UIStackPanelPos(0,0,0);
     static vec2i  UIStackPanelSize(350, UIStackHeight + 30);
-    ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, UIStackPanelSize, ui::DECORATION_NONE);
+    ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, ui::DECORATION_NONE);
     UIStackPanelSize.x = 0;
     for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
     {
@@ -262,23 +264,26 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     ui::EndPanel();
 
     // TMP TEST Panels
-    static uint32 id1 = 0, id2 = 0;
+    static uint32 id1 = 0;
     static vec3i p1(100, 100, 0);
-    static vec3i p2(300, 150, 0);
-    static real32 s1=0, s2=0;
+    static vec2i p1size(200, 100);
+    static real32 s1=0;
     static uint32 buttonid = 0;
     static char ButtonText[16] = "Button";
-    ui::BeginPanel(&id1, "Panel 1", &p1, vec2i(200, 100), ui::DECORATION_TITLEBAR);
+    ui::BeginPanel(&id1, "Panel 1", &p1, &p1size, ui::DECORATION_TITLEBAR);
     if(ui::MakeButton(&buttonid, ButtonText, vec2i(10, 10), vec2i(60, 20)))
     {
         printf("Button Press\n");
     }
     ui::EndPanel();
 
+    static uint32 id2 = 0;
     static real32 imgscale = 5.0f;
-#if 0
-    ui::BeginPanel(&id2, "Panel 2", &p2, vec2i(400, 200), ui::DECORATION_NONE);
-    ui::MakeImage(&imgscale, FontInfo->AtlasTextureID);
+    static vec3i p2(300, 150, 0);
+    static vec2i p2size(400, 200);
+#if 1
+    ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::DECORATION_TITLEBAR);
+    ui::MakeImage(&imgscale, FontInfo->AtlasTextureID, vec2i(200, 200));
     ui::EndPanel();
 #endif
 }
@@ -682,7 +687,7 @@ int RadarMain(int argc, char **argv)
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             CheckGLError("FBO Bind");
 
-            GLenum CurrWireframemode = context::SetWireframeMode(Context, GL_FILL);
+            //GLenum CurrWireframemode = context::SetWireframeMode(Context, GL_FILL);
 
             // Draw the floatingpoint FBO to a screen quad
             glUseProgram(ProgramHDR);
@@ -703,7 +708,7 @@ int RadarMain(int argc, char **argv)
             MakeUI(Memory, Context, &Input);
             ui::Draw();
 
-            context::SetWireframeMode(Context, CurrWireframemode);
+            //context::SetWireframeMode(Context, CurrWireframemode);
 
             glfwSwapBuffers(Context->Window);
         }

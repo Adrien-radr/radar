@@ -18,14 +18,14 @@ namespace ui {
     void BeginFrame(game_memory *Memory, game_input *Input);
     void Draw();
 
-    void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i Size, decoration_flag Flags);
+    void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i *Size, decoration_flag Flags);
     void EndPanel();
 
     /// ID's value will be the slider relative position
     void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal);
 
-    void MakeImage(real32 *ID, uint32 TextureID);
-    bool MakeButton(uint32 *ID, char *ButtonText, vec2i PositionOffset, vec2i Size);
+    void MakeImage(real32 *ID, uint32 TextureID, vec2i const &Size);
+    bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i const &Size);
 
     // This version of MakeText is prefered to keep with the ui Coloring scheme
     // Use the 2nd version if a specific color is needed
