@@ -222,7 +222,9 @@ namespace ui
     enum decoration_flag
     {
         DECORATION_NONE = 0x0,
-        DECORATION_TITLEBAR = 0x1
+        DECORATION_TITLEBAR = 1 << 1,
+        DECORATION_RESIZE = 1 << 2,
+        DECORATION_RGBTEXTURE = 1 << 3
     };
 
     enum theme_font

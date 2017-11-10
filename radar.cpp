@@ -270,22 +270,12 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static real32 s1=0;
     static uint32 buttonid = 0;
     static char ButtonText[16] = "Button";
-    ui::BeginPanel(&id1, "Panel 1", &p1, &p1size, ui::DECORATION_TITLEBAR);
+    ui::BeginPanel(&id1, "Panel 1", &p1, &p1size, ui::DECORATION_TITLEBAR | ui::DECORATION_RESIZE);
     if(ui::MakeButton(&buttonid, ButtonText, vec2i(10, 10), vec2i(60, 20)))
     {
         printf("Button Press\n");
     }
     ui::EndPanel();
-
-    static uint32 id2 = 0;
-    static real32 imgscale = 5.0f;
-    static vec3i p2(300, 150, 0);
-    static vec2i p2size(400, 200);
-#if 1
-    ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::DECORATION_TITLEBAR);
-    ui::MakeImage(&imgscale, FontInfo->AtlasTextureID, vec2i(200, 200));
-    ui::EndPanel();
-#endif
 }
 
 int RadarMain(int argc, char **argv)
@@ -418,6 +408,12 @@ int RadarMain(int argc, char **argv)
         frame_buffer FPBackbuffer;
 
         real64 TimeCounter = 0.0;
+
+        // TMP
+        static uint32 id2 = 0;
+        static real32 imgscale = 1.0f;
+        static vec3i p2(300, 150, 0);
+        static vec2i p2size(400, 200);
 
         while(Context->IsRunning)
         {
@@ -704,6 +700,13 @@ int RadarMain(int argc, char **argv)
             CheckGLError("Quad Bind");
             glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
             CheckGLError("Quad Draw");
+
+
+#if 1
+            ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::DECORATION_TITLEBAR);
+            ui::MakeImage(&imgscale, FPBackbuffer.BufferIDs[0], vec2i(200, 200), true);
+            ui::EndPanel();
+#endif
 
             MakeUI(Memory, Context, &Input);
             ui::Draw();

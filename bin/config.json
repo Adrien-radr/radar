@@ -4,8 +4,8 @@
 
     "iWindowX" : 1200,
     "iWindowY" : 200,
-    "iWindowWidth" : 800,
-    "iWindowHeight" : 450,
+    "iWindowWidth" : 1280,
+    "iWindowHeight" : 720,
     "iMSAA" : 0,
     "bFullScreen" : 0,
     "bVSync" : 0,

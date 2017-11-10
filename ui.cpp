@@ -34,14 +34,7 @@ bool ResizeHold;
 
 int16 LastRootWidget; // Address of the last widget not attached to anything
 
-// TMP
-char HoverTitleCurrent[64];
-char HoverTitleNext[64];
-char FocusTitleCurrent[64];
-char FocusTitleNext[64];
-
-uint32 static Program;
-uint32 static ProjMatrixUniformLoc;
+uint32 static Program, ProgramRGBTexture;
 uint32 static ColorUniformLoc;
 uint32 static VAO;
 uint32 static VBO[2];
@@ -112,9 +105,6 @@ void Init(game_memory *Memory, game_context *Context)
     HoverNext = { NULL, 0, 0 };
     Focus = { NULL, 0, 0 };
     FocusNext = { NULL, 0, 0 };
-    memset(HoverTitleNext, 0, 64);
-    strncpy(FocusTitleNext, "None", 64);
-    memset(FocusTitleCurrent, 0, 64);
 
     // 1 panel at the start : the 'backpanel' where floating widgets are stored
     PanelCount = 1;
@@ -143,11 +133,15 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     Program = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(Program);
     SendInt(glGetUniformLocation(Program, "Texture0"), 0);
-
-    ProjMatrixUniformLoc = glGetUniformLocation(Program, "ProjMatrix");
     ColorUniformLoc = glGetUniformLocation(Program, "Color");
-
     context::RegisterShader2D(Context, Program);
+
+    MakeRelativePath(&Memory->ResourceHelper, VSPath, "data/shaders/ui_vert.glsl");
+    MakeRelativePath(&Memory->ResourceHelper, FSPath, "data/shaders/uitexrgb_frag.glsl");
+    ProgramRGBTexture = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProgramRGBTexture);
+    SendInt(glGetUniformLocation(ProgramRGBTexture, "Texture0"), 0);
+    context::RegisterShader2D(Context, ProgramRGBTexture);
 }
 
 void BeginFrame(game_memory *Memory, game_input *Input)
@@ -174,23 +168,10 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     HoverNext = { NULL, 0, 0 };
     Focus = FocusNext;
 
-    // TMP
-    strncpy(HoverTitleCurrent, HoverTitleNext, 64);
-    strncpy(HoverTitleNext, "None", 64);
-    strncpy(FocusTitleCurrent, FocusTitleNext, 64);
-
-    char Text[64];
-    snprintf(Text, 64, "Current Hover : %s", HoverTitleCurrent);
-    MakeText(NULL, Text, FONT_DEFAULT, vec3f(600, 10, 0.0001f), COLOR_DEBUGFG, Context->WindowWidth);
-
-    snprintf(Text, 64, "Current Focus : %s", FocusTitleCurrent);
-    MakeText(NULL, Text, FONT_DEFAULT, vec3f(600, 24, 0.0001f), COLOR_DEBUGFG, Context->WindowWidth);
-
     // Reset the FocusID to None if we have a mouse click, future frame panels will change that
     if(MOUSE_HIT(Input->MouseLeft))
     {
         FocusNext = { NULL, 0, PanelOrder[0] };
-        strncpy(FocusTitleNext, "None", 64);
     }
     if(MOUSE_UP(Input->MouseLeft))
     {
@@ -211,8 +192,8 @@ render_info *GetParentRenderInfo(int16 ParentIdx)
 
 static bool PointInRectangle(const vec2f &Point, const vec2f &TopLeft, const vec2f &BottomRight)
 {
-    if(Point.x >= TopLeft.x && Point.x < BottomRight.x)
-        if(Point.y > BottomRight.y && Point.y <= TopLeft.y)
+    if(Point.x >= TopLeft.x && Point.x <= BottomRight.x)
+        if(Point.y >= TopLeft.y && Point.y <= BottomRight.y)
             return true;
     return false;
 }
@@ -234,22 +215,26 @@ static bool PointInTriangle(const vec2f &Point, vec2f const &A, vec2f const &B, 
     return false;
 }
 
-void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f const &TL, vec2f const &BR, float TexScale = 1.f)
+/// This accepts squares defined in the Top Left coordinate system (Top left of window is (0,0), Bottom right is (WinWidth, WinHeight))
+static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f const &TL, vec2f const &BR, real32 TexScale = 1.f, bool FlipY = false)
 {
+    int const Y = Context->WindowHeight;
     IdxData[I1+0] = V1+0; IdxData[I1+1] = V1+1; IdxData[I1+2] = V1+2;
     IdxData[I1+3] = V1+0; IdxData[I1+4] = V1+2; IdxData[I1+5] = V1+3;
 
-    VertData[V1+0] = UIVertex(vec3f(TL.x, TL.y, 0), vec2f(0.f, 0.f));
-    VertData[V1+1] = UIVertex(vec3f(TL.x, BR.y, 0), vec2f(0.f, TexScale));
-    VertData[V1+2] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(TexScale, TexScale));
-    VertData[V1+3] = UIVertex(vec3f(BR.x, TL.y, 0), vec2f(TexScale, 0.f));
+    VertData[V1+0] = UIVertex(vec3f(TL.x, Y - TL.y, 0), vec2f(0.f,      FlipY ? TexScale : 0.f));
+    VertData[V1+1] = UIVertex(vec3f(TL.x, Y - BR.y, 0), vec2f(0.f,      FlipY ? 0.f : TexScale));
+    VertData[V1+2] = UIVertex(vec3f(BR.x, Y - BR.y, 0), vec2f(TexScale, FlipY ? 0.f : TexScale));
+    VertData[V1+3] = UIVertex(vec3f(BR.x, Y - TL.y, 0), vec2f(TexScale, FlipY ? TexScale : 0.f));
 }
 
+// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
 void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth)
 {
     MakeText(ID, Text, Font, Position, GetColor(Color), MaxWidth);
 }
 
+// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
 void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
 {
     uint32 const MsgLength = strlen(Text);
@@ -298,9 +283,8 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
     RenderInfo->ID = ID;
     RenderInfo->ParentID = ParentID[ParentLayer];
 
-    int const Y = Context->WindowHeight;
-    vec2f TL(Position.x, Y - Position.y);
-    vec2f BR(Position.x + Size.x, Y - Position.y - Size.y);
+    vec2f TL(Position.x, Position.y);
+    vec2f BR(Position.x + Size.x, Position.y + Size.y);
 
     FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[ParentPanelIdx]);
@@ -325,19 +309,19 @@ void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     vec2f TL(OrigTL);
-    vec2f BR(OrigBR.x, OrigTL.y-1);
+    vec2f BR(OrigBR.x, OrigTL.y+1);
     FillSquare(VertData, IdxData, 0, 0, TL, BR);
 
-    TL = vec2f(OrigTL.x, OrigBR.y+1);
+    TL = vec2f(OrigTL.x, OrigBR.y-1);
     BR = vec2f(OrigBR);
     FillSquare(VertData, IdxData, 4, 6, TL, BR);
 
-    TL = vec2f(OrigTL.x, OrigTL.y-1);
-    BR = vec2f(OrigTL.x+1, OrigBR.y+1);
+    TL = vec2f(OrigTL.x, OrigTL.y+1);
+    BR = vec2f(OrigTL.x+1, OrigBR.y-1);
     FillSquare(VertData, IdxData, 8, 12, TL, BR);
 
-    TL = vec2f(OrigBR.x-1, OrigTL.y-1);
-    BR = vec2f(OrigBR.x, OrigBR.y+1);
+    TL = vec2f(OrigBR.x-1, OrigTL.y+1);
+    BR = vec2f(OrigBR.x, OrigBR.y-1);
     FillSquare(VertData, IdxData, 12, 18, TL, BR);
 
     ++(RenderCmdCount[ParentPanelIdx]);
@@ -365,14 +349,13 @@ void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal)
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    int const Y = Context->WindowHeight;
     int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
     vec2i Size = vec2i(5, ParentRI->Size.y - TitlebarOffset - 2);
     vec2i Pos(ParentRI->Position.x + ParentRI->Size.x - Size.x - 1,
-              Y - ParentRI->Position.y - TitlebarOffset - 1);
+              ParentRI->Position.y + TitlebarOffset + 1);
 
     vec2f TL(Pos);
-    vec2f BR(Pos.x+Size.x, Pos.y-Size.y);
+    vec2f BR(Pos.x+Size.x, Pos.y+Size.y);
 
     FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[ParentPanelIdx]);
@@ -391,11 +374,10 @@ void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal)
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     real32 const HalfSliderHeight = 10.f;
-    //real32 const X = Min(MaxVal Max(MinVal *ID));
     real32 const Ratio = 1.f - ((*ID - MinVal) / (MaxVal - MinVal));
     real32 const PXHeight = Size.y - 2.f * HalfSliderHeight;
-    TL = vec2f(Pos.x, Pos.y - HalfSliderHeight - Ratio * PXHeight + HalfSliderHeight);
-    BR = vec2f(Pos.x + Size.x, Pos.y - HalfSliderHeight - Ratio * PXHeight - HalfSliderHeight);
+    TL = vec2f(Pos.x, Pos.y + HalfSliderHeight + Ratio * PXHeight - HalfSliderHeight);
+    BR = vec2f(Pos.x + Size.x, Pos.y + HalfSliderHeight + Ratio * PXHeight + HalfSliderHeight);
 
     FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[ParentPanelIdx]);
@@ -431,23 +413,22 @@ bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    int const Y = Context->WindowHeight;
     int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
-    vec2f const MaxBR(ParentRI->Position.x + ParentRI->Size.x - 1 - 4, Y - ParentRI->Position.y - ParentRI->Size.y + 1 + 4);
+    vec2f const MaxBR(ParentRI->Position.x + ParentRI->Size.x - 1 - 4, ParentRI->Position.y + ParentRI->Size.y - 1 - 4);
     vec2f const OffsetPos(ParentRI->Position.x + PositionOffset.x + 1, ParentRI->Position.y + PositionOffset.y + TitlebarOffset + 1);
-    vec2f const TL(OffsetPos.x, Y - OffsetPos.y);
-    vec2f BR(TL.x + Size.x, TL.y - Size.y);
+    vec2f const TL(OffsetPos.x, OffsetPos.y);
+    vec2f BR(TL.x + Size.x, TL.y + Size.y);
     BR.x = Min(BR.x, MaxBR.x);
-    BR.y = Max(BR.y, MaxBR.y);
+    BR.y = Min(BR.y, MaxBR.y);
     float MaxButtonTextWidth = BR.x - TL.x - 8;
 
-    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(1,-1), BR + vec2i(-1,1));
+    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(1,1), BR + vec2i(-1,-1));
     ++(RenderCmdCount[ParentPanelIdx]);
 
     MakeBorder(TL, BR);
     MakeText(NULL, ButtonText, FONT_DEFAULT, vec3i(OffsetPos.x + 4, OffsetPos.y + 4, 0), Theme.PanelFG, MaxButtonTextWidth);
 
-    vec2f const MousePos(Input->MousePosX, Y - Input->MousePosY);
+    vec2f const MousePos(Input->MousePosX, Input->MousePosY);
     if(Hover.ID == ParentRI->ID)
     {
         if(MOUSE_HIT(Input->MouseLeft) && PointInRectangle(MousePos, TL, BR))
@@ -470,7 +451,7 @@ bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i
     return false;
 }
 
-void MakeImage(real32 *ID, uint32 TextureID, vec2i const &Size)
+void MakeImage(real32 *ID, uint32 TextureID, vec2i const &Size, bool FlipY)
 {
     int16 const ParentPanelIdx = LastRootWidget;
     if(ParentPanelIdx == 0) return;
@@ -486,31 +467,35 @@ void MakeImage(real32 *ID, uint32 TextureID, vec2i const &Size)
     RenderInfo->Color = Theme.White;
     RenderInfo->ID = ID;
     RenderInfo->ParentID = ParentID[ParentLayer];
+    RenderInfo->Flags = DECORATION_RGBTEXTURE;
 
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    int const Y = Context->WindowHeight;
     int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
-    vec2i MaxBR(ParentRI->Position.x + ParentRI->Size.x - 1 - 4, Y - ParentRI->Position.y - ParentRI->Size.y + 1 + 4);
-    vec2f TL(ParentRI->Position.x + 1 + 4, Y - ParentRI->Position.y - TitlebarOffset - 1 - 4);
-    vec2f BR(TL.x + Size.x, TL.y - Size.y);
+    vec2i MaxBR(ParentRI->Position.x + ParentRI->Size.x - 1 - 4, ParentRI->Position.y + ParentRI->Size.y - 1 - 4);
+    vec2f TL(ParentRI->Position.x + 1 + 4, ParentRI->Position.y + TitlebarOffset + 1 + 4);
+    vec2f BR(TL.x + Size.x, TL.y + Size.y);
     BR.x = Min(BR.x, MaxBR.x);
-    BR.y = Max(BR.y, MaxBR.y);
+    BR.y = Min(BR.y, MaxBR.y);
 
-    FillSquare(VertData, IdxData, 0, 0, TL, BR, 1.f/ *ID);
+    real32 TexScale = 1.f / *ID;
+    FillSquare(VertData, IdxData, 0, 0, TL, BR, TexScale, true);
     ++(RenderCmdCount[ParentPanelIdx]);
 
     MakeBorder(TL, BR);
 
     if(Hover.ID == ParentRI->ID)
     {
-        if(Input->MouseDZ != 0 && PointInRectangle(vec2f(Input->MousePosX, Input->MousePosY), TL, BR))
+        if(Input->MouseDZ != 0)
+            if(PointInRectangle(vec2f(Input->MousePosX, Input->MousePosY), TL, BR))
         {
+            printf("hover\n");
             *ID *= (1.f + 0.1f * Input->MouseDZ);
             *ID = Max(0.0001f, *ID);
         }
     }
 }
 
+// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
 void MakeResizingTriangle(vec2f const &BR)
 {
     int16 const ParentPanelIdx = LastRootWidget;
@@ -529,14 +514,15 @@ void MakeResizingTriangle(vec2f const &BR)
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     // Add resizing triangle
+    int const Y = Context->WindowHeight;
     IdxData[0] = 0; IdxData[1] = 1; IdxData[2] = 2;
-    VertData[0] = UIVertex(vec3f(BR.x, BR.y, 0), vec2f(1.f, 1.f));
-    VertData[1] = UIVertex(vec3f(BR.x, BR.y + 8.f, 0), vec2f(1.f, 1.f));
-    VertData[2] = UIVertex(vec3f(BR.x - 8.f, BR.y, 0), vec2f(0.f, 1.f));
+    VertData[0] = UIVertex(vec3f(BR.x, Y - BR.y, 0), vec2f(1.f, 1.f));
+    VertData[1] = UIVertex(vec3f(BR.x, Y - BR.y + 8.f, 0), vec2f(1.f, 1.f));
+    VertData[2] = UIVertex(vec3f(BR.x - 8.f, Y - BR.y, 0), vec2f(0.f, 1.f));
     ++(RenderCmdCount[ParentPanelIdx]);
 }
 
-void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size, decoration_flag Flags)
+void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size, uint32 DecorationFlags)
 {
     Assert(PanelCount < UI_MAX_PANELS);
     uint32 PanelIdx;
@@ -566,52 +552,54 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
     RenderInfo->ParentID = NULL;
     RenderInfo->Position = vec2i(Position->x, Position->y);
     RenderInfo->Size = *Size;
-    RenderInfo->Flags = Flags;
+    RenderInfo->Flags = DecorationFlags;
     LastRootWidget = *ID;
 
-    int const Y = Context->WindowHeight;
-    vec2f TL(Position->x, Y - Position->y);
-    vec2f BR(Position->x + Size->x, Y - Position->y - Size->y);
+    vec2f TL(Position->x, Position->y);
+    vec2f BR(Position->x + Size->x, Position->y + Size->y);
 
     FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[PanelIdx]);
 
     ParentID[ParentLayer++] = ID;
 
-    MakeResizingTriangle(BR);
     MakeBorder(TL, BR);
 
-    if(Flags & DECORATION_TITLEBAR)
+    if(DecorationFlags & DECORATION_RESIZE)
+    {
+        MakeResizingTriangle(BR);
+    }
+
+    if(DecorationFlags & DECORATION_TITLEBAR)
     {
         MakeTitlebar(NULL, PanelTitle, *Position + vec3f(1, 1, 0), vec2i(Size->x - 2, 20), Theme.TitlebarBG);
     }
 
     if(HoverNext.Priority <= PanelOrder[PanelIdx])
     {
-        vec2f MousePos(Input->MousePosX, Y - Input->MousePosY);
+        vec2f MousePos(Input->MousePosX, Input->MousePosY);
         if(PointInRectangle(MousePos, TL, BR))
         {
             HoverNext.ID = ID;
             HoverNext.Priority = PanelOrder[PanelIdx];
             HoverNext.Idx = PanelIdx;
-            strncpy(HoverTitleNext, PanelTitle, 64);
 
             // Test for Titlebar click
-            vec2f TB_TL = TL + vec2f(1,1);
-            vec2f TB_BR(Position->x + Size->x - 2, Y - Position->y - 20);
-            if(Flags & DECORATION_TITLEBAR && ID == Hover.ID && PointInRectangle(MousePos, TB_TL, TB_BR))
+            vec2f TB_TL = TL;
+            vec2f TB_BR(BR.x, Position->y + 20 + 1);
+            if(MOUSE_HIT(Input->MouseLeft))
             {
-                if(MOUSE_HIT(Input->MouseLeft))
+                if(DecorationFlags & DECORATION_TITLEBAR && ID == Hover.ID && PointInRectangle(MousePos, TB_TL, TB_BR))
                 {
                     MouseHold = true;
                 }
-            }
 
-            // Test for resize triangle click
-            vec2f A(BR), B(BR + vec2f(0, 8.f)), C(BR - vec2f(8.f, 0));
-            if(MOUSE_HIT(Input->MouseLeft) && ID == Hover.ID && PointInTriangle(MousePos, A, B, C))
-            {
-                ResizeHold = true;
+                // Test for resize triangle click
+                vec2f A(BR), B(BR + vec2f(0, -8.f)), C(BR + vec2f(-8.f, 0));
+                if(DecorationFlags & DECORATION_RESIZE && ID == Hover.ID && PointInTriangle(MousePos, A, B, C))
+                {
+                    ResizeHold = true;
+                }
             }
         }
     }
@@ -665,7 +653,6 @@ static void Update()
     if(MOUSE_HIT(Input->MouseLeft))
     {
         FocusNext = Hover;
-        strncpy(FocusTitleNext, HoverTitleCurrent, 64);
 
         // Reorder panel rendering order if focus has changed
         if(Hover.Priority > 0 && Hover.Priority < (PanelCount-1))
@@ -685,11 +672,11 @@ static void *RenderCmdOffset(uint8 *CmdList, size_t *OffsetAccum, size_t Size)
 void Draw()
 {
     Update();
-    glUseProgram(Program);
+
+    uint32 CurrProgram = 0;
 
     glDisable(GL_DEPTH_TEST);
     glBindVertexArray(VAO);
-    // TODO - 1 DrawCall for the whole AI ? just need to prepare the buffer with each RenderCmd beforehand
     for(int p = 0; p < PanelCount; ++p)
     {
         int16 OrdPanelIdx = RenderOrder[p];
@@ -701,6 +688,25 @@ void Draw()
             vertex *VertData = (vertex*)RenderCmdOffset(Cmd, &Offset, RenderInfo->VertexCount * sizeof(vertex));
             uint16 *IdxData = (uint16*)RenderCmdOffset(Cmd, &Offset, RenderInfo->IndexCount * sizeof(uint16));
 
+            // Switch program depending on rgb texture or normal UI widget
+            if(RenderInfo->Flags & DECORATION_RGBTEXTURE)
+            {
+                if(CurrProgram != ProgramRGBTexture)
+                {
+                    CurrProgram = ProgramRGBTexture;
+                    glUseProgram(CurrProgram);
+                }
+            }
+            else
+            {
+                if(CurrProgram != Program)
+                {
+                    CurrProgram = Program;
+                    glUseProgram(Program);
+                }
+                SendVec4(ColorUniformLoc, RenderInfo->Color);
+            }
+
             glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
             glBufferData(GL_ARRAY_BUFFER, RenderInfo->VertexCount * sizeof(vertex), (GLvoid*)VertData, GL_STREAM_DRAW);
 
@@ -709,7 +715,6 @@ void Draw()
 
             glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
 
-            SendVec4(ColorUniformLoc, RenderInfo->Color);
             glDrawElements(GL_TRIANGLES, RenderInfo->IndexCount, GL_UNSIGNED_SHORT, 0);
 
             Cmd += Offset;
