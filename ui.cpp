@@ -1,6 +1,11 @@
 #include "ui.h"
 #include "utils.h"
 
+/////////////////////////////////////////////////////////////////////////////////////////
+// All functions accept positions and sizes in absolute coordinate with the coordinate
+// origin at the top left (0,0) of the window, with the bottom right (winwidth, winheight).
+/////////////////////////////////////////////////////////////////////////////////////////
+
 #define UI_STACK_SIZE Megabytes(8)
 #define UI_MAX_PANELS 32
 #define UI_PARENT_SIZE 10
@@ -232,7 +237,7 @@ static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f 
 static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
 {
     // Adding 1 to the MsgLength in case the string is too long for its container and a '..' must be added
-    // TODO - Maybe do all those size checks here and not in the render.cpp function
+    // TODO - Maybe do all those size checks here and not in the render.cpp FillInterleaved function
     uint32 const VertexCount = (MsgLength+1) * 4;
     uint32 const IndexCount = (MsgLength+1) * 6;
 
@@ -261,24 +266,45 @@ static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, the
     ++(RenderCmdCount[PanelIdx]);
 }
 
-// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
 void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth)
 {
     uint32 const MsgLength = strlen(Text);
     _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, GetColor(Color), MaxWidth);
 }
 
-// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
 void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
 {
     uint32 const MsgLength = strlen(Text);
     _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, Color, MaxWidth);
 }
 
-void MakeText16(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth)
+void MakeTextUTF8(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth)
 {
     uint32 const MsgLength = UTF8_strnlen(Text, -1);
-    _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, GetColor(Color), MaxWidth);
+    uint32 const VertexCount = MsgLength * 4;
+    uint32 const IndexCount = MsgLength * 6;
+
+    bool const NoParent = IsRootWidget();
+    uint16 const PanelIdx = LastRootWidget;
+
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], VertexCount * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], IndexCount * sizeof(uint16));
+
+    font *Font = GetFont(FontStyle);
+
+    RenderInfo->Type = WIDGET_TEXT;
+    RenderInfo->VertexCount = VertexCount;
+    RenderInfo->IndexCount = IndexCount;
+    RenderInfo->TextureID = Font->AtlasTextureID;
+    RenderInfo->Color = GetColor(Color);
+    RenderInfo->ID = ID;
+    RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
+
+    vec3i DisplayPos = vec3i(Position.x, Context->WindowHeight - Position.y, Position.z);
+    FillDisplayTextInterleavedUTF8(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+
+    ++(RenderCmdCount[PanelIdx]);
 }
 
 void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)

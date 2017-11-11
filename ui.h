@@ -35,6 +35,6 @@ namespace ui {
     void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, col4f Color, int MaxWidth);
 
     // UTF8 Version
-    void MakeText16(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth);
+    void MakeTextUTF8(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth);
 }
 #endif

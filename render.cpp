@@ -676,7 +676,7 @@ void DestroyMesh(mesh *Mesh)
     Mesh->IndexCount = 0;
 }
 
-static void FillCharInterleaved(real32 *VertData, uint16 *IdxData, uint32 i, uint8 c, font *Font, int *X, int *Y, vec3i const &Pos, real32 Scale)
+static void FillCharInterleaved(real32 *VertData, uint16 *IdxData, uint32 i, uint16 c, font *Font, int *X, int *Y, vec3i const &Pos, real32 Scale)
 {
     uint32 const Stride = 5 * 4;
     glyph &Glyph = Font->Glyphs[c];
@@ -755,6 +755,26 @@ void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font,
     }
 
 }
+void FillDisplayTextInterleavedUTF8(char const *Text , uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
+                                    real32 *VertData, uint16 *IdxData, real32 Scale)
+{
+    real32 TextWidth = TextLength * Font->MaxGlyphWidth;
+    uint32 VertexCount = TextLength * 4;
+    uint32 IndexCount = TextLength * 6;
+
+    int X = 0, Y = 0;
+    size_t TextIdx = 0;
+    for(uint32 i = 0; i < TextLength; ++i)
+    {
+        size_t CharAdvance;
+        uint16 UTFIdx = UTF8CharToInt(&Text[TextIdx], &CharAdvance) - Font->Char0;
+
+        FillCharInterleaved(VertData, IdxData, i, UTFIdx, Font, &X, &Y, Pos, Scale);
+
+        TextIdx += CharAdvance;
+    }
+}
+
 display_text MakeDisplayText(game_memory *Memory, font *Font, char const *Msg, int MaxPixelWidth, vec4f Color, real32 Scale = 1.0f)
 {
     display_text Text = {};

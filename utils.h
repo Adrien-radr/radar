@@ -11,7 +11,8 @@
 void *ReadFileContents(memory_arena *Arena, path const Filename, int *FileSize);
 void MakeRelativePath(resource_helper *RH, path Dst, path const Filename);
 size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt);
-size_t UTF8_strnlen(char const *String, size_t MaxChar);
+size_t UTF8_strnlen(char const *Str, size_t MaxChar);
+uint16 UTF8CharToInt(char const *Str, size_t *CharAdvance);
 
 template<typename T>
 inline T JSON_Get(cJSON *Root, char const *ValueName, T const &DefaultValue)

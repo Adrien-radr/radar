@@ -277,7 +277,9 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     {
         printf("Button Press\n");
     }
-    ui::MakeText16(NULL, ICON_FA_SEARCH, ui::FONT_AWESOME, vec3i(p1.x + 10, p1.y + 60, 0), ui::COLOR_WHITE, 100);
+    char Str[16];
+    snprintf(Str, 16, "%s%s", ICON_FA_SEARCH, ICON_FA_GLASS);
+    ui::MakeTextUTF8(NULL, Str, ui::FONT_AWESOME, vec3i(p1.x + 10, p1.y + 60, 0), ui::COLOR_BORDERBG, 100);
     ui::EndPanel();
 }
 

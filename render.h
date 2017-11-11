@@ -162,6 +162,8 @@ void DestroyMesh(mesh *Mesh);
 
 void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
                                 real32 *VertData, uint16 *Indices, real32 Scale = 1.0f);
+void FillDisplayTextInterleavedUTF8(char const *Text , uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
+                                    real32 *VertData, uint16 *IdxData, real32 Scale = 1.0f);
 
 bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path const Filename, game_context *Context);
 #endif
