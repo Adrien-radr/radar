@@ -4,6 +4,7 @@
 
 #include "stb_image.h"
 #include "stb_truetype.h"
+#include "fontawesome.h"
 
 static resource_store *GetStore(render_resources *RenderResources, render_resource_type Type)
 {
@@ -390,7 +391,7 @@ void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channe
 
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
 // This doesnt take it into account since we bake each letter separately for future use by texture lookup
-font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 FontHeight)
+font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 FontHeight, int Char0, int CharN)
 {
     game_memory *Memory = RenderResources->RH->Memory;
 
@@ -414,10 +415,6 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
     void *Contents = ReadFileContents(&Memory->ScratchArena, Filename, 0);
     if(Contents)
     {
-        Font->Width = 2048;
-        Font->Height = 2048;
-        Font->Buffer = (uint8*)PushArenaData(&Memory->SessionArena, Font->Width*Font->Height);
-
         stbtt_fontinfo STBFont;
         stbtt_InitFont(&STBFont, (uint8*)Contents, 0);
 
@@ -427,14 +424,20 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
         Ascent *= PixelScale;
         Descent *= PixelScale;
 
+        Font->Width = 1024;
+        Font->Height = 1024;
+        Font->NumGlyphs = STBFont.numGlyphs;
+        Font->Char0 = Char0;
+        Font->CharN = CharN;
+        Font->Buffer = (uint8*)PushArenaData(&Memory->SessionArena, Font->Width*Font->Height);
+        Font->Glyphs = (glyph*)PushArenaData(&Memory->SessionArena, sizeof(glyph) * (Font->CharN - Font->Char0));
         Font->LineGap = Ascent - Descent;
         Font->Ascent = Ascent;
         Font->MaxGlyphWidth = 0;
 
         real32 X = 0, Y = 0;
 
-        // TODO - Load Unicode characters
-        for(int Codepoint = 32; Codepoint < 127; ++Codepoint)
+        for(int Codepoint = Font->Char0; Codepoint < Font->CharN; ++Codepoint)
         {
             int Glyph = stbtt_FindGlyphIndex(&STBFont, Codepoint);
 
@@ -452,21 +455,19 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
             if(X + AdvanceX >= Font->Width)
             {
                 X = 0;
-                Y += LineGap + Ascent + Descent;
-                Assert((Y + Ascent - Descent) < Font->Height);
+                Y += Font->LineGap;
+                Assert((Y + Font->LineGap) < Font->Height);
             }
 
-            glyph TmpGlyph = {
-                X0, Y0,
-                (X + 0)/(real32)Font->Width, (Y + Ascent + Y0)/(real32)Font->Height,
-                (X + CW)/(real32)Font->Width, (Y + Ascent + Y1)/(real32)Font->Height,
-                CW, CH, AdvanceX
-            };
-            Font->Glyphs[Codepoint-32] = TmpGlyph;
-            Font->MaxGlyphWidth += AdvanceX;
-
             int CharX = X;
-            int CharY = Y + Ascent + Y0;
+            int CharY = Max(0, Y + Ascent + Y0);
+
+            glyph &DstGlyph = Font->Glyphs[Codepoint-Font->Char0];
+            DstGlyph.X = X0; DstGlyph.Y = Y0;
+            DstGlyph.TexX0 = (X + 0)/(real32)Font->Width;            DstGlyph.TexX1 = (X + CW)/(real32)Font->Width;
+            DstGlyph.TexY0 = (Y + Ascent + Y0)/(real32)Font->Height; DstGlyph.TexY1 = (Y + Ascent + Y1)/(real32)Font->Height;
+            DstGlyph.CW = CW; DstGlyph.CH = CH; DstGlyph.AdvX = AdvanceX;
+            Font->MaxGlyphWidth += AdvanceX;
 
             uint8 *BitmapPtr = Font->Buffer + (CharY * Font->Width + CharX);
             stbtt_MakeGlyphBitmap(&STBFont, BitmapPtr, CW, CH, Font->Width, PixelScale, PixelScale, Glyph);
@@ -474,7 +475,7 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
             X += CW;
         }
 
-        Font->MaxGlyphWidth /= real32(127-32);
+        Font->MaxGlyphWidth /= real32(Font->CharN-Font->Char0);
 
         // Make Texture out of the Bitmap
         Font->AtlasTextureID = Make2DTexture(Font->Buffer, Font->Width, Font->Height, 1, false, false, 1.0f,
@@ -732,13 +733,13 @@ void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font,
     int X = 0, Y = 0;
     for(uint32 i = 0; i < TextLength; ++i)
     {
-        uint8 AsciiIdx = Text[i] - 32; // 32 is the 1st Ascii idx
+        uint8 AsciiIdx = Text[i] - Font->Char0;
 
         if(Text[i] == '\n')
         {
             X = 0;
             Y -= Font->LineGap;
-            AsciiIdx = Text[++i] - 32;
+            AsciiIdx = Text[++i] - Font->Char0;
             IndexCount -= 6;
         }
 
@@ -748,7 +749,7 @@ void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font,
     // Add '..' to the string if it's too long and clamped
     if(AdditionalLen > 0)
     {
-        uint8 AsciiIdx = '.' - 32;
+        uint8 AsciiIdx = '.' - Font->Char0;
         FillCharInterleaved(VertData, IdxData, TextLength++, AsciiIdx, Font, &X, &Y, Pos, Scale);
         FillCharInterleaved(VertData, IdxData, TextLength, AsciiIdx, Font, &X, &Y, Pos, Scale);
     }
@@ -772,7 +773,7 @@ display_text MakeDisplayText(game_memory *Memory, font *Font, char const *Msg, i
     int X = 0, Y = 0;
     for(uint32 i = 0; i < MsgLength; ++i)
     {
-        uint8 AsciiIdx = Msg[i] - 32; // 32 is the 1st Ascii idx
+        uint8 AsciiIdx = Msg[i] - Font->Char0;
         glyph &Glyph = Font->Glyphs[AsciiIdx];
 
         // Modify DisplayWidth to always be at least the length of each character
@@ -785,7 +786,7 @@ display_text MakeDisplayText(game_memory *Memory, font *Font, char const *Msg, i
         {
             X = 0;
             Y -= Font->LineGap;
-            AsciiIdx = Msg[++i] - 32;
+            AsciiIdx = Msg[++i] - Font->Char0;
             Glyph = Font->Glyphs[AsciiIdx];
             IndexCount -= 6;
         }

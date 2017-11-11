@@ -230,7 +230,8 @@ namespace ui
     enum theme_font
     {
         FONT_DEFAULT,
-        FONT_CONSOLE
+        FONT_CONSOLE,
+        FONT_AWESOME
     };
 
     struct text_line

@@ -2,6 +2,7 @@
 #define UI_H
 
 #include "context.h"
+#include "fontawesome.h"
 
 /// Panels are created by giving a permanent uint32 ID pointer
 /// This ID should be set to 0 by the caller at first, to signify an uninitialized state.
@@ -25,12 +26,15 @@ namespace ui {
     /// ID's value will be the slider relative position
     void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal);
 
-    void MakeImage(real32 *ID, uint32 TextureID, vec2i const &Size, bool FlipY);
+    void MakeImage(real32 *ID, uint32 TextureID, vec2f *TexOffset, vec2i const &Size, bool FlipY);
     bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i const &Size);
 
     // This version of MakeText is prefered to keep with the ui Coloring scheme
     // Use the 2nd version if a specific color is needed
     void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth);
     void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, col4f Color, int MaxWidth);
+
+    // UTF8 Version
+    void MakeText16(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth);
 }
 #endif

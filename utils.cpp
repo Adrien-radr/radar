@@ -50,3 +50,15 @@ size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt)
 
     return strftime(Dst, DstSize, Fmt, timeinfo);
 }
+
+size_t UTF8_strnlen(char const *String, size_t MaxChar)
+{
+    size_t Len = 0;
+    size_t i = 0;
+    while(String[i] && i < MaxChar)
+    {
+        Len += (String[i++] & 0xc0) != 0x80;
+    }
+
+    return Len;
+}

@@ -263,6 +263,8 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     }
     ui::EndPanel();
 
+    FontInfo = ui::GetFont(ui::FONT_AWESOME);
+
     // TMP TEST Panels
     static uint32 id1 = 0;
     static vec3i p1(100, 100, 0);
@@ -275,6 +277,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     {
         printf("Button Press\n");
     }
+    ui::MakeText16(NULL, ICON_FA_SEARCH, ui::FONT_AWESOME, vec3i(p1.x + 10, p1.y + 60, 0), ui::COLOR_WHITE, 100);
     ui::EndPanel();
 }
 
@@ -412,8 +415,9 @@ int RadarMain(int argc, char **argv)
         // TMP
         static uint32 id2 = 0;
         static real32 imgscale = 1.0f;
+        static vec2f img_texoffset(0.f, 0.f);
         static vec3i p2(300, 150, 0);
-        static vec2i p2size(400, 200);
+        static vec2i p2size(310, 330);
 
         while(Context->IsRunning)
         {
@@ -703,8 +707,9 @@ int RadarMain(int argc, char **argv)
 
 
 #if 1
+            font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
             ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::DECORATION_TITLEBAR);
-            ui::MakeImage(&imgscale, FPBackbuffer.BufferIDs[0], vec2i(200, 200), true);
+            ui::MakeImage(&imgscale, FontInfo->AtlasTextureID, &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
 

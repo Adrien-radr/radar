@@ -29,7 +29,7 @@ input_state Focus;
 input_state FocusNext;
 int16 ForcePanelFocus;
 
-bool MouseHold;
+void *MouseHold;
 bool ResizeHold;
 
 int16 LastRootWidget; // Address of the last widget not attached to anything
@@ -117,7 +117,7 @@ void Init(game_memory *Memory, game_context *Context)
         PanelOrder[i] = i;
     }
 
-    MouseHold = false;
+    MouseHold = NULL;
     ResizeHold = false;
 
     path ConfigPath;
@@ -175,7 +175,7 @@ void BeginFrame(game_memory *Memory, game_input *Input)
     }
     if(MOUSE_UP(Input->MouseLeft))
     {
-        MouseHold = false;
+        MouseHold = NULL;
         ResizeHold = false;
     }
 }
@@ -216,28 +216,21 @@ static bool PointInTriangle(const vec2f &Point, vec2f const &A, vec2f const &B, 
 }
 
 /// This accepts squares defined in the Top Left coordinate system (Top left of window is (0,0), Bottom right is (WinWidth, WinHeight))
-static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f const &TL, vec2f const &BR, real32 TexScale = 1.f, bool FlipY = false)
+static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f const &TL, vec2f const &BR,
+        vec2f const &TexOffset = vec2f(0,0), real32 TexScale = 1.f, bool FlipY = false)
 {
     int const Y = Context->WindowHeight;
     IdxData[I1+0] = V1+0; IdxData[I1+1] = V1+1; IdxData[I1+2] = V1+2;
     IdxData[I1+3] = V1+0; IdxData[I1+4] = V1+2; IdxData[I1+5] = V1+3;
 
-    VertData[V1+0] = UIVertex(vec3f(TL.x, Y - TL.y, 0), vec2f(0.f,      FlipY ? TexScale : 0.f));
-    VertData[V1+1] = UIVertex(vec3f(TL.x, Y - BR.y, 0), vec2f(0.f,      FlipY ? 0.f : TexScale));
-    VertData[V1+2] = UIVertex(vec3f(BR.x, Y - BR.y, 0), vec2f(TexScale, FlipY ? 0.f : TexScale));
-    VertData[V1+3] = UIVertex(vec3f(BR.x, Y - TL.y, 0), vec2f(TexScale, FlipY ? TexScale : 0.f));
+    VertData[V1+0] = UIVertex(vec3f(TL.x, Y - TL.y, 0), TexOffset + vec2f(0.f,      FlipY ? TexScale : 0.f));
+    VertData[V1+1] = UIVertex(vec3f(TL.x, Y - BR.y, 0), TexOffset + vec2f(0.f,      FlipY ? 0.f : TexScale));
+    VertData[V1+2] = UIVertex(vec3f(BR.x, Y - BR.y, 0), TexOffset + vec2f(TexScale, FlipY ? 0.f : TexScale));
+    VertData[V1+3] = UIVertex(vec3f(BR.x, Y - TL.y, 0), TexOffset + vec2f(TexScale, FlipY ? TexScale : 0.f));
 }
 
-// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
-void MakeText(void *ID, char const *Text, theme_font Font, vec3i Position, theme_color Color, int MaxWidth)
+static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
 {
-    MakeText(ID, Text, Font, Position, GetColor(Color), MaxWidth);
-}
-
-// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
-void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
-{
-    uint32 const MsgLength = strlen(Text);
     // Adding 1 to the MsgLength in case the string is too long for its container and a '..' must be added
     // TODO - Maybe do all those size checks here and not in the render.cpp function
     uint32 const VertexCount = (MsgLength+1) * 4;
@@ -266,6 +259,26 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, 
     FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
 
     ++(RenderCmdCount[PanelIdx]);
+}
+
+// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth)
+{
+    uint32 const MsgLength = strlen(Text);
+    _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, GetColor(Color), MaxWidth);
+}
+
+// Position is in TopLeft coordinate system (Top left corner of window is (0,0))
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
+{
+    uint32 const MsgLength = strlen(Text);
+    _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, Color, MaxWidth);
+}
+
+void MakeText16(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth)
+{
+    uint32 const MsgLength = UTF8_strnlen(Text, -1);
+    _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, GetColor(Color), MaxWidth);
 }
 
 void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
@@ -451,7 +464,7 @@ bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i
     return false;
 }
 
-void MakeImage(real32 *ID, uint32 TextureID, vec2i const &Size, bool FlipY)
+void MakeImage(real32 *ID, uint32 TextureID, vec2f *TexOffset, vec2i const &Size, bool FlipY)
 {
     int16 const ParentPanelIdx = LastRootWidget;
     if(ParentPanelIdx == 0) return;
@@ -472,26 +485,36 @@ void MakeImage(real32 *ID, uint32 TextureID, vec2i const &Size, bool FlipY)
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
     int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
     vec2i MaxBR(ParentRI->Position.x + ParentRI->Size.x - 1 - 4, ParentRI->Position.y + ParentRI->Size.y - 1 - 4);
-    vec2f TL(ParentRI->Position.x + 1 + 4, ParentRI->Position.y + TitlebarOffset + 1 + 4);
-    vec2f BR(TL.x + Size.x, TL.y + Size.y);
+    vec2f TL(ParentRI->Position.x + 1 + 4 + 1, ParentRI->Position.y + TitlebarOffset + 1 + 4 + 1);
+    vec2f BR(TL.x + Size.x - 1, TL.y + Size.y - 1);
     BR.x = Min(BR.x, MaxBR.x);
     BR.y = Min(BR.y, MaxBR.y);
 
     real32 TexScale = 1.f / *ID;
-    FillSquare(VertData, IdxData, 0, 0, TL, BR, TexScale, true);
+    FillSquare(VertData, IdxData, 0, 0, TL, BR, *TexOffset, TexScale, FlipY);
     ++(RenderCmdCount[ParentPanelIdx]);
 
-    MakeBorder(TL, BR);
+    MakeBorder(TL + vec2f(-1,-1), BR + vec2f(1,1));
 
     if(Hover.ID == ParentRI->ID)
     {
-        if(Input->MouseDZ != 0)
-            if(PointInRectangle(vec2f(Input->MousePosX, Input->MousePosY), TL, BR))
+        if(Input->MouseDZ != 0 && PointInRectangle(vec2f(Input->MousePosX, Input->MousePosY), TL, BR))
         {
-            printf("hover\n");
             *ID *= (1.f + 0.1f * Input->MouseDZ);
             *ID = Max(0.0001f, *ID);
         }
+
+        if(MOUSE_HIT(Input->MouseLeft) && PointInRectangle(vec2f(Input->MousePosX, Input->MousePosY), TL, BR))
+        {
+            MouseHold = ID;
+        }
+    }
+
+    if(MouseHold == ID)
+    {
+        real32 SpanSpeed = 1.f / (Max(Size.x, Size.y) * *ID);
+        TexOffset->x -= Input->MouseDX * SpanSpeed;
+        TexOffset->y -= Input->MouseDY * SpanSpeed;
     }
 }
 
@@ -591,7 +614,7 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
             {
                 if(DecorationFlags & DECORATION_TITLEBAR && ID == Hover.ID && PointInRectangle(MousePos, TB_TL, TB_BR))
                 {
-                    MouseHold = true;
+                    MouseHold = ID;
                 }
 
                 // Test for resize triangle click
@@ -606,7 +629,7 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
 
     if(Focus.ID == ID)
     {
-        if(MouseHold == true)
+        if(MouseHold == ID)
         {
             Position->x += Input->MouseDX;
             Position->y += Input->MouseDY;

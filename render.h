@@ -38,14 +38,17 @@ struct glyph
 // TODO - UTF
 struct font
 {
-    uint8 *Buffer;
     int Width;
     int Height;
     int LineGap;
     int Ascent;
+    int NumGlyphs;
+    int Char0, CharN;
     real32 MaxGlyphWidth;
-    glyph Glyphs[127-32]; // 126 is '~', 32 is ' '
     uint32 AtlasTextureID;
+    uint8 *Buffer;
+    glyph *Glyphs;//[127-32]; // 126 is '~', 32 is ' '
+    //glyph Glyphs[127-32];
 };
 
 struct display_text
@@ -124,7 +127,7 @@ void ResourceFree(render_resources *RenderResources);
 image *ResourceLoadImage(render_resources *RenderResources, path const Filename, bool IsFloat, bool FlipY = true,
                          int32 ForceNumChannel = 0);
 void DestroyImage(image *Image);
-font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 PixelHeight);
+font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 PixelHeight, int Char0 = 32, int CharN = 127);
 uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
                               uint32 AnisotropicLevel, int32 ForceNumChannel = 0);
 

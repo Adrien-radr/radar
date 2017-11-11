@@ -22,6 +22,7 @@ namespace ui
 
         font  *DefaultFont;
         font  *ConsoleFont;
+        font  *AwesomeFont;
     } Theme;
 
     col4f const &GetColor(theme_color Col)
@@ -53,6 +54,7 @@ namespace ui
         {
             case FONT_DEFAULT : return Theme.DefaultFont;
             case FONT_CONSOLE : return Theme.ConsoleFont;
+            case FONT_AWESOME : return Theme.AwesomeFont;
             default : return Theme.DefaultFont;
         }
     }
@@ -76,16 +78,12 @@ namespace ui
         Theme.ButtonBG = col4f(1, 1, 1, 0.1);
         Theme.ButtonPressedBG = col4f(1, 1, 1, 0.1);
 
-#ifdef RADAR_WIN32
-        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 13);
-        Theme.ConsoleFont = ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/Consola.ttf", 13);
-#else
-        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 13);
-        Theme.ConsoleFont = ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 13);
-#endif
+        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "data/DroidSansMonoSlashed.ttf", 13);
+        Theme.ConsoleFont = ResourceLoadFont(&Context->RenderResources, "data/DroidSansMonoSlashed.ttf", 13);
+        Theme.AwesomeFont = ResourceLoadFont(&Context->RenderResources, "data/fontawesome.ttf", 24);
     }
 
-    static font *ParseConfigFont(cJSON *root, game_context *Context, char const *Name)
+    static font *ParseConfigFont(cJSON *root, game_context *Context, char const *Name, int c0, int cn)
     {
         cJSON *FontInfo = cJSON_GetObjectItem(root, Name);
         if(FontInfo && cJSON_GetArraySize(FontInfo) == 2)
@@ -93,16 +91,12 @@ namespace ui
             path FontPath;
             strncpy(FontPath, cJSON_GetArrayItem(FontInfo, 0)->valuestring, MAX_PATH);
             int FontSize = cJSON_GetArrayItem(FontInfo, 1)->valueint;
-            return ResourceLoadFont(&Context->RenderResources, FontPath, FontSize);
+            return ResourceLoadFont(&Context->RenderResources, FontPath, FontSize, c0, cn);
         }
         else
         {
-            printf("Error loading UI Theme Font %s, loading default DejaVuSansMono.\n", Name);
-#ifdef RADAR_WIN32
-            return ResourceLoadFont(&Context->RenderResources, "C:/Windows/Fonts/dejavusansmono.ttf", 13);
-#else
-            return ResourceLoadFont(&Context->RenderResources, "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 13);
-#endif
+            printf("Error loading UI Theme Font %s, loading default DroidSansMono instead.\n", Name);
+            return ResourceLoadFont(&Context->RenderResources, "data/DroidSansMonoSlashed.ttf", 13, 32, 127);
         }
     }
 
@@ -132,8 +126,9 @@ namespace ui
                 Theme.ButtonBG = JSON_Get(root, "ButtonBG", col4f(1, 1, 1, 0.1));
                 Theme.ButtonPressedBG = JSON_Get(root, "ButtonPressedBG", col4f(1, 1, 1, 0.1));
 
-                Theme.DefaultFont = ParseConfigFont(root, Context, "DefaultFont");
-                Theme.ConsoleFont = ParseConfigFont(root, Context, "ConsoleFont");
+                Theme.DefaultFont = ParseConfigFont(root, Context, "DefaultFont", 32, 127);
+                Theme.ConsoleFont = ParseConfigFont(root, Context, "ConsoleFont", 32, 127);
+                Theme.AwesomeFont = ParseConfigFont(root, Context, "AwesomeFont", ICON_MIN_FA, 1+ICON_MAX_FA);
             }
             else
             {
