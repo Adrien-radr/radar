@@ -31,10 +31,11 @@ namespace ui {
 
     // This version of MakeText is prefered to keep with the ui Coloring scheme
     // Use the 2nd version if a specific color is needed
-    void MakeText(void *ID, char const *Text, theme_font Font, vec2i PositionOffset, theme_color Color, int MaxWidth);
-    void MakeText(void *ID, char const *Text, theme_font Font, vec2i PositionOffset, col4f Color, int MaxWidth);
+    //void MakeText(void *ID, char const *Text, theme_font Font, vec2i PositionOffset, theme_color Color, int MaxWidth);
+    //void MakeText(void *ID, char const *Text, theme_font Font, vec2i PositionOffset, col4f Color, int MaxWidth);
 
     // UTF8 Version
-    void MakeTextUTF8(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth);
+    void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth);
+    void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, int MaxWidth);
 }
 #endif

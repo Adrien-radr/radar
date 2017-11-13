@@ -51,6 +51,48 @@ size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt)
     return strftime(Dst, DstSize, Fmt, timeinfo);
 }
 
+int    UTF8CharCount(char const *Str, uint16 *OutUnicode)
+{
+    Assert(strlen(Str) >= 1);
+
+    int CharCount, Unicode;
+
+    uint8 BaseCH = Str[0];
+    if(BaseCH <= 0x7F) // <128, normal char
+    {
+        Unicode = BaseCH;
+        CharCount = 1;
+    }
+    else if(BaseCH <= 0xBF)
+    {
+        return -1; // Not an UTF-8 char
+    }
+    else if(BaseCH <= 0xDF) // <223, 1 more char follows
+    {
+        Unicode = BaseCH & 0x1F;
+        CharCount = 2;
+    }
+    else if(BaseCH <= 0xEF) // <239, 2 more char follows
+    {
+        Unicode = BaseCH & 0x0F;
+        CharCount = 3;
+    }
+    else if(BaseCH <= 0xF7) // <247, 3 more char follows
+    {
+        Unicode = BaseCH & 0x07;
+        CharCount = 4;
+    }
+    else
+    {
+        return -1; // Not an UTF-8 Char
+    }
+
+    if(OutUnicode)
+        *OutUnicode = Unicode;
+
+    return CharCount;
+}
+
 size_t UTF8_strnlen(char const *Str, size_t MaxChar)
 {
     size_t Len = 0;
@@ -65,48 +107,23 @@ size_t UTF8_strnlen(char const *Str, size_t MaxChar)
 
 uint16 UTF8CharToInt(char const *Str, size_t *CharAdvance)
 {
-    uint16 uni = 0;
+    uint16 Unicode = 0;
     uint8 BaseCH = Str[0];
 
-    if(BaseCH <= 0x7F)
-    {
-        uni = BaseCH;
-        *CharAdvance = 0;
-    }
-    else if(BaseCH <= 0xBF)
-    {
-        return 0; // Not an UTF-8 char
-    }
-    else if(BaseCH <= 0xDF)
-    {
-        uni = BaseCH & 0x1F;
-        *CharAdvance = 1;
-    }
-    else if(BaseCH <= 0xEF)
-    {
-        uni = BaseCH & 0x0F;
-        *CharAdvance = 2;
-    }
-    else if(BaseCH <= 0xF7)
-    {
-        uni = BaseCH & 0x07;
-        *CharAdvance = 3;
-    }
-    else
-    {
-        return 0; // Not an UTF-8 Char
-    }
+    int Count = UTF8CharCount(Str, &Unicode);
+    if(Count < 0)
+        return 0;
 
-    *CharAdvance += 1; // for the leading char
+    *CharAdvance = Count; // for the leading char
 
     for (size_t j = 1; j < *CharAdvance; ++j)
     {
         uint8 ch = Str[j];
         if (ch < 0x80 || ch > 0xBF)
             return 0; // Not an UTF-8
-        uni <<= 6;
-        uni += ch & 0x3F;
+        Unicode <<= 6;
+        Unicode += ch & 0x3F;
     }
 
-    return uni;
+    return Unicode;
 }

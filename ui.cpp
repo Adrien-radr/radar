@@ -239,23 +239,54 @@ static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f 
     VertData[V1+3] = UIVertex(vec3f(BR.x, Y - TL.y, 0), TexOffset + vec2f(TexScale, FlipY ? TexScale : 0.f));
 }
 
-static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, theme_font FontStyle, vec2i PositionOffset, col4f Color, int MaxWidth)
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, int MaxWidth)
 {
-    // Adding 1 to the MsgLength in case the string is too long for its container and a '..' must be added
-    // TODO - Maybe do all those size checks here and not in the render.cpp FillInterleaved function
-    uint32 const VertexCount = (MsgLength+1) * 4;
-    uint32 const IndexCount = (MsgLength+1) * 6;
+    uint32 MsgLength, VertexCount, IndexCount;
+
+    // Test UTF8 String
+    int UTFLen = UTF8CharCount(Text);
+    bool IsUTF = false;
+    if(UTFLen > 1)
+    {
+        MsgLength = UTFLen;
+        VertexCount = MsgLength * 4;
+        IndexCount = MsgLength * 6;
+    }
+    else
+    {
+        MsgLength = strlen(Text);
+        VertexCount = (MsgLength+1) * 4;
+        IndexCount = (MsgLength +1)* 6;
+    }
 
     bool const NoParent = IsRootWidget();
     uint16 const ParentPanelIdx = LastRootWidget;
 
+    font *Font = GetFont(FontStyle);
+    int const Y = Context->WindowHeight;
+    render_info const *ParentRI = GetParentRenderInfo(ParentPanelIdx);
+    vec2i ParentPos(0,0), ParentSize(Context->WindowWidth, Y);;
+    if(!NoParent)
+    {
+        ParentPos = ParentRI->Position;
+        ParentSize = ParentRI->Size;
+    }
+
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? UI_TITLEBAR_HEIGHT : 0;
+    int const BorderOffset = NoParent ? 0 : UI_BORDER_WIDTH;
+    int const MarginOffset = NoParent ? 0 : UI_MARGIN_WIDTH;
+    MaxWidth = Min(ParentSize.x - 2*BorderOffset - 2*MarginOffset, MaxWidth);
+    vec3i const DisplayPos = vec3i(ParentPos.x + PositionOffset.x + BorderOffset + MarginOffset, 
+                                   Y - ParentPos.y - TitlebarOffset - MarginOffset - PositionOffset.y - BorderOffset, 0);
+
+    // Check if the panel is too small vertically to display the text
+    if((DisplayPos.y - Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y + MarginOffset + BorderOffset))
+        return;
 
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
     vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], VertexCount * sizeof(vertex));
-    // NOTE - Because of USHORT max is 65535, Cant fit more than 10922 characters per Text
     uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], IndexCount * sizeof(uint16));
 
-    font *Font = GetFont(FontStyle);
 
     RenderInfo->Type = WIDGET_TEXT;
     RenderInfo->VertexCount = VertexCount;
@@ -265,78 +296,16 @@ static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, the
     RenderInfo->ID = ID;
     RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
 
-    int const Y = Context->WindowHeight;
-    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    vec2i ParentPos(0,0), ParentSize(Context->WindowWidth, Y);
-    if(!NoParent)
-    {
-        ParentPos = ParentRI->Position;
-        ParentSize = ParentRI->Size;
-    }
-
-    MaxWidth = Min(ParentSize.x - 2*UI_BORDER_WIDTH - 2*UI_MARGIN_WIDTH, MaxWidth);
-    vec3i DisplayPos = vec3i(ParentPos.x + PositionOffset.x, Y - ParentPos.y - PositionOffset.y, 0);
-
-    if((DisplayPos.y - Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y))
-        return;
-
-    FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+    if(UTFLen > 1)
+        FillDisplayTextInterleavedUTF8(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+    else
+        FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
     ++(RenderCmdCount[ParentPanelIdx]);
 }
 
 void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth)
 {
-    uint32 const MsgLength = strlen(Text);
-    _MakeText_internal(ID, Text, MsgLength, FontStyle, PositionOffset, GetColor(Color), MaxWidth);
-}
-
-void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f Color, int MaxWidth)
-{
-    uint32 const MsgLength = strlen(Text);
-    _MakeText_internal(ID, Text, MsgLength, FontStyle, PositionOffset, Color, MaxWidth);
-}
-
-void MakeTextUTF8(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth)
-{
-    uint32 const MsgLength = UTF8_strnlen(Text, -1);
-    uint32 const VertexCount = MsgLength * 4;
-    uint32 const IndexCount = MsgLength * 6;
-
-    bool const NoParent = IsRootWidget();
-    uint16 const ParentPanelIdx = LastRootWidget;
-
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], VertexCount * sizeof(vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], IndexCount * sizeof(uint16));
-
-    font *Font = GetFont(FontStyle);
-
-    RenderInfo->Type = WIDGET_TEXT;
-    RenderInfo->VertexCount = VertexCount;
-    RenderInfo->IndexCount = IndexCount;
-    RenderInfo->TextureID = Font->AtlasTextureID;
-    RenderInfo->Color = GetColor(Color);
-    RenderInfo->ID = ID;
-    RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
-
-    int const Y = Context->WindowHeight;
-    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    vec2i ParentPos(0,0), ParentSize(Context->WindowWidth, Y);;
-    if(!NoParent)
-    {
-        ParentPos = ParentRI->Position;
-        ParentSize = ParentRI->Size;
-    }
-
-    MaxWidth = Min(ParentSize.x - 2*UI_BORDER_WIDTH - 2*UI_MARGIN_WIDTH, MaxWidth);
-    vec3i DisplayPos = vec3i(ParentPos.x + PositionOffset.x, Y - ParentPos.y - PositionOffset.y, 0);
-
-    // Check if the panel is too small vertically to display the text
-    if((DisplayPos.y - Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y))
-        return;
-
-    FillDisplayTextInterleavedUTF8(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
-    ++(RenderCmdCount[ParentPanelIdx]);
+    MakeText(ID, Text, FontStyle, PositionOffset, GetColor(Color), MaxWidth);
 }
 
 void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
@@ -361,7 +330,7 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
     ++(RenderCmdCount[ParentPanelIdx]);
 
     // Add panel title as text
-    MakeText(NULL, PanelTitle, FONT_DEFAULT, vec2i(UI_MARGIN_WIDTH+UI_BORDER_WIDTH,UI_MARGIN_WIDTH+UI_BORDER_WIDTH), Theme.PanelFG, Size.x - UI_MARGIN_WIDTH);
+    MakeText(NULL, PanelTitle, FONT_DEFAULT, vec2i(0,-UI_TITLEBAR_HEIGHT), Theme.PanelFG, Size.x);
 }
 
 void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
@@ -497,9 +466,7 @@ bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i
     ++(RenderCmdCount[ParentPanelIdx]);
 
     MakeBorder(TL, BR);
-    MakeText(NULL, ButtonText, FONT_DEFAULT, 
-            vec2i(PositionOffset.x + UI_BORDER_WIDTH + UI_MARGIN_WIDTH, PositionOffset.y + TitlebarOffset + UI_BORDER_WIDTH + UI_MARGIN_WIDTH), 
-            Theme.PanelFG, MaxButtonTextWidth);
+    MakeText(NULL, ButtonText, FONT_DEFAULT, vec2i(PositionOffset.x, PositionOffset.y), Theme.PanelFG, MaxButtonTextWidth);
 
     vec2f const MousePos(Input->MousePosX, Input->MousePosY);
     if(Hover.ID == ParentRI->ID)
@@ -608,6 +575,7 @@ void MakeResizingTriangle(vec2f const &BR)
 void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size, uint32 DecorationFlags)
 {
     Assert(PanelCount < UI_MAX_PANELS);
+    Assert(Size->x > 0 && Size->y > 0);
     uint32 PanelIdx;
 
     // NOTE - Init stage of the panel, storing the first time Panel Idx, as well as forcing Focus on it

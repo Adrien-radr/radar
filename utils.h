@@ -11,7 +11,17 @@
 void *ReadFileContents(memory_arena *Arena, path const Filename, int *FileSize);
 void MakeRelativePath(resource_helper *RH, path Dst, path const Filename);
 size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt);
+
+/// Returns the number of byte characters that the UTF8 string is composed of
+/// If 1, it is a normal ascii string
+/// Returns -1 if the string is not UTF8
+/// If Unicode is non NULL, it is filled with the trailing unicode first char of the string
+int    UTF8CharCount(char const *Str, uint16 *Unicode = NULL);
+
+/// Returns the length (number of characters) of an UTF8 string
 size_t UTF8_strnlen(char const *Str, size_t MaxChar);
+
+/// Converts the UTF8 string to an unsigned integers (e.g. for indexing)
 uint16 UTF8CharToInt(char const *Str, size_t *CharAdvance);
 
 template<typename T>

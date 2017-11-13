@@ -211,13 +211,11 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
 
-    static real32 ConsoleMargin = 6.f;
-
     console_log *Log = System->ConsoleLog;
     font *FontInfo = ui::GetFont(ui::FONT_DEFAULT);
     int32 LineGap = FontInfo->LineGap;
     int32 LogHeight = Context->WindowHeight/3;
-    int32 LogCapacity = Log->StringCount - std::ceil((LogHeight-(2*ConsoleMargin)) / (real32)LineGap);
+    int32 LogCapacity = Log->StringCount - std::ceil((LogHeight) / (real32)LineGap);
 
     static bool   ConsoleShow = false;
     static uint32 ConsolePanel = 0;
@@ -237,13 +235,13 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
             uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
             real32 YOffset = (real32)i + ConsoleSlider - (real32)Log->StringCount;
             real32 YPos = LogHeight + YOffset * LineGap;
-            if(YPos < ConsoleMargin)
+            if(YPos < 0)
                 continue;
             if(YPos >= LogHeight)
                 break;
-            vec2i Position(ConsoleMargin, YPos);
+            vec2i Position(0, YPos);
             ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_CONSOLE, Position,
-                    ui::COLOR_CONSOLEFG, Context->WindowWidth - ConsoleMargin);
+                    ui::COLOR_CONSOLEFG, Context->WindowWidth);
         }
         ui::EndPanel();
     }
@@ -254,33 +252,34 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static vec3i  UIStackPanelPos(0,0,0);
     static vec2i  UIStackPanelSize(350, UIStackHeight + 30);
     ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, ui::DECORATION_NONE);
-    UIStackPanelSize.x = 0;
     for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
     {
         ui::text_line *Line = UIStack->TextLines[i];
         ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, Context->WindowWidth);
-        UIStackPanelSize.x = std::max(UIStackPanelSize.x, int(Line->Position.x + strlen(Line->String) * FontInfo->MaxGlyphWidth));
     }
     ui::EndPanel();
 
     FontInfo = ui::GetFont(ui::FONT_AWESOME);
 
-    // TMP TEST Panels
-    static uint32 id1 = 0;
+    // Profile Panel
+    static uint32 SystemPanelID = 0;
     static vec3i p1(100, 100, 0);
-    static vec2i p1size(200, 100);
-    static real32 s1=0;
-    static uint32 buttonid = 0;
-    static char ButtonText[16] = "Button";
-    ui::BeginPanel(&id1, "Panel 1", &p1, &p1size, ui::DECORATION_TITLEBAR | ui::DECORATION_RESIZE);
-    if(ui::MakeButton(&buttonid, ButtonText, vec2i(10, 10), vec2i(60, 20)))
-    {
-        printf("Button Press\n");
-    }
-    char Str[16];
+    static vec2i p1size(200, 150);
+    //static uint32 buttonid = 0;
+    //static char ButtonText[16] = "Button";
+    ui::BeginPanel(&SystemPanelID, "System Info", &p1, &p1size, ui::DECORATION_TITLEBAR | ui::DECORATION_RESIZE);
+    //if(ui::MakeButton(&buttonid, ButtonText, vec2i(10, 10), vec2i(60, 20)))
+    //{
+        //printf("Button Press\n");
+    //}
+    char Str[16], Str2[16];
     snprintf(Str, 16, "%s%s%s", ICON_FA_SEARCH, ICON_FA_GLASS, ICON_FA_SHARE);
-    ui::MakeTextUTF8(NULL, Str, ui::FONT_AWESOME, vec2i(10, 60), ui::COLOR_BORDERBG, 100);
+    snprintf(Str2, 16, "Test Str");
+    ui::MakeText(NULL, Str, ui::FONT_AWESOME, vec2i(0, 40), ui::COLOR_BORDERBG, 100);
+    uint32 idt;
+    ui::MakeText(&idt, Str2, ui::FONT_DEFAULT, vec2i(0, 0), ui::COLOR_BORDERBG, 100);
     ui::EndPanel();
+
 }
 
 int RadarMain(int argc, char **argv)
