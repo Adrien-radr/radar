@@ -45,10 +45,10 @@ struct font
     int NumGlyphs;
     int Char0, CharN;
     real32 MaxGlyphWidth;
+    real32 GlyphHeight;
     uint32 AtlasTextureID;
     uint8 *Buffer;
-    glyph *Glyphs;//[127-32]; // 126 is '~', 32 is ' '
-    //glyph Glyphs[127-32];
+    glyph *Glyphs;
 };
 
 struct display_text

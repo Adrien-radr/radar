@@ -237,7 +237,7 @@ namespace ui
     struct text_line
     {
         char        String[UI_STRINGLEN];
-        vec3f       Position;
+        vec2i       Position;
         theme_font  Font;
         theme_color Color;
     };

@@ -434,6 +434,7 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
         Font->LineGap = Ascent - Descent;
         Font->Ascent = Ascent;
         Font->MaxGlyphWidth = 0;
+        Font->GlyphHeight = 0;
 
         real32 X = 0, Y = 0;
 
@@ -467,7 +468,9 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
             DstGlyph.TexX0 = (X + 0)/(real32)Font->Width;            DstGlyph.TexX1 = (X + CW)/(real32)Font->Width;
             DstGlyph.TexY0 = (Y + Ascent + Y0)/(real32)Font->Height; DstGlyph.TexY1 = (Y + Ascent + Y1)/(real32)Font->Height;
             DstGlyph.CW = CW; DstGlyph.CH = CH; DstGlyph.AdvX = AdvanceX;
+
             Font->MaxGlyphWidth += AdvanceX;
+            Font->GlyphHeight = Max(Font->GlyphHeight, CH);
 
             uint8 *BitmapPtr = Font->Buffer + (CharY * Font->Width + CharX);
             stbtt_MakeGlyphBitmap(&STBFont, BitmapPtr, CW, CH, Font->Width, PixelScale, PixelScale, Glyph);
@@ -758,16 +761,20 @@ void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font,
 void FillDisplayTextInterleavedUTF8(char const *Text , uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
                                     real32 *VertData, uint16 *IdxData, real32 Scale)
 {
-    real32 TextWidth = TextLength * Font->MaxGlyphWidth;
     uint32 VertexCount = TextLength * 4;
     uint32 IndexCount = TextLength * 6;
 
     int X = 0, Y = 0;
     size_t TextIdx = 0;
+    real32 TextWidth = 0.f;
     for(uint32 i = 0; i < TextLength; ++i)
     {
         size_t CharAdvance;
         uint16 UTFIdx = UTF8CharToInt(&Text[TextIdx], &CharAdvance) - Font->Char0;
+
+        TextWidth += Font->Glyphs[UTFIdx].AdvX; 
+        if(TextWidth >= MaxPixelWidth)
+            break;
 
         FillCharInterleaved(VertData, IdxData, i, UTFIdx, Font, &X, &Y, Pos, Scale);
 

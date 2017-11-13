@@ -211,7 +211,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
 
-    static real32 ConsoleMargin = 10.f;
+    static real32 ConsoleMargin = 6.f;
 
     console_log *Log = System->ConsoleLog;
     font *FontInfo = ui::GetFont(ui::FONT_DEFAULT);
@@ -241,7 +241,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
                 continue;
             if(YPos >= LogHeight)
                 break;
-            vec3f Position(ConsoleMargin, YPos - ConsoleMargin, 0);
+            vec2i Position(ConsoleMargin, YPos);
             ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_CONSOLE, Position,
                     ui::COLOR_CONSOLEFG, Context->WindowWidth - ConsoleMargin);
         }
@@ -278,8 +278,8 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
         printf("Button Press\n");
     }
     char Str[16];
-    snprintf(Str, 16, "%s%s", ICON_FA_SEARCH, ICON_FA_GLASS);
-    ui::MakeTextUTF8(NULL, Str, ui::FONT_AWESOME, vec3i(p1.x + 10, p1.y + 60, 0), ui::COLOR_BORDERBG, 100);
+    snprintf(Str, 16, "%s%s%s", ICON_FA_SEARCH, ICON_FA_GLASS, ICON_FA_SHARE);
+    ui::MakeTextUTF8(NULL, Str, ui::FONT_AWESOME, vec2i(10, 60), ui::COLOR_BORDERBG, 100);
     ui::EndPanel();
 }
 

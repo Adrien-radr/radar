@@ -329,18 +329,18 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     if(Local->Counter > 0.75)
     {
-        Local->CameraText.Position = vec3f(10, 10, 0);
+        Local->CameraText.Position = vec2i(10, 10);
         Local->CameraText.Color = ui::COLOR_DEBUGFG;
 
-        Local->FPSText.Position = vec3f(10, 24, 0);
+        Local->FPSText.Position = vec2i(10, 24);
         Local->FPSText.Color = ui::COLOR_DEBUGFG;
 
         snprintf(Local->WaterText.String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
-        Local->WaterText.Position = vec3f(10, 38, 0);
+        Local->WaterText.Position = vec2i(10, 38);
         Local->WaterText.Color = ui::COLOR_DEBUGFG;
 
         Local->NightDayText.Color = ui::COLOR_DEBUGFG;
-        Local->NightDayText.Position = vec3f(10,54,0);
+        Local->NightDayText.Position = vec2i(10,54);
         if(Local->IsNight)
             snprintf(Local->NightDayText.String, UI_STRINGLEN, "Day");
         else

@@ -10,6 +10,11 @@
 #define UI_MAX_PANELS 32
 #define UI_PARENT_SIZE 10
 
+// NOTE - Maybe parameterize this somewhere
+#define UI_TITLEBAR_HEIGHT 20
+#define UI_BORDER_WIDTH 1
+#define UI_MARGIN_WIDTH 4
+
 #include "ui_theme.cpp"
 
 namespace ui {
@@ -234,7 +239,7 @@ static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f 
     VertData[V1+3] = UIVertex(vec3f(BR.x, Y - TL.y, 0), TexOffset + vec2f(TexScale, FlipY ? TexScale : 0.f));
 }
 
-static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
+static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, theme_font FontStyle, vec2i PositionOffset, col4f Color, int MaxWidth)
 {
     // Adding 1 to the MsgLength in case the string is too long for its container and a '..' must be added
     // TODO - Maybe do all those size checks here and not in the render.cpp FillInterleaved function
@@ -242,13 +247,13 @@ static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, the
     uint32 const IndexCount = (MsgLength+1) * 6;
 
     bool const NoParent = IsRootWidget();
-    uint16 const PanelIdx = LastRootWidget;
+    uint16 const ParentPanelIdx = LastRootWidget;
 
 
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], VertexCount * sizeof(vertex));
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], VertexCount * sizeof(vertex));
     // NOTE - Because of USHORT max is 65535, Cant fit more than 10922 characters per Text
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], IndexCount * sizeof(uint16));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], IndexCount * sizeof(uint16));
 
     font *Font = GetFont(FontStyle);
 
@@ -260,36 +265,49 @@ static void _MakeText_internal(void *ID, char const *Text, size_t MsgLength, the
     RenderInfo->ID = ID;
     RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
 
-    vec3i DisplayPos = vec3i(Position.x, Context->WindowHeight - Position.y, Position.z);
+    int const Y = Context->WindowHeight;
+    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
+    vec2i ParentPos(0,0), ParentSize(Context->WindowWidth, Y);
+    if(!NoParent)
+    {
+        ParentPos = ParentRI->Position;
+        ParentSize = ParentRI->Size;
+    }
+
+    MaxWidth = Min(ParentSize.x - 2*UI_BORDER_WIDTH - 2*UI_MARGIN_WIDTH, MaxWidth);
+    vec3i DisplayPos = vec3i(ParentPos.x + PositionOffset.x, Y - ParentPos.y - PositionOffset.y, 0);
+
+    if((DisplayPos.y - Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y))
+        return;
+
     FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
-
-    ++(RenderCmdCount[PanelIdx]);
+    ++(RenderCmdCount[ParentPanelIdx]);
 }
 
-void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth)
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth)
 {
     uint32 const MsgLength = strlen(Text);
-    _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, GetColor(Color), MaxWidth);
+    _MakeText_internal(ID, Text, MsgLength, FontStyle, PositionOffset, GetColor(Color), MaxWidth);
 }
 
-void MakeText(void *ID, char const *Text, theme_font FontStyle, vec3i Position, col4f Color, int MaxWidth)
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f Color, int MaxWidth)
 {
     uint32 const MsgLength = strlen(Text);
-    _MakeText_internal(ID, Text, MsgLength, FontStyle, Position, Color, MaxWidth);
+    _MakeText_internal(ID, Text, MsgLength, FontStyle, PositionOffset, Color, MaxWidth);
 }
 
-void MakeTextUTF8(void *ID, char const *Text, theme_font FontStyle, vec3i Position, theme_color Color, int MaxWidth)
+void MakeTextUTF8(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth)
 {
     uint32 const MsgLength = UTF8_strnlen(Text, -1);
     uint32 const VertexCount = MsgLength * 4;
     uint32 const IndexCount = MsgLength * 6;
 
     bool const NoParent = IsRootWidget();
-    uint16 const PanelIdx = LastRootWidget;
+    uint16 const ParentPanelIdx = LastRootWidget;
 
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], VertexCount * sizeof(vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], IndexCount * sizeof(uint16));
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], VertexCount * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], IndexCount * sizeof(uint16));
 
     font *Font = GetFont(FontStyle);
 
@@ -301,10 +319,24 @@ void MakeTextUTF8(void *ID, char const *Text, theme_font FontStyle, vec3i Positi
     RenderInfo->ID = ID;
     RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
 
-    vec3i DisplayPos = vec3i(Position.x, Context->WindowHeight - Position.y, Position.z);
-    FillDisplayTextInterleavedUTF8(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+    int const Y = Context->WindowHeight;
+    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
+    vec2i ParentPos(0,0), ParentSize(Context->WindowWidth, Y);;
+    if(!NoParent)
+    {
+        ParentPos = ParentRI->Position;
+        ParentSize = ParentRI->Size;
+    }
 
-    ++(RenderCmdCount[PanelIdx]);
+    MaxWidth = Min(ParentSize.x - 2*UI_BORDER_WIDTH - 2*UI_MARGIN_WIDTH, MaxWidth);
+    vec3i DisplayPos = vec3i(ParentPos.x + PositionOffset.x, Y - ParentPos.y - PositionOffset.y, 0);
+
+    // Check if the panel is too small vertically to display the text
+    if((DisplayPos.y - Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y))
+        return;
+
+    FillDisplayTextInterleavedUTF8(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+    ++(RenderCmdCount[ParentPanelIdx]);
 }
 
 void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
@@ -329,7 +361,7 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
     ++(RenderCmdCount[ParentPanelIdx]);
 
     // Add panel title as text
-    MakeText(NULL, PanelTitle, FONT_DEFAULT, Position + vec3f(4,4,0), Theme.PanelFG, Size.x - 4);
+    MakeText(NULL, PanelTitle, FONT_DEFAULT, vec2i(UI_MARGIN_WIDTH+UI_BORDER_WIDTH,UI_MARGIN_WIDTH+UI_BORDER_WIDTH), Theme.PanelFG, Size.x - UI_MARGIN_WIDTH);
 }
 
 void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
@@ -348,19 +380,19 @@ void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     vec2f TL(OrigTL);
-    vec2f BR(OrigBR.x, OrigTL.y+1);
+    vec2f BR(OrigBR.x, OrigTL.y+UI_BORDER_WIDTH);
     FillSquare(VertData, IdxData, 0, 0, TL, BR);
 
-    TL = vec2f(OrigTL.x, OrigBR.y-1);
+    TL = vec2f(OrigTL.x, OrigBR.y-UI_BORDER_WIDTH);
     BR = vec2f(OrigBR);
     FillSquare(VertData, IdxData, 4, 6, TL, BR);
 
-    TL = vec2f(OrigTL.x, OrigTL.y+1);
-    BR = vec2f(OrigTL.x+1, OrigBR.y-1);
+    TL = vec2f(OrigTL.x, OrigTL.y+UI_BORDER_WIDTH);
+    BR = vec2f(OrigTL.x+UI_BORDER_WIDTH, OrigBR.y-UI_BORDER_WIDTH);
     FillSquare(VertData, IdxData, 8, 12, TL, BR);
 
-    TL = vec2f(OrigBR.x-1, OrigTL.y+1);
-    BR = vec2f(OrigBR.x, OrigBR.y-1);
+    TL = vec2f(OrigBR.x-UI_BORDER_WIDTH, OrigTL.y+UI_BORDER_WIDTH);
+    BR = vec2f(OrigBR.x, OrigBR.y-UI_BORDER_WIDTH);
     FillSquare(VertData, IdxData, 12, 18, TL, BR);
 
     ++(RenderCmdCount[ParentPanelIdx]);
@@ -388,10 +420,10 @@ void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal)
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
-    vec2i Size = vec2i(5, ParentRI->Size.y - TitlebarOffset - 2);
-    vec2i Pos(ParentRI->Position.x + ParentRI->Size.x - Size.x - 1,
-              ParentRI->Position.y + TitlebarOffset + 1);
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? UI_TITLEBAR_HEIGHT : 0;
+    vec2i Size = vec2i(5, ParentRI->Size.y - TitlebarOffset - 2*UI_BORDER_WIDTH);
+    vec2i Pos(ParentRI->Position.x + ParentRI->Size.x - Size.x - UI_BORDER_WIDTH,
+              ParentRI->Position.y + TitlebarOffset + UI_BORDER_WIDTH);
 
     vec2f TL(Pos);
     vec2f BR(Pos.x+Size.x, Pos.y+Size.y);
@@ -452,20 +484,22 @@ bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i
     RenderInfo->ParentID = ParentID[ParentLayer];
 
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
-    vec2f const MaxBR(ParentRI->Position.x + ParentRI->Size.x - 1 - 4, ParentRI->Position.y + ParentRI->Size.y - 1 - 4);
-    vec2f const OffsetPos(ParentRI->Position.x + PositionOffset.x + 1, ParentRI->Position.y + PositionOffset.y + TitlebarOffset + 1);
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? UI_TITLEBAR_HEIGHT : 0;
+    vec2f const MaxBR(ParentRI->Position.x + ParentRI->Size.x - UI_BORDER_WIDTH - UI_MARGIN_WIDTH, ParentRI->Position.y + ParentRI->Size.y - UI_BORDER_WIDTH - UI_MARGIN_WIDTH);
+    vec2f const OffsetPos(ParentRI->Position.x + PositionOffset.x + UI_BORDER_WIDTH, ParentRI->Position.y + PositionOffset.y + TitlebarOffset + UI_BORDER_WIDTH);
     vec2f const TL(OffsetPos.x, OffsetPos.y);
     vec2f BR(TL.x + Size.x, TL.y + Size.y);
     BR.x = Min(BR.x, MaxBR.x);
     BR.y = Min(BR.y, MaxBR.y);
-    float MaxButtonTextWidth = BR.x - TL.x - 8;
+    float MaxButtonTextWidth = BR.x - TL.x - 2*UI_MARGIN_WIDTH;
 
-    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(1,1), BR + vec2i(-1,-1));
+    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(UI_BORDER_WIDTH,UI_BORDER_WIDTH), BR + vec2i(-UI_BORDER_WIDTH,-UI_BORDER_WIDTH));
     ++(RenderCmdCount[ParentPanelIdx]);
 
     MakeBorder(TL, BR);
-    MakeText(NULL, ButtonText, FONT_DEFAULT, vec3i(OffsetPos.x + 4, OffsetPos.y + 4, 0), Theme.PanelFG, MaxButtonTextWidth);
+    MakeText(NULL, ButtonText, FONT_DEFAULT, 
+            vec2i(PositionOffset.x + UI_BORDER_WIDTH + UI_MARGIN_WIDTH, PositionOffset.y + TitlebarOffset + UI_BORDER_WIDTH + UI_MARGIN_WIDTH), 
+            Theme.PanelFG, MaxButtonTextWidth);
 
     vec2f const MousePos(Input->MousePosX, Input->MousePosY);
     if(Hover.ID == ParentRI->ID)
@@ -509,10 +543,10 @@ void MakeImage(real32 *ID, uint32 TextureID, vec2f *TexOffset, vec2i const &Size
     RenderInfo->Flags = DECORATION_RGBTEXTURE;
 
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
-    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? 20 : 0;
-    vec2i MaxBR(ParentRI->Position.x + ParentRI->Size.x - 1 - 4, ParentRI->Position.y + ParentRI->Size.y - 1 - 4);
-    vec2f TL(ParentRI->Position.x + 1 + 4 + 1, ParentRI->Position.y + TitlebarOffset + 1 + 4 + 1);
-    vec2f BR(TL.x + Size.x - 1, TL.y + Size.y - 1);
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? UI_TITLEBAR_HEIGHT : 0;
+    vec2i MaxBR(ParentRI->Position.x + ParentRI->Size.x - UI_BORDER_WIDTH - UI_MARGIN_WIDTH, ParentRI->Position.y + ParentRI->Size.y - UI_BORDER_WIDTH - UI_MARGIN_WIDTH);
+    vec2f TL(ParentRI->Position.x + UI_BORDER_WIDTH + UI_MARGIN_WIDTH + UI_BORDER_WIDTH, ParentRI->Position.y + TitlebarOffset + UI_BORDER_WIDTH + UI_MARGIN_WIDTH + UI_BORDER_WIDTH);
+    vec2f BR(TL.x + Size.x - UI_BORDER_WIDTH, TL.y + Size.y - UI_BORDER_WIDTH);
     BR.x = Min(BR.x, MaxBR.x);
     BR.y = Min(BR.y, MaxBR.y);
 
@@ -520,7 +554,7 @@ void MakeImage(real32 *ID, uint32 TextureID, vec2f *TexOffset, vec2i const &Size
     FillSquare(VertData, IdxData, 0, 0, TL, BR, *TexOffset, TexScale, FlipY);
     ++(RenderCmdCount[ParentPanelIdx]);
 
-    MakeBorder(TL + vec2f(-1,-1), BR + vec2f(1,1));
+    MakeBorder(TL + vec2f(-UI_BORDER_WIDTH,-UI_BORDER_WIDTH), BR + vec2f(UI_BORDER_WIDTH,UI_BORDER_WIDTH));
 
     if(Hover.ID == ParentRI->ID)
     {
@@ -621,7 +655,7 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
 
     if(DecorationFlags & DECORATION_TITLEBAR)
     {
-        MakeTitlebar(NULL, PanelTitle, *Position + vec3f(1, 1, 0), vec2i(Size->x - 2, 20), Theme.TitlebarBG);
+        MakeTitlebar(NULL, PanelTitle, *Position + vec3f(UI_BORDER_WIDTH, UI_BORDER_WIDTH, 0), vec2i(Size->x - 2*UI_BORDER_WIDTH, UI_TITLEBAR_HEIGHT), Theme.TitlebarBG);
     }
 
     if(HoverNext.Priority <= PanelOrder[PanelIdx])
@@ -635,7 +669,7 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
 
             // Test for Titlebar click
             vec2f TB_TL = TL;
-            vec2f TB_BR(BR.x, Position->y + 20 + 1);
+            vec2f TB_BR(BR.x, Position->y + UI_TITLEBAR_HEIGHT + UI_BORDER_WIDTH);
             if(MOUSE_HIT(Input->MouseLeft))
             {
                 if(DecorationFlags & DECORATION_TITLEBAR && ID == Hover.ID && PointInRectangle(MousePos, TB_TL, TB_BR))
