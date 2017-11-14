@@ -217,6 +217,8 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     int32 LogHeight = Context->WindowHeight/3;
     int32 LogCapacity = Log->StringCount - std::ceil((LogHeight) / (real32)LineGap);
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // NOTE - Drop Down Console
     static bool   ConsoleShow = false;
     static uint32 ConsolePanel = 0;
     static vec3i  ConsolePanelPos(0,0,0);
@@ -229,62 +231,90 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     {
         ConsolePanelSize = vec2i(Context->WindowWidth, LogHeight);
         ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, &ConsolePanelSize, ui::DECORATION_NONE);
-        ui::MakeSlider(&ConsoleSlider, 0.f, (real32)LogCapacity);
-        for(uint32 i = 0; i < Log->StringCount; ++i)
-        {
-            uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
-            real32 YOffset = (real32)i + ConsoleSlider - (real32)Log->StringCount;
-            real32 YPos = LogHeight + YOffset * LineGap;
-            if(YPos < 0)
-                continue;
-            if(YPos >= LogHeight)
-                break;
-            vec2i Position(0, YPos);
-            ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_CONSOLE, Position,
-                    ui::COLOR_CONSOLEFG, Context->WindowWidth);
-        }
+            ui::MakeSlider(&ConsoleSlider, 0.f, (real32)LogCapacity);
+            for(uint32 i = 0; i < Log->StringCount; ++i)
+            {
+                uint32 RIdx = (Log->ReadIdx + i) % CONSOLE_CAPACITY;
+                real32 YOffset = (real32)i + ConsoleSlider - (real32)Log->StringCount;
+                real32 YPos = LogHeight + YOffset * LineGap;
+                if(YPos < 0)
+                    continue;
+                if(YPos >= LogHeight)
+                    break;
+                vec2i Position(0, YPos);
+                ui::MakeText((void*)Log->MsgStack[RIdx], Log->MsgStack[RIdx], ui::FONT_CONSOLE, Position,
+                        ui::COLOR_CONSOLEFG, 1.f, Context->WindowWidth);
+            }
         ui::EndPanel();
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // NOTE - Frame Info Panel
     ui::frame_stack *UIStack = System->UIStack;
     int UIStackHeight = LineGap * UIStack->TextLineCount;
     static uint32 UIStackPanel = 0;
     static vec3i  UIStackPanelPos(0,0,0);
     static vec2i  UIStackPanelSize(350, UIStackHeight + 30);
     ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, ui::DECORATION_NONE);
-    for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
-    {
-        ui::text_line *Line = UIStack->TextLines[i];
-        ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, Context->WindowWidth);
-    }
+        for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
+        {
+            ui::text_line *Line = UIStack->TextLines[i];
+            ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, 1.f, Context->WindowWidth);
+        }
     ui::EndPanel();
 
-    FontInfo = ui::GetFont(ui::FONT_AWESOME);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // NOTE - System Panel
+    static bool SystemShow = false;
+
+    static uint32 SystemButtonPanel = 0;
+    static char SystemButtonStr[16];
+    static vec3i SystemButtonPos(350, 0, 0);
+    static vec2i SystemButtonSize(25);
+    static uint32 SystemButtonID = 0;
+    snprintf(SystemButtonStr, 16, "%s", ICON_FA_COG);
+    ui::BeginPanel(&SystemButtonPanel, "", &SystemButtonPos, &SystemButtonSize, ui::DECORATION_INVISIBLE);
+        if(ui::MakeButton(&SystemButtonID, SystemButtonStr, ui::FONT_AWESOME, vec2i(0), SystemButtonSize, 0.4f, ui::DECORATION_BORDER))
+        {
+            SystemShow = !SystemShow;
+        }
+    ui::EndPanel();
 
     // Profile Panel
     static uint32 SystemPanelID = 0;
-    static vec3i p1(100, 100, 0);
-    static vec2i p1size(200, 150);
-    //static uint32 buttonid = 0;
-    //static char ButtonText[16] = "Button";
-    ui::BeginPanel(&SystemPanelID, "System Info", &p1, &p1size, ui::DECORATION_TITLEBAR | ui::DECORATION_RESIZE);
-    //if(ui::MakeButton(&buttonid, ButtonText, vec2i(10, 10), vec2i(60, 20)))
-    //{
-        //printf("Button Press\n");
-    //}
-    char Str[16], Str2[16];
-    snprintf(Str, 16, "%s%s%s", ICON_FA_SEARCH, ICON_FA_GLASS, ICON_FA_SHARE);
-    snprintf(Str2, 16, "Test Str");
-    ui::MakeText(NULL, Str, ui::FONT_AWESOME, vec2i(0, 40), ui::COLOR_BORDERBG, 100);
+    static vec2i SystemPanelSize(210, 500);
+    static vec3i SystemPanelPos(Context->WindowWidth - 50 - SystemPanelSize.x, 100, 0);
 
-    // Session Pool occupancy
-    static real32 progress = Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity, maxProgress = 1.f;
-    printf("%f %f\n", progress, maxProgress);
-    ui::MakeProgressbar(&progress, maxProgress, vec2i(0, 16), vec2i(100, 20));
+    if(SystemShow)
+    {
+        ui::BeginPanel(&SystemPanelID, "System Info", &SystemPanelPos, &SystemPanelSize, ui::DECORATION_TITLEBAR | ui::DECORATION_RESIZE);
+            // Session Pool occupancy
+            int CurrHeight = 0;
+            real32 ToMiB = 1.f / (1024*1024);
+            char OccupancyStr[32];
+            static real32 SessionOccupancy = Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity;
+            snprintf(OccupancyStr, 32, "session stack %.1f / %.1f MiB", Memory->SessionArena.Size*ToMiB, Memory->SessionArena.Capacity*ToMiB);
+            ui::MakeText(NULL, OccupancyStr, ui::FONT_DEFAULT, vec2i(0, CurrHeight), ui::COLOR_PANELFG);
+            CurrHeight += 16;
+            ui::MakeProgressbar(&SessionOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
+            CurrHeight += 16;
 
-    uint32 idt;
-    ui::MakeText(&idt, Str2, ui::FONT_DEFAULT, vec2i(0, 0), ui::COLOR_BORDERBG, 100);
-    ui::EndPanel();
+            static real32 ScratchOccupancy = Memory->ScratchArena.Size/(real64)Memory->ScratchArena.Capacity;
+            snprintf(OccupancyStr, 32, "scratch stack %.1f / %.1f MiB", Memory->ScratchArena.Size*ToMiB, Memory->ScratchArena.Capacity*ToMiB);
+            ui::MakeText(NULL, OccupancyStr, ui::FONT_DEFAULT, vec2i(0, CurrHeight), ui::COLOR_PANELFG);
+            CurrHeight += 16;
+            ui::MakeProgressbar(&ScratchOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
+            CurrHeight += 16;
+
+            static uint32 TmpBut = 0;
+            ui::MakeButton(&TmpBut, "a", ui::FONT_DEFAULT, vec2i(0, CurrHeight), vec2i(20));
+            CurrHeight += 16;
+
+            char Str[16];
+            snprintf(Str, 16, "%s%s%s", ICON_FA_SEARCH, ICON_FA_GLASS, ICON_FA_SHARE);
+            ui::MakeText(NULL, Str, ui::FONT_AWESOME, vec2i(0, 100), ui::COLOR_BORDERBG);
+        ui::EndPanel();
+    }
 
 }
 

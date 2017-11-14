@@ -4,6 +4,11 @@
 #include "context.h"
 #include "fontawesome.h"
 
+// NOTE - Maybe parameterize this somewhere
+#define UI_TITLEBAR_HEIGHT 20
+#define UI_BORDER_WIDTH 1
+#define UI_MARGIN_WIDTH 4
+
 /// Panels are created by giving a permanent uint32 ID pointer
 /// This ID should be set to 0 by the caller at first, to signify an uninitialized state.
 /// This ID's value will be filled by the Panel Index in the internal panel focus/sorting system
@@ -19,6 +24,8 @@ namespace ui {
     void BeginFrame(game_memory *Memory, game_input *Input);
     void Draw();
 
+    bool HasFocus();
+
     // DecorationFlags is of the type decoration_flag from definitions.h
     void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i *Size, uint32 DecorationFlags);
     void EndPanel();
@@ -32,9 +39,10 @@ namespace ui {
     /// ID's value is the image current texture scale
     void MakeImage(real32 *ID, uint32 TextureID, vec2f *TexOffset, vec2i const &Size, bool FlipY);
 
-    bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i const &Size);
+    bool MakeButton(uint32 *ID, char const *ButtonText, theme_font Font, vec2i const &PositionOffset, vec2i const &Size,
+                    real32 FontScale = 1.f, int32 DecorationFlags = DECORATION_MARGIN | DECORATION_BORDER);
 
-    void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth);
-    void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, int MaxWidth);
+    void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, real32 FontScale = 1.f, int MaxWidth = 2000);
+    void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, real32 FontScale = 1.f, int MaxWidth = 2000);
 }
 #endif

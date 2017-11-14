@@ -35,17 +35,17 @@ static size_t GetComponentSize(int ComponentType)
     {
         case GL_BYTE :
         case GL_UNSIGNED_BYTE:
-            return sizeof(char);
+            return sizeof(int8);
         case GL_SHORT:
         case GL_UNSIGNED_SHORT:
-            return sizeof(short);
+            return sizeof(int16);
         case GL_INT:
         case GL_UNSIGNED_INT:
-            return sizeof(int);
+            return sizeof(int32);
         case GL_FLOAT:
-            return sizeof(float);
+            return sizeof(real32);
         case GL_DOUBLE:
-            return sizeof(double);
+            return sizeof(real64);
         default:
             printf("Undefined GL Component %d\n", ComponentType);
             return 0;

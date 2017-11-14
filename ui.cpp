@@ -10,11 +10,6 @@
 #define UI_MAX_PANELS 32
 #define UI_PARENT_SIZE 10
 
-// NOTE - Maybe parameterize this somewhere
-#define UI_TITLEBAR_HEIGHT 20
-#define UI_BORDER_WIDTH 1
-#define UI_MARGIN_WIDTH 4
-
 #include "ui_theme.cpp"
 
 namespace ui {
@@ -136,6 +131,11 @@ void Init(game_memory *Memory, game_context *Context)
     ParseUIConfig(Memory, Context, ConfigPath);
 }
 
+bool HasFocus()
+{
+    return Hover.ID != NULL;
+}
+
 void ReloadShaders(game_memory *Memory, game_context *Context)
 {
     path VSPath, FSPath;
@@ -240,7 +240,7 @@ static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f 
     VertData[V1+3] = UIVertex(vec3f(BR.x, Y - TL.y, 0), TexOffset + vec2f(TexScale, FlipY ? TexScale : 0.f));
 }
 
-void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, int MaxWidth)
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, real32 FontScale, int MaxWidth)
 {
     uint32 MsgLength, VertexCount, IndexCount;
 
@@ -281,7 +281,7 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOf
                                    Y - ParentPos.y - TitlebarOffset - MarginOffset - PositionOffset.y - BorderOffset, 0);
 
     // Check if the panel is too small vertically to display the text
-    if((DisplayPos.y - Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y + MarginOffset + BorderOffset))
+    if((DisplayPos.y - FontScale * Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y + MarginOffset + BorderOffset))
         return;
 
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
@@ -298,15 +298,15 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOf
     RenderInfo->ParentID = NoParent ? NULL : ParentID[ParentLayer];
 
     if(UTFLen > 1)
-        FillDisplayTextInterleavedUTF8(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+        FillDisplayTextInterleavedUTF8(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData, FontScale);
     else
-        FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData);
+        FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData, FontScale);
     ++(RenderCmdCount[ParentPanelIdx]);
 }
 
-void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth)
+void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, real32 FontScale, int MaxWidth)
 {
-    MakeText(ID, Text, FontStyle, PositionOffset, GetColor(Color), MaxWidth);
+    MakeText(ID, Text, FontStyle, PositionOffset, GetColor(Color), FontScale, MaxWidth);
 }
 
 void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, col4f Color)
@@ -331,7 +331,7 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
     ++(RenderCmdCount[ParentPanelIdx]);
 
     // Add panel title as text
-    MakeText(NULL, PanelTitle, FONT_DEFAULT, vec2i(0,-UI_TITLEBAR_HEIGHT), Theme.PanelFG, Size.x);
+    MakeText(NULL, PanelTitle, FONT_DEFAULT, vec2i(0,-UI_TITLEBAR_HEIGHT), Theme.PanelFG, 1.f, Size.x);
 }
 
 void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
@@ -459,12 +459,14 @@ void MakeProgressbar(real32 *ID, real32 MaxVal, vec2i const &PositionOffset, vec
     int const BorderOffset = UI_BORDER_WIDTH;
     int const MarginOffset = UI_MARGIN_WIDTH;
     int const MaxWidth = Min(ParentRI->Size.x - 2*BorderOffset - 2*MarginOffset, Size.x);
-    vec2i TL(ParentRI->Position.x + PositionOffset.x + BorderOffset + MarginOffset, ParentRI->Position.x + PositionOffset.y + TitlebarOffset + BorderOffset + MarginOffset);
+
+    vec2i TL(ParentRI->Position.x + PositionOffset.x + BorderOffset + MarginOffset, ParentRI->Position.y + PositionOffset.y + TitlebarOffset + BorderOffset + MarginOffset);
     vec2i BR(TL.x + MaxWidth, TL.y + Size.y);
 
     FillSquare(VertData, IdxData, 0, 0, TL + vec2i(BorderOffset), BR - vec2i(BorderOffset));
     ++(RenderCmdCount[ParentPanelIdx]);
 
+#if 1
     real32 const ProgressWidth = (*ID / MaxVal) * MaxWidth;
     if(ProgressWidth > 0.f)
     {
@@ -487,10 +489,11 @@ void MakeProgressbar(real32 *ID, real32 MaxVal, vec2i const &PositionOffset, vec
         ++(RenderCmdCount[ParentPanelIdx]);
     }
 
+#endif
     MakeBorder(TL, BR);
 }
 
-bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i const &Size)
+bool MakeButton(uint32 *ID, char const *ButtonText, theme_font Font, vec2i const &PositionOffset, vec2i const &Size, real32 FontScale, int32 DecorationFlags)
 {
     int16 const ParentPanelIdx = LastRootWidget;
     if(ParentPanelIdx == 0) return false;
@@ -509,19 +512,27 @@ bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i
 
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
     int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? UI_TITLEBAR_HEIGHT : 0;
-    vec2f const MaxBR(ParentRI->Position.x + ParentRI->Size.x - UI_BORDER_WIDTH - UI_MARGIN_WIDTH, ParentRI->Position.y + ParentRI->Size.y - UI_BORDER_WIDTH - UI_MARGIN_WIDTH);
-    vec2f const OffsetPos(ParentRI->Position.x + PositionOffset.x + UI_BORDER_WIDTH, ParentRI->Position.y + PositionOffset.y + TitlebarOffset + UI_BORDER_WIDTH);
+    int const MarginOffset = (DecorationFlags & DECORATION_MARGIN) ? UI_MARGIN_WIDTH : 0;
+    int const BorderOffset = (DecorationFlags & DECORATION_BORDER) ? UI_BORDER_WIDTH : 0;
+    int const TextHeight = GetFont(Font)->GlyphHeight;
+    vec2f const MaxBR(ParentRI->Position.x + ParentRI->Size.x - BorderOffset - MarginOffset, ParentRI->Position.y + ParentRI->Size.y - BorderOffset - MarginOffset);
+    vec2f const OffsetPos(ParentRI->Position.x + PositionOffset.x + MarginOffset + BorderOffset, 
+                          ParentRI->Position.y + PositionOffset.y + TitlebarOffset + MarginOffset + BorderOffset);
     vec2f const TL(OffsetPos.x, OffsetPos.y);
-    vec2f BR(TL.x + Size.x, TL.y + Size.y);
+    vec2f BR(TL.x + Size.x, TL.y + Max(2*MarginOffset + 2*BorderOffset + TextHeight, Size.y));
     BR.x = Min(BR.x, MaxBR.x);
     BR.y = Min(BR.y, MaxBR.y);
-    float MaxButtonTextWidth = BR.x - TL.x - 2*UI_MARGIN_WIDTH;
+    float MaxButtonTextWidth = BR.x - TL.x - 2*MarginOffset;
 
-    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(UI_BORDER_WIDTH), BR + vec2i(-UI_BORDER_WIDTH));
+    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(BorderOffset), BR + vec2i(-BorderOffset));
     ++(RenderCmdCount[ParentPanelIdx]);
 
-    MakeBorder(TL, BR);
-    MakeText(NULL, ButtonText, FONT_DEFAULT, vec2i(PositionOffset.x, PositionOffset.y), Theme.PanelFG, MaxButtonTextWidth);
+    if(BorderOffset > 0)
+    {
+        MakeBorder(TL, BR);
+    }
+    MakeText(NULL, ButtonText, Font, vec2i(PositionOffset.x + MarginOffset + BorderOffset, PositionOffset.y + MarginOffset + BorderOffset), 
+             Theme.PanelFG, FontScale, MaxButtonTextWidth);
 
     vec2f const MousePos(Input->MousePosX, Input->MousePosY);
     if(Hover.ID == ParentRI->ID)
@@ -645,13 +656,21 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
         PanelIdx = *ID;
     }
 
+    ParentID[ParentLayer++] = ID;
+
+    int VCount = 4, ICount = 6;
+    if(DecorationFlags & DECORATION_INVISIBLE)
+    {
+        VCount = ICount = 0;
+    }
+
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[PanelIdx], render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], 4 * sizeof(vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], 6 * sizeof(uint16));
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[PanelIdx], VCount * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[PanelIdx], ICount * sizeof(uint16));
 
     RenderInfo->Type = WIDGET_PANEL;
-    RenderInfo->VertexCount = 4;
-    RenderInfo->IndexCount = 6;
+    RenderInfo->VertexCount = VCount;
+    RenderInfo->IndexCount = ICount;
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
     RenderInfo->Color = Theme.PanelBG;
     RenderInfo->ID = ID;
@@ -664,21 +683,22 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
     vec2f TL(Position->x, Position->y);
     vec2f BR(Position->x + Size->x, Position->y + Size->y);
 
-    FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[PanelIdx]);
 
-    ParentID[ParentLayer++] = ID;
-
-    MakeBorder(TL, BR);
-
-    if(DecorationFlags & DECORATION_RESIZE)
+    if(!(DecorationFlags & DECORATION_INVISIBLE))
     {
-        MakeResizingTriangle(BR);
-    }
+        FillSquare(VertData, IdxData, 0, 0, TL, BR);
+        MakeBorder(TL, BR);
 
-    if(DecorationFlags & DECORATION_TITLEBAR)
-    {
-        MakeTitlebar(NULL, PanelTitle, *Position + vec3f(UI_BORDER_WIDTH, UI_BORDER_WIDTH, 0), vec2i(Size->x - 2*UI_BORDER_WIDTH, UI_TITLEBAR_HEIGHT), Theme.TitlebarBG);
+        if(DecorationFlags & DECORATION_RESIZE)
+        {
+            MakeResizingTriangle(BR);
+        }
+
+        if(DecorationFlags & DECORATION_TITLEBAR)
+        {
+            MakeTitlebar(NULL, PanelTitle, *Position + vec3f(UI_BORDER_WIDTH, UI_BORDER_WIDTH, 0), vec2i(Size->x - 2*UI_BORDER_WIDTH, UI_TITLEBAR_HEIGHT), Theme.TitlebarBG);
+        }
     }
 
     if(HoverNext.Priority <= PanelOrder[PanelIdx])
@@ -794,34 +814,37 @@ void Draw()
             vertex *VertData = (vertex*)RenderCmdOffset(Cmd, &Offset, RenderInfo->VertexCount * sizeof(vertex));
             uint16 *IdxData = (uint16*)RenderCmdOffset(Cmd, &Offset, RenderInfo->IndexCount * sizeof(uint16));
 
-            // Switch program depending on rgb texture or normal UI widget
-            if(RenderInfo->Flags & DECORATION_RGBTEXTURE)
+            if(!(RenderInfo->Flags & DECORATION_INVISIBLE))
             {
-                if(CurrProgram != ProgramRGBTexture)
+                // Switch program depending on rgb texture or normal UI widget
+                if(RenderInfo->Flags & DECORATION_RGBTEXTURE)
                 {
-                    CurrProgram = ProgramRGBTexture;
-                    glUseProgram(CurrProgram);
+                    if(CurrProgram != ProgramRGBTexture)
+                    {
+                        CurrProgram = ProgramRGBTexture;
+                        glUseProgram(CurrProgram);
+                    }
                 }
-            }
-            else
-            {
-                if(CurrProgram != Program)
+                else
                 {
-                    CurrProgram = Program;
-                    glUseProgram(Program);
+                    if(CurrProgram != Program)
+                    {
+                        CurrProgram = Program;
+                        glUseProgram(Program);
+                    }
+                    SendVec4(ColorUniformLoc, RenderInfo->Color);
                 }
-                SendVec4(ColorUniformLoc, RenderInfo->Color);
+
+                glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+                glBufferData(GL_ARRAY_BUFFER, RenderInfo->VertexCount * sizeof(vertex), (GLvoid*)VertData, GL_STREAM_DRAW);
+
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBO[0]);
+                glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderInfo->IndexCount * sizeof(uint16), (GLvoid*)IdxData, GL_STREAM_DRAW);
+
+                glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
+
+                glDrawElements(GL_TRIANGLES, RenderInfo->IndexCount, GL_UNSIGNED_SHORT, 0);
             }
-
-            glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-            glBufferData(GL_ARRAY_BUFFER, RenderInfo->VertexCount * sizeof(vertex), (GLvoid*)VertData, GL_STREAM_DRAW);
-
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, VBO[0]);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, RenderInfo->IndexCount * sizeof(uint16), (GLvoid*)IdxData, GL_STREAM_DRAW);
-
-            glBindTexture(GL_TEXTURE_2D, RenderInfo->TextureID);
-
-            glDrawElements(GL_TRIANGLES, RenderInfo->IndexCount, GL_UNSIGNED_SHORT, 0);
 
             Cmd += Offset;
         }

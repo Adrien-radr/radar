@@ -702,14 +702,14 @@ static void FillCharInterleaved(real32 *VertData, uint16 *IdxData, uint32 i, uin
     real32 BaseX = (real32)(*X + Glyph.X);
     real32 BaseY = (real32)(*Y - Font->Ascent - Glyph.Y);
     vec3f TL = Pos + vec3f(BaseX, BaseY, 0);
-    vec3f BR = TL  + vec3f(Glyph.CW, -Glyph.CH, 0);
-    VertData[i*Stride+0+0] = Scale * TL.x; VertData[i*Stride+0+1] = Scale * TL.y;   VertData[i*Stride+0+2] = TL.z;
+    vec3f BR = TL  + vec3f(Scale * Glyph.CW, Scale * -Glyph.CH, 0);
+    VertData[i*Stride+0+0] = TL.x; VertData[i*Stride+0+1] = TL.y;   VertData[i*Stride+0+2] = TL.z;
     VertData[i*Stride+3+0] = Glyph.TexX0;  VertData[i*Stride+3+1] = Glyph.TexY0;
-    VertData[i*Stride+5+0] = Scale * TL.x; VertData[i*Stride+5+1] = Scale * BR.y;   VertData[i*Stride+5+2] = TL.z;
+    VertData[i*Stride+5+0] = TL.x; VertData[i*Stride+5+1] = BR.y;   VertData[i*Stride+5+2] = TL.z;
     VertData[i*Stride+8+0] = Glyph.TexX0;  VertData[i*Stride+8+1] = Glyph.TexY1;
-    VertData[i*Stride+10+0] = Scale * BR.x;VertData[i*Stride+10+1] = Scale * BR.y;  VertData[i*Stride+10+2] = TL.z;
+    VertData[i*Stride+10+0] = BR.x;VertData[i*Stride+10+1] = BR.y;  VertData[i*Stride+10+2] = TL.z;
     VertData[i*Stride+13+0] = Glyph.TexX1; VertData[i*Stride+13+1] = Glyph.TexY1;
-    VertData[i*Stride+15+0] = Scale * BR.x;VertData[i*Stride+15+1] = Scale * TL.y;  VertData[i*Stride+15+2] = TL.z;
+    VertData[i*Stride+15+0] = BR.x;VertData[i*Stride+15+1] = TL.y;  VertData[i*Stride+15+2] = TL.z;
     VertData[i*Stride+18+0] = Glyph.TexX1; VertData[i*Stride+18+1] = Glyph.TexY0;
 
     IdxData[i*6+0] = i*4+0;IdxData[i*6+1] = i*4+1;IdxData[i*6+2] = i*4+2;
@@ -722,7 +722,7 @@ void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font,
                                 real32 *VertData, uint16 *IdxData, real32 Scale)
 {
     // Precalculate if the text is larger than the authorized width
-    real32 TextWidth = TextLength * Font->MaxGlyphWidth;
+    real32 TextWidth = Scale * TextLength * Font->MaxGlyphWidth;
     uint32 AdditionalLen = 0;
     if(TextWidth >= MaxPixelWidth)
     { // remove necessary charcount + 1
@@ -741,7 +741,7 @@ void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font,
         if(Text[i] == '\n')
         {
             X = 0;
-            Y -= Font->LineGap;
+            Y -= Scale * Font->LineGap;
             AsciiIdx = Text[++i] - Font->Char0;
             IndexCount -= 6;
         }
@@ -772,7 +772,7 @@ void FillDisplayTextInterleavedUTF8(char const *Text , uint32 TextLength, font *
         size_t CharAdvance;
         uint16 UTFIdx = UTF8CharToInt(&Text[TextIdx], &CharAdvance) - Font->Char0;
 
-        TextWidth += Font->Glyphs[UTFIdx].AdvX; 
+        TextWidth += Scale * Font->Glyphs[UTFIdx].AdvX; 
         if(TextWidth >= MaxPixelWidth)
             break;
 

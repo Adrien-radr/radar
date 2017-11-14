@@ -85,7 +85,7 @@ inline void *_PushArenaData(memory_arena *Arena, uint64 Size)
 
 struct game_memory;
 
-struct resource_helper // TODO - find better name
+struct resource_helper
 {
     path ExecutablePath;
     game_memory *Memory; // Link back to the memory where resources are stored eventually
@@ -230,7 +230,10 @@ namespace ui
         DECORATION_NONE = 0x0,
         DECORATION_TITLEBAR = 1 << 1,
         DECORATION_RESIZE = 1 << 2,
-        DECORATION_RGBTEXTURE = 1 << 3
+        DECORATION_RGBTEXTURE = 1 << 3,
+        DECORATION_MARGIN = 1 << 4,
+        DECORATION_BORDER = 1 << 5,
+        DECORATION_INVISIBLE = 1 << 6,
     };
 
     enum theme_font
