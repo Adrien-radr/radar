@@ -26,15 +26,14 @@ namespace ui {
     /// ID's value will be the slider relative position
     void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal);
 
+    /// ID's value is the progressbar current position in [0, MaxVal]
+    void MakeProgressbar(real32 *ID, real32 MaxVal, vec2i const &PositionOffset, vec2i const &Size);
+
+    /// ID's value is the image current texture scale
     void MakeImage(real32 *ID, uint32 TextureID, vec2f *TexOffset, vec2i const &Size, bool FlipY);
+
     bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i const &Size);
 
-    // This version of MakeText is prefered to keep with the ui Coloring scheme
-    // Use the 2nd version if a specific color is needed
-    //void MakeText(void *ID, char const *Text, theme_font Font, vec2i PositionOffset, theme_color Color, int MaxWidth);
-    //void MakeText(void *ID, char const *Text, theme_font Font, vec2i PositionOffset, col4f Color, int MaxWidth);
-
-    // UTF8 Version
     void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, int MaxWidth);
     void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, int MaxWidth);
 }

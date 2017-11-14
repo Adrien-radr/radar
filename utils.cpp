@@ -93,7 +93,7 @@ int    UTF8CharCount(char const *Str, uint16 *OutUnicode)
     return CharCount;
 }
 
-size_t UTF8_strnlen(char const *Str, size_t MaxChar)
+size_t UTF8Len(char const *Str, size_t MaxChar)
 {
     size_t Len = 0;
     size_t i = 0;

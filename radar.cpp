@@ -276,6 +276,12 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     snprintf(Str, 16, "%s%s%s", ICON_FA_SEARCH, ICON_FA_GLASS, ICON_FA_SHARE);
     snprintf(Str2, 16, "Test Str");
     ui::MakeText(NULL, Str, ui::FONT_AWESOME, vec2i(0, 40), ui::COLOR_BORDERBG, 100);
+
+    // Session Pool occupancy
+    static real32 progress = Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity, maxProgress = 1.f;
+    printf("%f %f\n", progress, maxProgress);
+    ui::MakeProgressbar(&progress, maxProgress, vec2i(0, 16), vec2i(100, 20));
+
     uint32 idt;
     ui::MakeText(&idt, Str2, ui::FONT_DEFAULT, vec2i(0, 0), ui::COLOR_BORDERBG, 100);
     ui::EndPanel();

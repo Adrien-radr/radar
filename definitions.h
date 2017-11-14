@@ -192,6 +192,10 @@ struct game_input
     key_state KeyNumMultiply;
     key_state KeyNumDivide;
     key_state KeyTilde;
+    key_state KeyLeft;
+    key_state KeyRight;
+    key_state KeyUp;
+    key_state KeyDown;
 
     mouse_state MouseLeft;
     mouse_state MouseRight;
@@ -217,6 +221,8 @@ namespace ui
         COLOR_SLIDERFG,
         COLOR_BUTTONBG,
         COLOR_BUTTONPRESSEDBG,
+        COLOR_PROGRESSBARBG,
+        COLOR_PROGRESSBARFG,
     };
 
     enum decoration_flag

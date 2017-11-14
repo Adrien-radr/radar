@@ -19,7 +19,7 @@ size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt);
 int    UTF8CharCount(char const *Str, uint16 *Unicode = NULL);
 
 /// Returns the length (number of characters) of an UTF8 string
-size_t UTF8_strnlen(char const *Str, size_t MaxChar);
+size_t UTF8Len(char const *Str, size_t MaxChar = -1);
 
 /// Converts the UTF8 string to an unsigned integers (e.g. for indexing)
 uint16 UTF8CharToInt(char const *Str, size_t *CharAdvance);

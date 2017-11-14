@@ -12,6 +12,8 @@
     "ConsoleFG" : [ 1, 1, 1, 0.9 ],
     "SliderBG" : [ 1, 1, 1, 0.2 ],
     "SliderFG" : [ 0, 0, 0, 0.6 ],
+    "ProgressbarBG" : [ 0, 0, 0, 0.2 ],
+    "ProgressbarFG" : [ 1, 1, 1, 0.1 ],
 
     "ButtonBG" : [ 1, 1, 1, 0.1 ],
     "ButtonPressedBG" : [ 1, 1, 1, 0.05 ],

@@ -17,6 +17,8 @@ namespace ui
         col4f SliderFG;
         col4f ButtonBG;
         col4f ButtonPressedBG;
+        col4f ProgressbarBG;
+        col4f ProgressbarFG;
 
         col4f DebugFG;
 
@@ -44,6 +46,8 @@ namespace ui
             case COLOR_SLIDERFG : return Theme.SliderFG;
             case COLOR_BUTTONBG : return Theme.ButtonBG;
             case COLOR_BUTTONPRESSEDBG : return Theme.ButtonPressedBG;
+            case COLOR_PROGRESSBARBG : return Theme.ProgressbarBG;
+            case COLOR_PROGRESSBARFG : return Theme.ProgressbarFG;
             default : return Theme.White;
         }
     }
@@ -74,9 +78,11 @@ namespace ui
         Theme.DebugFG = col4f(1, 0, 0, 1);
         Theme.ConsoleFG = col4f(1, 1, 1, 0.9);
         Theme.SliderBG = col4f(1, 1, 1, 0.2);
-        Theme.SliderFG = col4f(0, 0, 0, 0.2);
+        Theme.SliderFG = col4f(0, 0, 0, 0.6);
         Theme.ButtonBG = col4f(1, 1, 1, 0.1);
         Theme.ButtonPressedBG = col4f(1, 1, 1, 0.1);
+        Theme.ProgressbarBG = col4f(0, 0, 0, 0.2);
+        Theme.ProgressbarFG = col4f(1, 1, 1, 0.1);
 
         Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "data/DroidSansMonoSlashed.ttf", 13);
         Theme.ConsoleFont = ResourceLoadFont(&Context->RenderResources, "data/DroidSansMonoSlashed.ttf", 13);
@@ -121,10 +127,12 @@ namespace ui
                 Theme.BorderBG = JSON_Get(root, "BorderBG", col4f(1, 1, 1, 0.2));
                 Theme.ConsoleFG = JSON_Get(root, "ConsoleFG", col4f(1, 1, 1, 0.9));
                 Theme.DebugFG = JSON_Get(root, "DebugFG", col4f(1, 0, 0, 1));
-                Theme.SliderBG = JSON_Get(root, "SliderBG", col4f(1, 1, 1, 0.2));
-                Theme.SliderFG = JSON_Get(root, "SliderFG", col4f(0, 0, 0, 0.2));
+                Theme.SliderBG = JSON_Get(root, "SliderBG", col4f(0, 0, 0, 0.2));
+                Theme.SliderFG = JSON_Get(root, "SliderFG", col4f(1, 1, 1, 0.1));
                 Theme.ButtonBG = JSON_Get(root, "ButtonBG", col4f(1, 1, 1, 0.1));
                 Theme.ButtonPressedBG = JSON_Get(root, "ButtonPressedBG", col4f(1, 1, 1, 0.1));
+                Theme.ProgressbarBG = JSON_Get(root, "ProgressbarBG", col4f(1, 1, 1, 0.2));
+                Theme.ProgressbarFG = JSON_Get(root, "ProgressbarFG", col4f(0, 0, 0, 0.6));
 
                 Theme.DefaultFont = ParseConfigFont(root, Context, "DefaultFont", 32, 127);
                 Theme.ConsoleFont = ParseConfigFont(root, Context, "ConsoleFont", 32, 127);

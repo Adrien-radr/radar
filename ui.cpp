@@ -65,7 +65,8 @@ enum widget_type {
     WIDGET_TITLEBAR,
     WIDGET_BORDER,
     WIDGET_SLIDER,
-    WIDGET_OTHER,
+    WIDGET_PROGRESSBAR,
+    WIDGET_OTHER,       // e.g., the panel resizing triangle
     WIDGET_COUNT
 };
 
@@ -248,7 +249,7 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOf
     bool IsUTF = false;
     if(UTFLen > 1)
     {
-        MsgLength = UTFLen;
+        MsgLength = UTF8Len(Text);
         VertexCount = MsgLength * 4;
         IndexCount = MsgLength * 6;
     }
@@ -435,6 +436,60 @@ void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal)
     }
 }
 
+void MakeProgressbar(real32 *ID, real32 MaxVal, vec2i const &PositionOffset, vec2i const &Size)
+{
+    int16 const ParentPanelIdx = LastRootWidget;
+    if(ParentPanelIdx == 0) return;
+
+    // NOTE - Background Square
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 6 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_PROGRESSBAR;
+    RenderInfo->VertexCount = 4;
+    RenderInfo->IndexCount = 6;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+    RenderInfo->Color = Theme.ProgressbarBG;
+    RenderInfo->ID = ID;
+    RenderInfo->ParentID = ParentID[ParentLayer];
+
+    render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
+    int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? UI_TITLEBAR_HEIGHT : 0;
+    int const BorderOffset = UI_BORDER_WIDTH;
+    int const MarginOffset = UI_MARGIN_WIDTH;
+    int const MaxWidth = Min(ParentRI->Size.x - 2*BorderOffset - 2*MarginOffset, Size.x);
+    vec2i TL(ParentRI->Position.x + PositionOffset.x + BorderOffset + MarginOffset, ParentRI->Position.x + PositionOffset.y + TitlebarOffset + BorderOffset + MarginOffset);
+    vec2i BR(TL.x + MaxWidth, TL.y + Size.y);
+
+    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(BorderOffset), BR - vec2i(BorderOffset));
+    ++(RenderCmdCount[ParentPanelIdx]);
+
+    real32 const ProgressWidth = (*ID / MaxVal) * MaxWidth;
+    if(ProgressWidth > 0.f)
+    {
+        // NOTE - Forground Square
+        RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+        VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 4 * sizeof(vertex));
+        IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 6 * sizeof(uint16));
+
+        RenderInfo->Type = WIDGET_PROGRESSBAR;
+        RenderInfo->VertexCount = 4;
+        RenderInfo->IndexCount = 6;
+        RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+        RenderInfo->Color = Theme.ProgressbarFG;
+        RenderInfo->ID = ID;
+        RenderInfo->ParentID = ParentID[ParentLayer];
+
+        vec2i BRP(TL.x + ceil(ProgressWidth) - BorderOffset, TL.y + Size.y - BorderOffset);
+
+        FillSquare(VertData, IdxData, 0, 0, TL + vec2i(BorderOffset), BRP);
+        ++(RenderCmdCount[ParentPanelIdx]);
+    }
+
+    MakeBorder(TL, BR);
+}
+
 bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i const &Size)
 {
     int16 const ParentPanelIdx = LastRootWidget;
@@ -462,7 +517,7 @@ bool MakeButton(uint32 *ID, char *ButtonText, vec2i const &PositionOffset, vec2i
     BR.y = Min(BR.y, MaxBR.y);
     float MaxButtonTextWidth = BR.x - TL.x - 2*UI_MARGIN_WIDTH;
 
-    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(UI_BORDER_WIDTH,UI_BORDER_WIDTH), BR + vec2i(-UI_BORDER_WIDTH,-UI_BORDER_WIDTH));
+    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(UI_BORDER_WIDTH), BR + vec2i(-UI_BORDER_WIDTH));
     ++(RenderCmdCount[ParentPanelIdx]);
 
     MakeBorder(TL, BR);
