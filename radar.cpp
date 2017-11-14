@@ -69,8 +69,6 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
             // TODO - Holy shit this is ugly. maybe do it C style instead of dirty templates
             std::string tmp = JSON_Get(root, "sLogFile", std::string("radar.log"));
             strncpy(Config.LogFilename, tmp.c_str(), MAX_PATH);
-            tmp = JSON_Get(root, "sUIConfigFile", std::string("ui_config.json"));
-            strncpy(Config.UIConfigFilename, tmp.c_str(), MAX_PATH);
 
             Config.WindowX = JSON_Get(root, "iWindowX", 200);
             Config.WindowY = JSON_Get(root, "iWindowY", 200);
@@ -101,19 +99,22 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
     }
     else
     {
-        Config.WindowWidth = 960;
-        Config.WindowHeight = 540;
-        Config.MSAA = 0;
-        Config.FullScreen = false;
-        Config.VSync = false;
-        Config.FOV = 75.f;
-        Config.AnisotropicFiltering = 1;
+        printf("Generating default config...\n");
+        path DefaultConfigPath;
+        MakeRelativePath(&Memory->ResourceHelper, DefaultConfigPath, "default_config.json");
 
-        Config.CameraSpeedBase = 20.f;
-        Config.CameraSpeedMult = 2.f;
-        Config.CameraSpeedAngular = 0.3f;
-        Config.CameraPosition = vec3f(1, 1, 1);
-        Config.CameraTarget = vec3f(0, 0, 0);
+        // If the default config doesnt exist, just crash, someone has been stupid
+        if(!DiskFileExists(DefaultConfigPath))
+        {
+            printf("Fatal Error : Default Config file bin/default_config.json doesn't exist.\n");
+            exit(1);
+        }
+
+        path PersonalConfigPath;
+        MakeRelativePath(&Memory->ResourceHelper, PersonalConfigPath, "config.json");
+        DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
+
+        return ParseConfig(Memory, DefaultConfigPath);
     }
     return true;
 }

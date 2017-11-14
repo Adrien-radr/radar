@@ -127,7 +127,7 @@ void Init(game_memory *Memory, game_context *Context)
     ResizeHold = false;
 
     path ConfigPath;
-    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, Memory->Config.UIConfigFilename);
+    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "ui_config.json");
     ParseUIConfig(Memory, Context, ConfigPath);
 }
 

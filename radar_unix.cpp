@@ -52,7 +52,7 @@ time_t FindLastWriteTime(path Path)
     return Info.st_mtime;
 }
 
-static void CopyFile(path Src, path Dst)
+static void CopyFile(path const Src, path const Dst)
 {
     // NOTE - No CopyFile on Linux : open Src, read it and copy it in Dst
     int SFD = open(Src, O_RDONLY);
@@ -72,6 +72,11 @@ static void CopyFile(path Src, path Dst)
 
     close(SFD);
     close(DFD);
+}
+
+void DiskFileCopy(path const DstPath, path const SrcPath)
+{
+    CopyFile(SrcPath, DstPath);
 }
 
 game_code LoadGameCode(path DllSrcPath, path DllDstPath)

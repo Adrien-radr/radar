@@ -39,6 +39,11 @@ FILETIME FindLastWriteTime(path Path)
     return LastWriteTime;
 }
 
+void DiskFileCopy(path const DstPath, path const SrcPath);
+{
+    CopyFileA(SrcPath, DstPath, FALSE);
+}
+
 game_code LoadGameCode(path DllSrcPath, path DllDstPath)
 {
     game_code Result = {};

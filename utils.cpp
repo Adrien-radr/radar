@@ -7,6 +7,17 @@ void MakeRelativePath(resource_helper *RH, path Dst, path const Filename)
     strncat(Dst, Filename, MAX_PATH);
 }
 
+bool DiskFileExists(path const Filename)
+{
+    FILE *fp = fopen(Filename, "rb");
+    if(fp)
+    {
+        fclose(fp);
+        return true;
+    }
+    return false;
+}
+
 void *ReadFileContents(memory_arena *Arena, path const Filename, int32 *FileSize)
 {
     char *Contents = NULL;

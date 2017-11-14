@@ -8,6 +8,8 @@
 #define DEFAULT_DATE_FMT "%a %d %b %Y"
 #define DEFAULT_TIME_FMT "%H:%M:%S"
 
+bool DiskFileExists(path const Filename);
+void DiskFileCopy(path const DstPath, path const SrcPath);
 void *ReadFileContents(memory_arena *Arena, path const Filename, int *FileSize);
 void MakeRelativePath(resource_helper *RH, path Dst, path const Filename);
 size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt);

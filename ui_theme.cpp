@@ -63,32 +63,6 @@ namespace ui
         }
     }
 
-    static void MakeDefaultConfig(game_context *Context)
-    {
-        Theme.Red = col4f(1, 0, 0, 1);
-        Theme.Green = col4f(0, 1, 0, 1);
-        Theme.Blue = col4f(0, 0, 1, 1);
-        Theme.Black = col4f(0, 0, 0, 1);
-        Theme.White = col4f(1, 1, 1, 1);
-
-        Theme.PanelBG = col4f(0, 0, 0, 0.9);
-        Theme.PanelFG = col4f(1, 1, 1, 1);
-        Theme.TitlebarBG = col4f(1, 1, 1, 0.1);
-        Theme.BorderBG = col4f(1, 1, 1, 0.2);
-        Theme.DebugFG = col4f(1, 0, 0, 1);
-        Theme.ConsoleFG = col4f(1, 1, 1, 0.9);
-        Theme.SliderBG = col4f(1, 1, 1, 0.2);
-        Theme.SliderFG = col4f(0, 0, 0, 0.6);
-        Theme.ButtonBG = col4f(1, 1, 1, 0.1);
-        Theme.ButtonPressedBG = col4f(1, 1, 1, 0.1);
-        Theme.ProgressbarBG = col4f(0, 0, 0, 0.2);
-        Theme.ProgressbarFG = col4f(1, 1, 1, 0.1);
-
-        Theme.DefaultFont = ResourceLoadFont(&Context->RenderResources, "data/DroidSansMonoSlashed.ttf", 13);
-        Theme.ConsoleFont = ResourceLoadFont(&Context->RenderResources, "data/DroidSansMonoSlashed.ttf", 13);
-        Theme.AwesomeFont = ResourceLoadFont(&Context->RenderResources, "data/fontawesome.ttf", 24);
-    }
-
     static font *ParseConfigFont(cJSON *root, game_context *Context, char const *Name, int c0, int cn)
     {
         cJSON *FontInfo = cJSON_GetObjectItem(root, Name);
@@ -114,7 +88,6 @@ namespace ui
             cJSON *root = cJSON_Parse((char*)Content);
             if(root)
             {
-                // TODO - have a default storage in static here for all of those so that we dont repeat here + MakeDefault
                 Theme.Red = JSON_Get(root, "Red", col4f(1, 0, 0, 1));
                 Theme.Green = JSON_Get(root, "Green", col4f(0, 1, 0, 1));
                 Theme.Blue = JSON_Get(root, "Blue", col4f(0, 0, 1, 1));
@@ -145,8 +118,22 @@ namespace ui
         }
         else
         {
-            printf("No bin/ui_config.json found. Generating default UI theme.\n");
-            MakeDefaultConfig(Context);
+            printf("Generating default UI theme...\n");
+            path DefaultConfigPath;
+            MakeRelativePath(&Memory->ResourceHelper, DefaultConfigPath, "default_ui_config.json");
+
+            // If the default config doesnt exist, just crash, someone has been stupid
+            if(!DiskFileExists(DefaultConfigPath))
+            {
+                printf("Fatal Error : Default UI Config file bin/default_ui_config.json doesn't exist.\n");
+                exit(1);
+            }
+
+            path PersonalConfigPath;
+            MakeRelativePath(&Memory->ResourceHelper, PersonalConfigPath, "ui_config.json");
+            DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
+
+            ParseUIConfig(Memory, Context, DefaultConfigPath);
         }
     }
 

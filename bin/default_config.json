@@ -1,8 +1,7 @@
 {
     "sLogFile" : "radar.log",
-    "sUIConfigFile" : "ui_config.json",
 
-    "iWindowX" : 1200,
+    "iWindowX" : 200,
     "iWindowY" : 200,
     "iWindowWidth" : 1280,
     "iWindowHeight" : 720,

@@ -26,7 +26,6 @@ struct tmp_sound_data;  //sound.h
 struct game_config
 {
     path    LogFilename;
-    path    UIConfigFilename;
 
     int32   WindowX;
     int32   WindowY;
