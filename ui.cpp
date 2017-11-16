@@ -668,6 +668,11 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
         PanelIdx = *ID;
     }
 
+    if(DecorationFlags & DECORATION_FOCUS)
+    {
+        ForcePanelFocus = PanelIdx;
+    }
+
     ParentID[ParentLayer++] = ID;
 
     int VCount = 4, ICount = 6;

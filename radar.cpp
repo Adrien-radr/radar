@@ -223,13 +223,18 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static vec3i  ConsolePanelPos(0,0,0);
     static vec2i  ConsolePanelSize(Context->WindowWidth, LogHeight);
     static real32 ConsoleSlider = 0.f;
+    uint32 ConsoleDecorationFlags = ui::DECORATION_BORDER;
 
-    if(KEY_HIT(Input->KeyTilde)) ConsoleShow = !ConsoleShow;
+    if(KEY_HIT(Input->KeyTilde))
+    {
+        ConsoleShow = !ConsoleShow;
+        ConsoleDecorationFlags |= ui::DECORATION_FOCUS; // force focus when opening the console
+    }
 
     if(ConsoleShow)
     {
         ConsolePanelSize = vec2i(Context->WindowWidth, LogHeight);
-        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, &ConsolePanelSize, ui::COLOR_CONSOLEBG, ui::DECORATION_BORDER);
+        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, &ConsolePanelSize, ui::COLOR_CONSOLEBG, ConsoleDecorationFlags);
             ui::MakeSlider(&ConsoleSlider, 0.f, (real32)LogCapacity);
             for(uint32 i = 0; i < Log->StringCount; ++i)
             {

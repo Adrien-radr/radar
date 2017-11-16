@@ -232,6 +232,7 @@ namespace ui
         DECORATION_MARGIN = 1 << 4,
         DECORATION_BORDER = 1 << 5,
         DECORATION_INVISIBLE = 1 << 6,
+        DECORATION_FOCUS = 1 << 7,
     };
 
     enum theme_font
