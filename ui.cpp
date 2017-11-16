@@ -126,6 +126,8 @@ void Init(game_memory *Memory, game_context *Context)
     MouseHold = NULL;
     ResizeHold = false;
 
+    ParseDefaultUIConfig(Memory, Context);
+
     path ConfigPath;
     MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "ui_config.json");
     ParseUIConfig(Memory, Context, ConfigPath);
@@ -240,13 +242,46 @@ static void FillSquare(vertex *VertData, uint16 *IdxData, int V1, int I1, vec2f 
     VertData[V1+3] = UIVertex(vec3f(BR.x, Y - TL.y, 0), TexOffset + vec2f(TexScale, FlipY ? TexScale : 0.f));
 }
 
+void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
+{
+    int16 const ParentPanelIdx = LastRootWidget;
+    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
+    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 16 * sizeof(vertex));
+    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 24 * sizeof(uint16));
+
+    RenderInfo->Type = WIDGET_BORDER;
+    RenderInfo->VertexCount = 16;
+    RenderInfo->IndexCount = 24;
+    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
+    RenderInfo->Color = Theme.BorderBG;
+    RenderInfo->ID = NULL;
+    RenderInfo->ParentID = ParentID[ParentLayer];
+
+    vec2f TL(OrigTL);
+    vec2f BR(OrigBR.x, OrigTL.y+UI_BORDER_WIDTH);
+    FillSquare(VertData, IdxData, 0, 0, TL, BR);
+
+    TL = vec2f(OrigTL.x, OrigBR.y-UI_BORDER_WIDTH);
+    BR = vec2f(OrigBR);
+    FillSquare(VertData, IdxData, 4, 6, TL, BR);
+
+    TL = vec2f(OrigTL.x, OrigTL.y+UI_BORDER_WIDTH);
+    BR = vec2f(OrigTL.x+UI_BORDER_WIDTH, OrigBR.y-UI_BORDER_WIDTH);
+    FillSquare(VertData, IdxData, 8, 12, TL, BR);
+
+    TL = vec2f(OrigBR.x-UI_BORDER_WIDTH, OrigTL.y+UI_BORDER_WIDTH);
+    BR = vec2f(OrigBR.x, OrigBR.y-UI_BORDER_WIDTH);
+    FillSquare(VertData, IdxData, 12, 18, TL, BR);
+
+    ++(RenderCmdCount[ParentPanelIdx]);
+}
+
 void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, col4f const &Color, real32 FontScale, int MaxWidth)
 {
     uint32 MsgLength, VertexCount, IndexCount;
 
     // Test UTF8 String
     int UTFLen = UTF8CharCount(Text);
-    bool IsUTF = false;
     if(UTFLen > 1)
     {
         MsgLength = UTF8Len(Text);
@@ -281,7 +316,7 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOf
                                    Y - ParentPos.y - TitlebarOffset - MarginOffset - PositionOffset.y - BorderOffset, 0);
 
     // Check if the panel is too small vertically to display the text
-    if((DisplayPos.y - FontScale * Font->GlyphHeight) <= (Y - ParentPos.y - ParentSize.y + MarginOffset + BorderOffset))
+    if((DisplayPos.y - FontScale * Font->LineGap) <= (Y - ParentPos.y - ParentSize.y + MarginOffset + BorderOffset))
         return;
 
     render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
@@ -302,6 +337,12 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOf
     else
         FillDisplayTextInterleaved(Text, MsgLength, Font, DisplayPos, MaxWidth, (real32*)VertData, IdxData, FontScale);
     ++(RenderCmdCount[ParentPanelIdx]);
+
+#if 0
+    vec2f TL(DisplayPos.x, Y-DisplayPos.y);
+    vec2f BR(TL.x + GetDisplayTextWidth(Text, Font, FontScale), TL.y + FontScale * Font->LineGap);
+    MakeBorder(TL, BR);
+#endif
 }
 
 void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOffset, theme_color Color, real32 FontScale, int MaxWidth)
@@ -332,40 +373,6 @@ void MakeTitlebar(void *ID, char const *PanelTitle, vec3i Position, vec2i Size, 
 
     // Add panel title as text
     MakeText(NULL, PanelTitle, FONT_DEFAULT, vec2i(0,-UI_TITLEBAR_HEIGHT), Theme.PanelFG, 1.f, Size.x);
-}
-
-void MakeBorder(vec2f const &OrigTL, vec2f const &OrigBR)
-{
-    int16 const ParentPanelIdx = LastRootWidget;
-    render_info *RenderInfo = (render_info*)PushArenaStruct(&RenderCmdArena[ParentPanelIdx], render_info);
-    vertex *VertData = (vertex*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 16 * sizeof(vertex));
-    uint16 *IdxData = (uint16*)PushArenaData(&RenderCmdArena[ParentPanelIdx], 24 * sizeof(uint16));
-
-    RenderInfo->Type = WIDGET_BORDER;
-    RenderInfo->VertexCount = 16;
-    RenderInfo->IndexCount = 24;
-    RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
-    RenderInfo->Color = Theme.BorderBG;
-    RenderInfo->ID = NULL;
-    RenderInfo->ParentID = ParentID[ParentLayer];
-
-    vec2f TL(OrigTL);
-    vec2f BR(OrigBR.x, OrigTL.y+UI_BORDER_WIDTH);
-    FillSquare(VertData, IdxData, 0, 0, TL, BR);
-
-    TL = vec2f(OrigTL.x, OrigBR.y-UI_BORDER_WIDTH);
-    BR = vec2f(OrigBR);
-    FillSquare(VertData, IdxData, 4, 6, TL, BR);
-
-    TL = vec2f(OrigTL.x, OrigTL.y+UI_BORDER_WIDTH);
-    BR = vec2f(OrigTL.x+UI_BORDER_WIDTH, OrigBR.y-UI_BORDER_WIDTH);
-    FillSquare(VertData, IdxData, 8, 12, TL, BR);
-
-    TL = vec2f(OrigBR.x-UI_BORDER_WIDTH, OrigTL.y+UI_BORDER_WIDTH);
-    BR = vec2f(OrigBR.x, OrigBR.y-UI_BORDER_WIDTH);
-    FillSquare(VertData, IdxData, 12, 18, TL, BR);
-
-    ++(RenderCmdCount[ParentPanelIdx]);
 }
 
 void MakeSlider(real32 *ID, real32 MinVal, real32 MaxVal)
@@ -493,7 +500,7 @@ void MakeProgressbar(real32 *ID, real32 MaxVal, vec2i const &PositionOffset, vec
     MakeBorder(TL, BR);
 }
 
-bool MakeButton(uint32 *ID, char const *ButtonText, theme_font Font, vec2i const &PositionOffset, vec2i const &Size, real32 FontScale, int32 DecorationFlags)
+bool MakeButton(uint32 *ID, char const *ButtonText, theme_font FontStyle, vec2i const &PositionOffset, vec2i const &Size, real32 FontScale, int32 DecorationFlags)
 {
     int16 const ParentPanelIdx = LastRootWidget;
     if(ParentPanelIdx == 0) return false;
@@ -510,11 +517,13 @@ bool MakeButton(uint32 *ID, char const *ButtonText, theme_font Font, vec2i const
     RenderInfo->ID = ID;
     RenderInfo->ParentID = ParentID[ParentLayer];
 
+    font *Font = GetFont(FontStyle);
+
     render_info *ParentRI = GetParentRenderInfo(ParentPanelIdx);
     int const TitlebarOffset = ParentRI->Flags & DECORATION_TITLEBAR ? UI_TITLEBAR_HEIGHT : 0;
     int const MarginOffset = (DecorationFlags & DECORATION_MARGIN) ? UI_MARGIN_WIDTH : 0;
     int const BorderOffset = (DecorationFlags & DECORATION_BORDER) ? UI_BORDER_WIDTH : 0;
-    int const TextHeight = GetFont(Font)->GlyphHeight;
+    int const TextHeight = Font->LineGap;
     vec2f const MaxBR(ParentRI->Position.x + ParentRI->Size.x - BorderOffset - MarginOffset, ParentRI->Position.y + ParentRI->Size.y - BorderOffset - MarginOffset);
     vec2f const OffsetPos(ParentRI->Position.x + PositionOffset.x + MarginOffset + BorderOffset, 
                           ParentRI->Position.y + PositionOffset.y + TitlebarOffset + MarginOffset + BorderOffset);
@@ -522,16 +531,19 @@ bool MakeButton(uint32 *ID, char const *ButtonText, theme_font Font, vec2i const
     vec2f BR(TL.x + Size.x, TL.y + Max(2*MarginOffset + 2*BorderOffset + TextHeight, Size.y));
     BR.x = Min(BR.x, MaxBR.x);
     BR.y = Min(BR.y, MaxBR.y);
-    float MaxButtonTextWidth = BR.x - TL.x - 2*MarginOffset;
 
-    FillSquare(VertData, IdxData, 0, 0, TL + vec2i(BorderOffset), BR + vec2i(-BorderOffset));
+    FillSquare(VertData, IdxData, 0, 0, TL, BR);
     ++(RenderCmdCount[ParentPanelIdx]);
 
     if(BorderOffset > 0)
     {
         MakeBorder(TL, BR);
     }
-    MakeText(NULL, ButtonText, Font, vec2i(PositionOffset.x + MarginOffset + BorderOffset, PositionOffset.y + MarginOffset + BorderOffset), 
+
+    real32 const MaxButtonTextWidth = BR.x - TL.x - 2*UI_BORDER_WIDTH - 2*UI_MARGIN_WIDTH;
+    real32 const TextWidth = GetDisplayTextWidth(ButtonText, Font, FontScale);
+    real32 const TextMargin = (MaxButtonTextWidth - TextWidth) * 0.5f;//BR.x-TL.x - TextWidth;//(MaxButtonTextWidth-TextWidth) * 0.5f;
+    MakeText(NULL, ButtonText, FontStyle, vec2i(PositionOffset.x + TextMargin + BorderOffset + MarginOffset, PositionOffset.y + MarginOffset + BorderOffset), 
              Theme.PanelFG, FontScale, MaxButtonTextWidth);
 
     vec2f const MousePos(Input->MousePosX, Input->MousePosY);
@@ -638,7 +650,7 @@ void MakeResizingTriangle(vec2f const &BR)
     ++(RenderCmdCount[ParentPanelIdx]);
 }
 
-void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size, uint32 DecorationFlags)
+void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size, theme_color Color, uint32 DecorationFlags)
 {
     Assert(PanelCount < UI_MAX_PANELS);
     Assert(Size->x > 0 && Size->y > 0);
@@ -672,7 +684,7 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
     RenderInfo->VertexCount = VCount;
     RenderInfo->IndexCount = ICount;
     RenderInfo->TextureID = *Context->RenderResources.DefaultDiffuseTexture;
-    RenderInfo->Color = Theme.PanelBG;
+    RenderInfo->Color = GetColor(Color);
     RenderInfo->ID = ID;
     RenderInfo->ParentID = NULL;
     RenderInfo->Position = vec2i(Position->x, Position->y);
@@ -688,7 +700,11 @@ void BeginPanel(uint32 *ID, char const *PanelTitle, vec3i *Position, vec2i *Size
     if(!(DecorationFlags & DECORATION_INVISIBLE))
     {
         FillSquare(VertData, IdxData, 0, 0, TL, BR);
-        MakeBorder(TL, BR);
+        
+        if(DecorationFlags & DECORATION_BORDER)
+        {
+            MakeBorder(TL, BR);
+        }
 
         if(DecorationFlags & DECORATION_RESIZE)
         {

@@ -88,8 +88,6 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
 
             Config.CameraPosition = JSON_Get(root, "vCameraPosition", vec3f(1,1,1));
             Config.CameraTarget = JSON_Get(root, "vCameraTarget", vec3f(0,0,0));
-
-            Config.DebugFontColor = col4f(JSON_Get(root, "vDebugFontColor", vec3f(1,0,0)));
         }
         else
         {
@@ -231,7 +229,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     if(ConsoleShow)
     {
         ConsolePanelSize = vec2i(Context->WindowWidth, LogHeight);
-        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, &ConsolePanelSize, ui::DECORATION_NONE);
+        ui::BeginPanel(&ConsolePanel, "", &ConsolePanelPos, &ConsolePanelSize, ui::COLOR_CONSOLEBG, ui::DECORATION_BORDER);
             ui::MakeSlider(&ConsoleSlider, 0.f, (real32)LogCapacity);
             for(uint32 i = 0; i < Log->StringCount; ++i)
             {
@@ -256,7 +254,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static uint32 UIStackPanel = 0;
     static vec3i  UIStackPanelPos(0,0,0);
     static vec2i  UIStackPanelSize(350, UIStackHeight + 30);
-    ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, ui::DECORATION_NONE);
+    ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, ui::COLOR_PANELBG, ui::DECORATION_NONE);
         for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
         {
             ui::text_line *Line = UIStack->TextLines[i];
@@ -274,21 +272,20 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static vec2i SystemButtonSize(25);
     static uint32 SystemButtonID = 0;
     snprintf(SystemButtonStr, 16, "%s", ICON_FA_COG);
-    ui::BeginPanel(&SystemButtonPanel, "", &SystemButtonPos, &SystemButtonSize, ui::DECORATION_INVISIBLE);
+    ui::BeginPanel(&SystemButtonPanel, "", &SystemButtonPos, &SystemButtonSize, ui::COLOR_PANELBG, ui::DECORATION_INVISIBLE);
         if(ui::MakeButton(&SystemButtonID, SystemButtonStr, ui::FONT_AWESOME, vec2i(0), SystemButtonSize, 0.4f, ui::DECORATION_BORDER))
         {
             SystemShow = !SystemShow;
         }
     ui::EndPanel();
 
-    // Profile Panel
     static uint32 SystemPanelID = 0;
     static vec2i SystemPanelSize(210, 500);
     static vec3i SystemPanelPos(Context->WindowWidth - 50 - SystemPanelSize.x, 100, 0);
 
     if(SystemShow)
     {
-        ui::BeginPanel(&SystemPanelID, "System Info", &SystemPanelPos, &SystemPanelSize, ui::DECORATION_TITLEBAR | ui::DECORATION_RESIZE);
+        ui::BeginPanel(&SystemPanelID, "System Info", &SystemPanelPos, &SystemPanelSize, ui::COLOR_PANELBG);
             // Session Pool occupancy
             int CurrHeight = 0;
             real32 ToMiB = 1.f / (1024*1024);
@@ -309,11 +306,15 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 
             static uint32 TmpBut = 0;
             ui::MakeButton(&TmpBut, "a", ui::FONT_DEFAULT, vec2i(0, CurrHeight), vec2i(20));
-            CurrHeight += 16;
+            CurrHeight += 26;
+
+            static uint32 TmpBut2 = 0;
+            ui::MakeButton(&TmpBut2, "Hello", ui::FONT_DEFAULT, vec2i(0, CurrHeight), vec2i(60,20));
+            CurrHeight += 26;
 
             char Str[16];
             snprintf(Str, 16, "%s%s%s", ICON_FA_SEARCH, ICON_FA_GLASS, ICON_FA_SHARE);
-            ui::MakeText(NULL, Str, ui::FONT_AWESOME, vec2i(0, 100), ui::COLOR_BORDERBG);
+            ui::MakeText(NULL, Str, ui::FONT_AWESOME, vec2i(0, 180), ui::COLOR_BORDERBG);
         ui::EndPanel();
     }
 
@@ -746,7 +747,7 @@ int RadarMain(int argc, char **argv)
 
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
-            ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::DECORATION_TITLEBAR);
+            ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
             ui::MakeImage(&imgscale, FontInfo->AtlasTextureID, &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif

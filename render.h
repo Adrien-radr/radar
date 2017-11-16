@@ -160,6 +160,7 @@ void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type, size_t ByteOffset,
 void UpdateVBO(uint32 VBO, size_t ByteOffset, uint32 Size, void *Data);
 void DestroyMesh(mesh *Mesh);
 
+real32 GetDisplayTextWidth(char const *Text, font *Font, real32 Scale);
 void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,
                                 real32 *VertData, uint16 *Indices, real32 Scale = 1.0f);
 void FillDisplayTextInterleavedUTF8(char const *Text , uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,

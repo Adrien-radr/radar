@@ -27,7 +27,8 @@ namespace ui {
     bool HasFocus();
 
     // DecorationFlags is of the type decoration_flag from definitions.h
-    void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i *Size, uint32 DecorationFlags);
+    void BeginPanel(uint32* ID, char const *PanelTitle, vec3i *Position, vec2i *Size, theme_color Color, 
+                    uint32 DecorationFlags = DECORATION_TITLEBAR | DECORATION_RESIZE | DECORATION_BORDER);
     void EndPanel();
 
     /// ID's value will be the slider relative position

@@ -12,6 +12,7 @@ namespace ui
         col4f PanelFG;
         col4f TitlebarBG;
         col4f BorderBG;
+        col4f ConsoleBG;
         col4f ConsoleFG;
         col4f SliderBG;
         col4f SliderFG;
@@ -25,7 +26,10 @@ namespace ui
         font  *DefaultFont;
         font  *ConsoleFont;
         font  *AwesomeFont;
-    } Theme;
+    };
+
+    ui_theme Theme;
+    ui_theme DefaultTheme;
 
     col4f const &GetColor(theme_color Col)
     {
@@ -40,6 +44,7 @@ namespace ui
             case COLOR_PANELFG : return Theme.PanelFG;
             case COLOR_TITLEBARBG : return Theme.TitlebarBG;
             case COLOR_BORDERBG : return Theme.BorderBG;
+            case COLOR_CONSOLEBG : return Theme.ConsoleBG;
             case COLOR_CONSOLEFG : return Theme.ConsoleFG;
             case COLOR_DEBUGFG : return Theme.DebugFG;
             case COLOR_SLIDERBG : return Theme.SliderBG;
@@ -80,6 +85,65 @@ namespace ui
         }
     }
 
+    static void ParseUIConfigRoot(ui_theme *DstTheme, cJSON *root, game_context *Context)
+    {
+        DstTheme->Red = JSON_Get(root, "Red", DefaultTheme.Red);
+        DstTheme->Green = JSON_Get(root, "Green", DefaultTheme.Green);
+        DstTheme->Blue = JSON_Get(root, "Blue", DefaultTheme.Blue);
+        DstTheme->Black = JSON_Get(root, "Black", DefaultTheme.Black);
+        DstTheme->White = JSON_Get(root, "White", DefaultTheme.White);
+
+        DstTheme->PanelBG = JSON_Get(root, "PanelBG", DefaultTheme.PanelBG);
+        DstTheme->PanelFG = JSON_Get(root, "PanelFG", DefaultTheme.PanelFG);
+        DstTheme->TitlebarBG = JSON_Get(root, "TitlebarBG", DefaultTheme.TitlebarBG);
+        DstTheme->BorderBG = JSON_Get(root, "BorderBG", DefaultTheme.BorderBG);
+        DstTheme->ConsoleBG = JSON_Get(root, "ConsoleBG", DefaultTheme.ConsoleBG);
+        DstTheme->ConsoleFG = JSON_Get(root, "ConsoleFG", DefaultTheme.ConsoleFG);
+        DstTheme->DebugFG = JSON_Get(root, "DebugFG", DefaultTheme.DebugFG);
+        DstTheme->SliderBG = JSON_Get(root, "SliderBG", DefaultTheme.SliderBG);
+        DstTheme->SliderFG = JSON_Get(root, "SliderFG", DefaultTheme.SliderFG);
+        DstTheme->ButtonBG = JSON_Get(root, "ButtonBG", DefaultTheme.ButtonBG);
+        DstTheme->ButtonPressedBG = JSON_Get(root, "ButtonPressedBG", DefaultTheme.ButtonPressedBG);
+        DstTheme->ProgressbarBG = JSON_Get(root, "ProgressbarBG", DefaultTheme.ProgressbarBG);
+        DstTheme->ProgressbarFG = JSON_Get(root, "ProgressbarFG", DefaultTheme.ProgressbarFG);
+
+        DstTheme->DefaultFont = ParseConfigFont(root, Context, "DefaultFont", 32, 127);
+        DstTheme->ConsoleFont = ParseConfigFont(root, Context, "ConsoleFont", 32, 127);
+        DstTheme->AwesomeFont = ParseConfigFont(root, Context, "AwesomeFont", ICON_MIN_FA, 1+ICON_MAX_FA);
+    }
+
+    static void ParseDefaultUIConfig(game_memory *Memory, game_context *Context)
+    {
+        path DefaultConfigPath;
+        MakeRelativePath(&Memory->ResourceHelper, DefaultConfigPath, "default_ui_config.json");
+
+        // If the default config doesnt exist, just crash, someone has been stupid
+        if(!DiskFileExists(DefaultConfigPath))
+        {
+            printf("Fatal Error : Default UI Config file bin/default_ui_config.json doesn't exist.\n");
+            exit(1);
+        }
+
+        void *Content = ReadFileContents(&Memory->ScratchArena, DefaultConfigPath, 0);
+        if(Content)
+        {
+            cJSON *root = cJSON_Parse((char*)Content);
+            if(root)
+            {
+                ParseUIConfigRoot(&DefaultTheme, root, Context);
+            }
+            else
+            {
+                printf("Fatal Error parsing UI Config File (%s) as JSON.\n", DefaultConfigPath);
+                exit(1);
+            }
+        }
+        else
+        {
+            Assert(false); // should never happen because of the file check
+        }
+    }
+
     static void ParseUIConfig(game_memory *Memory, game_context *Context, path const ConfigPath)
     {
         void *Content = ReadFileContents(&Memory->ScratchArena, ConfigPath, 0);
@@ -88,52 +152,25 @@ namespace ui
             cJSON *root = cJSON_Parse((char*)Content);
             if(root)
             {
-                Theme.Red = JSON_Get(root, "Red", col4f(1, 0, 0, 1));
-                Theme.Green = JSON_Get(root, "Green", col4f(0, 1, 0, 1));
-                Theme.Blue = JSON_Get(root, "Blue", col4f(0, 0, 1, 1));
-                Theme.Black = JSON_Get(root, "Black", col4f(0, 0, 0, 1));
-                Theme.White = JSON_Get(root, "White", col4f(1, 1, 1, 1));
-
-                Theme.PanelBG = JSON_Get(root, "PanelBG", col4f(0, 0, 0, 0.9));
-                Theme.PanelFG = JSON_Get(root, "PanelFG", col4f(1, 1, 1, 1));
-                Theme.TitlebarBG = JSON_Get(root, "TitlebarBG", col4f(1, 1, 1, 0.1));
-                Theme.BorderBG = JSON_Get(root, "BorderBG", col4f(1, 1, 1, 0.2));
-                Theme.ConsoleFG = JSON_Get(root, "ConsoleFG", col4f(1, 1, 1, 0.9));
-                Theme.DebugFG = JSON_Get(root, "DebugFG", col4f(1, 0, 0, 1));
-                Theme.SliderBG = JSON_Get(root, "SliderBG", col4f(0, 0, 0, 0.2));
-                Theme.SliderFG = JSON_Get(root, "SliderFG", col4f(1, 1, 1, 0.1));
-                Theme.ButtonBG = JSON_Get(root, "ButtonBG", col4f(1, 1, 1, 0.1));
-                Theme.ButtonPressedBG = JSON_Get(root, "ButtonPressedBG", col4f(1, 1, 1, 0.1));
-                Theme.ProgressbarBG = JSON_Get(root, "ProgressbarBG", col4f(1, 1, 1, 0.2));
-                Theme.ProgressbarFG = JSON_Get(root, "ProgressbarFG", col4f(0, 0, 0, 0.6));
-
-                Theme.DefaultFont = ParseConfigFont(root, Context, "DefaultFont", 32, 127);
-                Theme.ConsoleFont = ParseConfigFont(root, Context, "ConsoleFont", 32, 127);
-                Theme.AwesomeFont = ParseConfigFont(root, Context, "AwesomeFont", ICON_MIN_FA, 1+ICON_MAX_FA);
+                ParseUIConfigRoot(&Theme, root, Context);
             }
             else
             {
-                printf("Error parsing UI Config File (%s) as JSON.\n", ConfigPath);
+                printf("Error parsing UI Config File (%s) as JSON. Using Default Theme.\n", ConfigPath);
+                Theme = DefaultTheme;
             }
         }
         else
         {
-            printf("Generating default UI theme...\n");
+            printf("Generating UI theme from Default Theme...\n");
+
             path DefaultConfigPath;
             MakeRelativePath(&Memory->ResourceHelper, DefaultConfigPath, "default_ui_config.json");
-
-            // If the default config doesnt exist, just crash, someone has been stupid
-            if(!DiskFileExists(DefaultConfigPath))
-            {
-                printf("Fatal Error : Default UI Config file bin/default_ui_config.json doesn't exist.\n");
-                exit(1);
-            }
-
             path PersonalConfigPath;
             MakeRelativePath(&Memory->ResourceHelper, PersonalConfigPath, "ui_config.json");
             DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
 
-            ParseUIConfig(Memory, Context, DefaultConfigPath);
+            Theme = DefaultTheme;
         }
     }
 

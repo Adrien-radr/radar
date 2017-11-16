@@ -44,8 +44,6 @@ struct game_config
     real32  CameraSpeedAngular;
     vec3f   CameraPosition;
     vec3f   CameraTarget;
-
-    col4f   DebugFontColor;
 };
 
 struct memory_arena
@@ -216,6 +214,7 @@ namespace ui
         COLOR_TITLEBARBG,
         COLOR_BORDERBG,
         COLOR_CONSOLEFG,
+        COLOR_CONSOLEBG,
         COLOR_SLIDERBG,
         COLOR_SLIDERFG,
         COLOR_BUTTONBG,

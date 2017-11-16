@@ -5,6 +5,7 @@
     "Black" : [ 0, 0, 0, 1 ],
     "White" : [ 1, 1, 1, 1 ],
 
+    "ConsoleBG" : [ 0, 0, 0, 0.7 ],
     "PanelBG" : [ 0, 0, 0, 0.5 ],
     "PanelFG" : [ 0.8, 0.8, 0.8, 1 ],
     "TitlebarBG" : [ 1, 1, 1, 0.1 ],
@@ -20,7 +21,7 @@
 
     "DebugFG" : [ 1, 0, 0, 1 ],
 
-    "ConsoleFont" : [ "data/DroidSansMonoSlashed.ttf", 13 ],
-    "DefaultFont" : [ "data/DroidSansMonoSlashed.ttf", 13 ],
+    "ConsoleFont" : [ "data/IBMPlexMono-Regular.ttf", 13 ],
+    "DefaultFont" : [ "data/IBMPlexSans-Regular.ttf", 13 ],
     "AwesomeFont" : [ "data/fontawesome.ttf", 32 ]
 }
