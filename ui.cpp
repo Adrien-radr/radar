@@ -295,6 +295,8 @@ void MakeText(void *ID, char const *Text, theme_font FontStyle, vec2i PositionOf
         IndexCount = (MsgLength +1)* 6;
     }
 
+    if(UTFLen <= 0) return;
+
     bool const NoParent = IsRootWidget();
     uint16 const ParentPanelIdx = LastRootWidget;
 

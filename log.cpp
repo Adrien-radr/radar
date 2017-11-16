@@ -68,7 +68,7 @@ namespace rlog
         static char const *LogLevelStr[] = {
             "II",
             "EE",
-            "DEB"
+            "DB"
         };
 
         char LocalBuf[256];
@@ -78,7 +78,11 @@ namespace rlog
         va_end(args);
 
         char Str[512];
-        int CharCount = snprintf(Str, 512, "%s <%s:%d> %s", LogLevelStr[LogLevel], File, Line, LocalBuf);
+        int CharCount = 0;
+        if(LogLevel == LOG_DEBUG)
+            CharCount = snprintf(Str, 512, "%s <%s:%d> %s", LogLevelStr[LogLevel], File, Line, LocalBuf);
+        else
+            CharCount = snprintf(Str, 512, "%s %s", LogLevelStr[LogLevel], LocalBuf);
         //int CharCount = snprintf(Str, 512, "%s <%s:%d> %s\n", LogLevelStr[LogLevel], File, Line, LocalBuf);
 
         // STD Output

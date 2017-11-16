@@ -402,6 +402,9 @@ int RadarMain(int argc, char **argv)
 
         // Cube Meshes Test
         mesh Cube = MakeUnitCube();
+        mesh Sphere = MakeUnitSphere();
+        mesh SkyboxCube = MakeUnitCube(false);
+
         real32 Dim = 20.0f;
         vec3f LowDim = -Dim/2;
         vec3f CubePos[] = {
@@ -418,29 +421,12 @@ int RadarMain(int argc, char **argv)
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX),
             vec3f(2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX, 2.f*M_PI*rand()/(real32)RAND_MAX)
         };
-        mesh Sphere = MakeUnitSphere();
 
+        uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap, HDRGlossyEnvmap;
+        ComputeIrradianceCubemap(&Context->RenderResources, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRGlossyEnvmap, &HDRIrradianceEnvmap);
+        uint32 EnvmapToUse = HDRGlossyEnvmap;
 
-        // Cubemaps Test
-        path CubemapPaths[6] = {
-            "data/Skybox/1/right.png",
-            "data/Skybox/1/left.png",
-            "data/Skybox/1/bottom.png",
-            "data/Skybox/1/top.png",
-            "data/Skybox/1/back.png",
-            "data/Skybox/1/front.png",
-        };
-
-        mesh SkyboxCube = MakeUnitCube(false);
-        uint32 TestCubemap = MakeCubemap(&Context->RenderResources, CubemapPaths, false, false, 0, 0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, TestCubemap);
-        glActiveTexture(GL_TEXTURE0);
-
-        uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap;
-        ComputeIrradianceCubemap(&Context->RenderResources, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRIrradianceEnvmap);
-        uint32 EnvmapToUse = HDRIrradianceEnvmap;
+        uint32 GGXLUT = PrecomputeGGXLUT(&Context->RenderResources, 512);
 
         model gltfCube = {};
         mesh defCube = MakeUnitCube();
@@ -499,6 +485,7 @@ int RadarMain(int argc, char **argv)
                 Game = LoadGameCode(DllSrcPath, DllDstPath);
             }
 
+            glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             ui::BeginFrame(Memory, &Input);
@@ -687,10 +674,10 @@ int RadarMain(int argc, char **argv)
                 SendVec3(AlbedoLoc, vec3f(1, 0.3, 0.7));
                 for(int j = 0; j < Count; ++j)
                 {
-                    SendFloat(MetallicLoc, (j+1)/(real32)Count);
+                    SendFloat(MetallicLoc, (j)/(real32)Count);
                     for(int i = 0; i < Count; ++i)
                     {
-                        SendFloat(RoughnessLoc, (i+1)/(real32)Count);
+                        SendFloat(RoughnessLoc, Clamp((i)/(real32)Count, 0.05f, 1.f));
                         ModelMatrix.FromTRS(vec3f(0, 3*(j+1), 3*(i+1)), vec3f(0.f), vec3f(1.f));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
@@ -745,15 +732,13 @@ int RadarMain(int argc, char **argv)
             CheckGLError("TexBind");
 
             glBindVertexArray(ScreenQuad.VAO);
-            CheckGLError("Quad Bind");
             glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
-            CheckGLError("Quad Draw");
 
 
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
             ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
-            ui::MakeImage(&imgscale, FontInfo->AtlasTextureID, &img_texoffset, vec2i(300, 300), false);
+            ui::MakeImage(&imgscale, GGXLUT, &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
 

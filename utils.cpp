@@ -64,7 +64,7 @@ size_t GetDateTime(char *Dst, size_t DstSize, char const *Fmt)
 
 int    UTF8CharCount(char const *Str, uint16 *OutUnicode)
 {
-    Assert(strlen(Str) >= 1);
+    if(strlen(Str) == 0) return -1;
 
     int CharCount, Unicode;
 

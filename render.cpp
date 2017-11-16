@@ -38,7 +38,7 @@ static char const *GetResourceTypeName(render_resource_type Type)
 void *ResourceCheckExist(render_resources *RenderResources, render_resource_type Type, path const Filename)
 {
     Assert(Type < RESOURCE_COUNT);
-    LogInfo("Checking for %s resource %s", GetResourceTypeName(Type), (char*)Filename);
+    LogDebug("Checking for %s resource %s", GetResourceTypeName(Type), (char*)Filename);
 
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
@@ -47,7 +47,7 @@ void *ResourceCheckExist(render_resources *RenderResources, render_resource_type
         {
             if(!strncmp(Store->Keys[i], Filename, MAX_PATH))
             {
-                LogInfo("Found %s, returning it", Filename);
+                LogDebug("Found %s, returning it", Filename);
                 return Store->Values[i];
             }
         }
@@ -63,7 +63,7 @@ void ResourceStore(render_resources *RenderResources, render_resource_type Type,
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
     {
-        LogInfo("Storing %s [%llu]", Filename, (uint64)Resource);
+        LogDebug("Storing %s [%llu]", Filename, (uint64)Resource);
         Store->Keys.push_back((char*)Filename);
         Store->Values.push_back(Resource);
     }
@@ -76,7 +76,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Images;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogInfo("Destroying image %s", Store->Keys[i]);
+            LogDebug("Destroying image %s", Store->Keys[i]);
             DestroyImage((image*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -86,7 +86,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Fonts;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogInfo("Destroying font %s", Store->Keys[i]);
+            LogDebug("Destroying font %s", Store->Keys[i]);
         }
         Store->Values.clear();
         Store->Keys.clear();
@@ -95,7 +95,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Textures;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogInfo("Destroying texture %s", Store->Keys[i]);
+            LogDebug("Destroying texture %s", Store->Keys[i]);
             glDeleteTextures(1, (uint32*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -150,7 +150,7 @@ image *ResourceLoadImage(render_resources *RenderResources, path const Filename,
 
     if(!Image->Buffer)
     {
-        LogInfo("Error loading Image from %s. Aborting..", ResourceName);
+        LogError("Error loading Image from %s. Aborting..", ResourceName);
         return NULL;
     }
 
@@ -267,7 +267,7 @@ uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const File
     return Tex;
 }
 
-uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height)
+uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height, bool MakeMipmap)
 {
     uint32 Cubemap = 0;
 
@@ -298,10 +298,14 @@ uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat,
     }
 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, MakeMipmap ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    if(MakeMipmap)
+    { // allocate mipmap memory. if Paths exist, generate mipmaps as well
+        glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+    }
     glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
     CheckGLError("SkyboxParams");
 
@@ -337,12 +341,12 @@ frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size)
     // NOTE - Always attach a depth buffer : is there an instance where you dont want that ?
     glGenRenderbuffers(1, &FB.DepthBufferID);
     glBindRenderbuffer(GL_RENDERBUFFER, FB.DepthBufferID);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, Size.x, Size.y);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, Size.x, Size.y);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, FB.DepthBufferID);
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        LogInfo("Framebuffer creation error : not complete.");
+        LogError("Framebuffer creation error : not complete.");
         DestroyFramebuffer(&FB);
     }
 
@@ -383,7 +387,7 @@ void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channe
 
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        LogInfo("Framebuffer creation error : Attachment %u error.", Attachment);
+        LogError("Framebuffer creation error : Attachment %u error.", Attachment);
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -508,7 +512,7 @@ uint32 _CompileShader(game_memory *Memory, char *Src, int Type)
         GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
         glGetShaderInfoLog(Shader, Len, NULL, Log);
 
-        LogInfo("Shader Compilation Error\n"
+        LogError("Shader Compilation Error\n"
                 "------------------------------------------\n"
                 "%s"
                 "------------------------------------------", Log);
@@ -535,14 +539,14 @@ uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
         uint32 VShader = _CompileShader(Memory, VSrc, GL_VERTEX_SHADER);
         if(!VShader)
         {
-            LogInfo("Failed to build %s Vertex Shader.", VSPath);
+            LogError("Failed to build %s Vertex Shader.", VSPath);
             glDeleteProgram(ProgramID);
             return 0;
         }
         uint32 FShader = _CompileShader(Memory, FSrc, GL_FRAGMENT_SHADER);
         if(!VShader)
         {
-            LogInfo("Failed to build %s Vertex Shader.", VSPath);
+            LogError("Failed to build %s Vertex Shader.", VSPath);
             glDeleteShader(VShader);
             glDeleteProgram(ProgramID);
             return 0;
@@ -567,7 +571,7 @@ uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
             GLchar *Log = (GLchar*) PushArenaData(&Memory->ScratchArena, Len);
             glGetProgramInfoLog(ProgramID, Len, NULL, Log);
 
-            LogInfo("Shader Program link error : \n"
+            LogError("Shader Program link error : \n"
                     "-----------------------------------------------------\n"
                     "%s"
                     "-----------------------------------------------------", Log);
@@ -1052,10 +1056,10 @@ mesh Make2DQuad(vec2i Start, vec2i End)
         vec2f(1, 1),
     };
 
-    uint32 Indices[6] = { 0, 1, 2, 0, 2, 3 };
+    uint8 Indices[6] = { 0, 1, 2, 0, 2, 3 };
 
     Quad.IndexCount = 6;
-    Quad.IndexType = GL_UNSIGNED_INT;
+    Quad.IndexType = GL_UNSIGNED_BYTE;
     Quad.VAO = MakeVertexArrayObject();
     Quad.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     Quad.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord), GL_STATIC_DRAW);
@@ -1238,15 +1242,17 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs)
 }
 
 void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDREnvmapFilename,
-        uint32 *HDRCubemapEnvmap, uint32 *HDRIrradianceEnvmap)
+        uint32 *HDRCubemapEnvmap, uint32 *HDRGlossyEnvmap, uint32 *HDRIrradianceEnvmap)
 {
     game_memory *Memory = RenderResources->RH->Memory;
     // TODO - Parameterize this ?
     uint32 CubemapWidth = 512;
     uint32 IrradianceCubemapWidth = 32;
+    uint32 GlossyCubemapWidth = 128;
 
     uint32 ProgramLatlong2Cubemap;
     uint32 ProgramCubemapConvolution;
+    uint32 ProgramCubemapPrefilter;
 
     path VSPath;
     path FSPath;
@@ -1257,12 +1263,17 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
     SendInt(glGetUniformLocation(ProgramLatlong2Cubemap, "Envmap"), 0);
     CheckGLError("Latlong Shader");
 
-    MakeRelativePath(RenderResources->RH, VSPath, "data/shaders/skybox_vert.glsl");
     MakeRelativePath(RenderResources->RH, FSPath, "data/shaders/cubemapconvolution_frag.glsl");
     ProgramCubemapConvolution = BuildShader(Memory, VSPath, FSPath);
     glUseProgram(ProgramCubemapConvolution);
     SendInt(glGetUniformLocation(ProgramCubemapConvolution, "Cubemap"), 0);
     CheckGLError("Convolution Shader");
+
+    MakeRelativePath(RenderResources->RH, FSPath, "data/shaders/cubemapprefilter_frag.glsl");
+    ProgramCubemapPrefilter = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProgramCubemapPrefilter);
+    SendInt(glGetUniformLocation(ProgramCubemapPrefilter, "Cubemap"), 0);
+    CheckGLError("Prefilter Shader");
 
     frame_buffer FBOEnvmap = MakeFramebuffer(1, vec2i(CubemapWidth, CubemapWidth));
 
@@ -1273,10 +1284,12 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
 
     mesh SkyboxCube = MakeUnitCube(false);
 
-    *HDRCubemapEnvmap = MakeCubemap(NULL, NULL, true, true, CubemapWidth, CubemapWidth);
+    *HDRCubemapEnvmap = MakeCubemap(NULL, NULL, true, true, CubemapWidth, CubemapWidth, true);
     CheckGLError("Latlong2Cubmap");
-    *HDRIrradianceEnvmap = MakeCubemap(NULL, NULL, true, false, IrradianceCubemapWidth, IrradianceCubemapWidth);
+    *HDRIrradianceEnvmap = MakeCubemap(NULL, NULL, true, false, IrradianceCubemapWidth, IrradianceCubemapWidth, false);
     CheckGLError("IrradianceCubemap");
+    *HDRGlossyEnvmap = MakeCubemap(NULL, NULL, true, true, GlossyCubemapWidth, GlossyCubemapWidth, true);
+    CheckGLError("GlossyCubemap");
 
     glDisable(GL_CULL_FACE);
     glDepthFunc(GL_LEQUAL);
@@ -1305,6 +1318,7 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
     uint32 ViewLoc = glGetUniformLocation(ProgramLatlong2Cubemap, "ViewMatrix");
 
     glViewport(0, 0, CubemapWidth, CubemapWidth);
+    glClearColor(0,0,0,0);
     glBindTexture(GL_TEXTURE_2D, HDRLatlongEnvmap);
     glBindFramebuffer(GL_FRAMEBUFFER, FBOEnvmap.FBO);
     for(int i = 0; i < 6; ++i)
@@ -1317,11 +1331,13 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
         glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
     }
 
+    glBindTexture(GL_TEXTURE_CUBE_MAP, *HDRCubemapEnvmap);
+    glGenerateMipmap(GL_TEXTURE_CUBE_MAP);
+
     // NOTE - Cubemap convolution
     glUseProgram(ProgramCubemapConvolution);
     {
         uint32 Loc = glGetUniformLocation(ProgramCubemapConvolution, "ProjMatrix");
-        mat4f EnvmapProjectionMatrix = mat4f::Perspective(90.f, 1.f, 0.1f, 10.f);
         SendMat4(Loc, EnvmapProjectionMatrix);
         CheckGLError("ProjMatrix CubemapConvolution");
     }
@@ -1329,7 +1345,8 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
     ViewLoc = glGetUniformLocation(ProgramCubemapConvolution, "ViewMatrix");
 
     glViewport(0, 0, IrradianceCubemapWidth, IrradianceCubemapWidth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, 32, 32);
+    glBindRenderbuffer(GL_RENDERBUFFER, FBOEnvmap.DepthBufferID);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, IrradianceCubemapWidth, IrradianceCubemapWidth);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_CUBE_MAP, *HDRCubemapEnvmap);
     for(int i = 0; i < 6; ++i)
@@ -1342,6 +1359,41 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
         glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
     }
 
+    // NOTE - Cubemap glossy prefilter
+    glUseProgram(ProgramCubemapPrefilter);
+    {
+        uint32 Loc = glGetUniformLocation(ProgramCubemapPrefilter, "ProjMatrix");
+        SendMat4(Loc, EnvmapProjectionMatrix);
+        CheckGLError("ProjMatrix CubemapPrefilter");
+    }
+
+    ViewLoc = glGetUniformLocation(ProgramCubemapPrefilter, "ViewMatrix");
+    uint32 RoughnessLoc = glGetUniformLocation(ProgramCubemapPrefilter, "Roughness");
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, *HDRCubemapEnvmap);
+    uint32 const MaxMipLevels = 5;
+    for(uint32 mip = 0; mip < MaxMipLevels; ++mip)
+    {
+        uint32 const MipW = GlossyCubemapWidth * std::pow(0.5, mip);
+        uint32 const MipH = MipW;
+        glBindRenderbuffer(GL_RENDERBUFFER, FBOEnvmap.DepthBufferID);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, MipW, MipH);
+        glViewport(0, 0, MipW, MipH);
+
+        real32 Roughness = (real32)mip / (real32)(MaxMipLevels - 1);
+        SendFloat(RoughnessLoc, Roughness);
+        for(uint32 i = 0; i < 6; ++i)
+        {
+            SendMat4(ViewLoc, ViewDirs[i]);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                    *HDRGlossyEnvmap, mip);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, GL_UNSIGNED_INT, 0);
+        }
+    }
+
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glDepthFunc(GL_LESS);
     glEnable(GL_CULL_FACE);
@@ -1349,10 +1401,50 @@ void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDR
     glDeleteTextures(1, &HDRLatlongEnvmap);
     glDeleteProgram(ProgramLatlong2Cubemap);
     glDeleteProgram(ProgramCubemapConvolution);
+    glDeleteProgram(ProgramCubemapPrefilter);
     DestroyFramebuffer(&FBOEnvmap);
     DestroyMesh(&SkyboxCube);
 }
 
+uint32 PrecomputeGGXLUT(render_resources *RenderResources, uint32 Width)
+{
+    uint32 LUTProgram;
+    path VSPath;
+    path FSPath;
+    MakeRelativePath(RenderResources->RH, VSPath, "data/shaders/screenquad_vert.glsl");
+    MakeRelativePath(RenderResources->RH, FSPath, "data/shaders/ggxintegrate_frag.glsl");
+    LUTProgram = BuildShader(RenderResources->RH->Memory, VSPath, FSPath);
+
+    glActiveTexture(GL_TEXTURE0);
+    uint32 GGXLUT = Make2DTexture(NULL, Width, Width,
+            2, true, true, 1, GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+
+    glBindTexture(GL_TEXTURE_2D, GGXLUT);
+
+    frame_buffer FBO = MakeFramebuffer(1, vec2i(Width, Width));
+    mesh ScreenQuad = Make2DQuad(vec2i(-1, 1), vec2i(1, -1));
+
+    glBindFramebuffer(GL_FRAMEBUFFER, FBO.FBO);
+    glBindRenderbuffer(GL_RENDERBUFFER, FBO.DepthBufferID);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, Width, Width);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, GGXLUT, 0);
+
+    glViewport(0, 0, Width, Width);
+    glUseProgram(LUTProgram);
+    glBindVertexArray(ScreenQuad.VAO);
+    glClearColor(0,0,0,0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDeleteProgram(LUTProgram);
+    DestroyFramebuffer(&FBO);
+    DestroyMesh(&ScreenQuad);
+
+    CheckGLError("PrecomputeGGXLUT");
+    
+    return GGXLUT;
+}
 
 // ADDITIONAL IMPLEMENTATION
 #include "model.cpp"
