@@ -259,7 +259,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     int UIStackHeight = LineGap * UIStack->TextLineCount;
     static uint32 UIStackPanel = 0;
     static vec3i  UIStackPanelPos(0,0,0);
-    static vec2i  UIStackPanelSize(350, UIStackHeight + 30);
+    static vec2i  UIStackPanelSize(360, UIStackHeight + 30);
     ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, ui::COLOR_PANELBG, ui::DECORATION_NONE);
         for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
         {
@@ -274,7 +274,7 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 
     static uint32 SystemButtonPanel = 0;
     static char SystemButtonStr[16];
-    static vec3i SystemButtonPos(350, 0, 0);
+    static vec3i SystemButtonPos(UIStackPanelSize.x, 0, 0);
     static vec2i SystemButtonSize(25);
     static uint32 SystemButtonID = 0;
     snprintf(SystemButtonStr, 16, "%s", ICON_FA_COG);
@@ -383,31 +383,35 @@ int RadarMain(int argc, char **argv)
                 false, false, Config.AnisotropicFiltering);
         uint32 *PBRTex0_MetalRoughness = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/StreakedMetal/metalroughness.png",
                 false, false, Config.AnisotropicFiltering);
-#if 0
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/albedo.png");
-        Image = ResourceLoadImage(TexPath);
-        uint32 RustedMetalAlbedo = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
-        DestroyImage(&Image);
 
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/metallic.png");
-        Image = ResourceLoadImage(TexPath);
-        uint32 RustedMetalMetallic = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
-        DestroyImage(&Image);
+        uint32 *PBRTex1_Albedo = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedGold/albedo.png",
+                false, false, Config.AnisotropicFiltering);
+        uint32 *PBRTex1_MetalRoughness = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedGold/metalroughness.png",
+                false, false, Config.AnisotropicFiltering);
 
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/roughness.png");
-        Image = ResourceLoadImage(TexPath);
-        uint32 RustedMetalRoughness = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
-        DestroyImage(&Image);
+        uint32 *PBRTex2_Albedo = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/RustedIron/albedo.png",
+                false, false, Config.AnisotropicFiltering);
+        uint32 *PBRTex2_MetalRoughness = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/RustedIron/metalroughness.png",
+                false, false, Config.AnisotropicFiltering);
 
-        MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/normal.png");
-        Image = ResourceLoadImage(TexPath);
-        uint32 RustedMetalNormal = Make2DTexture(&Image, false, Config.AnisotropicFiltering);
-        DestroyImage(&Image);
-#endif
+        uint32 *PBRTex3_Albedo = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedPlastic/albedo_blue.png",
+                false, false, Config.AnisotropicFiltering);
+        uint32 *PBRTex3_MetalRoughness = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedPlastic/metalroughness.png",
+                false, false, Config.AnisotropicFiltering);
+
+        uint32 *PBRTex4_Albedo = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/SynthRubber/albedo.png",
+                false, false, Config.AnisotropicFiltering);
+        uint32 *PBRTex4_MetalRoughness = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/SynthRubber/metalroughness.png",
+                false, false, Config.AnisotropicFiltering);
+
+        uint32 *PBRTex5_Albedo = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/PlasticPattern/albedo.png",
+                false, false, Config.AnisotropicFiltering);
+        uint32 *PBRTex5_MetalRoughness = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/PlasticPattern/metalroughness.png",
+                false, false, Config.AnisotropicFiltering);
 
         // Cube Meshes Test
         mesh Cube = MakeUnitCube();
-        mesh Sphere = MakeUnitSphere(true, 2);
+        mesh Sphere = MakeUnitSphere(true, 3);
         mesh SkyboxCube = MakeUnitCube(false);
 
         real32 Dim = 20.0f;
@@ -644,6 +648,7 @@ int RadarMain(int argc, char **argv)
             }
 #endif
 
+            int PBRCount = 3;
 #if 1
             { // NOTE - Sphere Array Test for PBR
                 glUseProgram(Program3D);
@@ -674,18 +679,17 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE4);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
 
-                int Count = 5;
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-                SendVec3(AlbedoLoc, vec3f(1, 0.3, 0.7));
-                for(int j = 0; j < Count; ++j)
+                SendVec3(AlbedoLoc, vec3f(0.7, 0.7, 0.7));
+                for(int j = 0; j < PBRCount; ++j)
                 {
-                    SendFloat(MetallicLoc, (j)/(real32)Count);
-                    for(int i = 0; i < Count; ++i)
+                    SendFloat(MetallicLoc, (j)/(real32)PBRCount);
+                    for(int i = 0; i < 5; ++i)
                     {
-                        SendFloat(RoughnessLoc, Clamp((i)/(real32)Count, 0.05f, 1.f));
-                        ModelMatrix.FromTRS(vec3f(0, 3*(j+1), 3*(i+1)), vec3f(0.f), vec3f(1.f));
+                        SendFloat(RoughnessLoc, Clamp((i)/5.0, 0.05f, 1.f));
+                        ModelMatrix.FromTRS(vec3f(-3*(j+1), 3.0, 3*(i+1)), vec3f(0.f), vec3f(1.f));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
                     }
@@ -712,25 +716,40 @@ int RadarMain(int argc, char **argv)
                 mat4f ModelMatrix;
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
 
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, *PBRTex0_Albedo);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, *PBRTex0_MetalRoughness);
+                uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
+                uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
+                uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
+
                 glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_2D, GGXLUT);
                 glActiveTexture(GL_TEXTURE3);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
                 glActiveTexture(GL_TEXTURE4);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
-                uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
-                uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
-                uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
                 SendVec3(AlbedoLoc, vec3f(1));
                 SendFloat(MetallicLoc, 1.0);
-                SendFloat(RoughnessLoc, 1.0);
-                ModelMatrix.FromTRS(vec3f(-3.0, 3.0, 3.0), vec3f(0.f), vec3f(1.f));
-                SendMat4(Loc, ModelMatrix);
-                glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
+
+                auto DrawSpheres = [&](int idx, uint32 albedo, uint32 mr)
+                {
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, albedo);
+                    glActiveTexture(GL_TEXTURE1);
+                    glBindTexture(GL_TEXTURE_2D, mr);
+                    for(int i = 0; i < 5; ++ i)
+                    {
+                        SendFloat(RoughnessLoc, 1.0 + 0.5 * i);
+                        ModelMatrix.FromTRS(vec3f(-(PBRCount+idx) * 3.0, 3.0, 3.0*(i+1)), vec3f(0.f), vec3f(1.f));
+                        SendMat4(Loc, ModelMatrix);
+                        glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
+                    }
+                };
+                DrawSpheres(1, *PBRTex0_Albedo, *PBRTex0_MetalRoughness);
+                DrawSpheres(2, *PBRTex1_Albedo, *PBRTex1_MetalRoughness);
+                DrawSpheres(3, *PBRTex2_Albedo, *PBRTex2_MetalRoughness);
+                DrawSpheres(4, *PBRTex3_Albedo, *PBRTex3_MetalRoughness);
+                DrawSpheres(5, *PBRTex4_Albedo, *PBRTex4_MetalRoughness);
+                DrawSpheres(6, *PBRTex5_Albedo, *PBRTex5_MetalRoughness);
+
                 CheckGLError("PBR draw");
 
                 glActiveTexture(GL_TEXTURE0);
@@ -787,7 +806,7 @@ int RadarMain(int argc, char **argv)
 
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
-            ui::BeginPanel(&id2, "Panel 2", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
+            ui::BeginPanel(&id2, "Texture Viewer", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
             ui::MakeImage(&imgscale, GGXLUT, &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif

@@ -320,7 +320,7 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     if(Local->CounterTenth > 0.1)
     {
         const game_camera &Camera = State->Camera;
-        snprintf(Local->CameraText.String, UI_STRINGLEN, "Camera : From <%2.2g, %2.2g, %2.2g> To <%2.2g, %2.2g, %2.2g>",
+        snprintf(Local->CameraText.String, UI_STRINGLEN, "Camera : From <%.1f, %.1f, %.1f> To <%.1f, %.1f, %.1f>",
                 Camera.Position.x, Camera.Position.y, Camera.Position.z, Camera.Target.x, Camera.Target.y, Camera.Target.z);
 
         snprintf(Local->FPSText.String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);

@@ -25,9 +25,14 @@ uniform vec3 CameraPos;
 
 out vec4 frag_color;
 
-vec3 FresnelSchlick(float u, vec3 f0, float f90)
+vec3 FresnelSchlick(float u, vec3 f0)
 {
-    return f0 + (vec3(f90) - f0) * pow(1 - u, 5);
+    return f0 + (vec3(1.0) - f0) * pow(1 - u, 5);
+}
+
+vec3 FresnelSchlickRoughness(float u, vec3 f0, float roughness)
+{
+    return f0 + (max(vec3(1-roughness), f0) - f0) * pow(1 - u, 5);
 }
 
 float DistributionGGX(float NdotH, float roughness)
@@ -68,8 +73,8 @@ float DisneyFrostbite(float NdotV, float NdotL, float LdotH, float linearRoughne
     float eFactor = mix(1.0, 1.0 / 1.51, linearRoughness);
     float f90 = eBias + 2.0 * LdotH * LdotH * linearRoughness;
     vec3 f0 = vec3(1);
-    float lightScatter = FresnelSchlick(NdotL, f0, f90).r;
-    float viewScatter = FresnelSchlick(NdotV, f0, f90).r;
+    float lightScatter = FresnelSchlickRoughness(NdotL, f0, f90).r;
+    float viewScatter = FresnelSchlickRoughness(NdotV, f0, f90).r;
     return lightScatter * viewScatter * eFactor;
 }
 
@@ -98,19 +103,24 @@ void main()
     f0 = mix(f0, albedo, metallic); // if metallic, linearly interpolate towards metallic color
 
     // Specular part
-    vec3 F = FresnelSchlick(HdotV, f0, 1);
+    vec3 F = FresnelSchlick(HdotV, f0);
     float G = GeometrySmith(NdotV, NdotL, roughness);
     float D = DistributionGGX(NdotH, roughness);
 
     vec3 nom = F * G * D;
     float denom = (4 * NdotV * NdotL + 1e-3);
 
-    vec3 Specular = nom * NdotL / denom;
-    vec3 Diffuse = (1 - F.x) * (1 - metallic) * DisneyFrostbite(NdotV, NdotL, LdotH, 1 - roughness) * albedo * NdotL / PI;
+    vec3 Specular = nom / denom;
+
+    // Diffuse part
+    vec3 ks = F;
+    vec3 kd = vec3(1.0) - ks;
+    kd *= (1 - metallic);
+    vec3 Diffuse = kd * albedo / PI;// * DisneyFrostbite(NdotV, NdotL, LdotH, 1 - roughness);
 
     // Ambient
-    float ks = FresnelSchlick(min(1,abs(dot(N,V))+1e-1), f0, roughness).x;
-    float kd = 1.0 - ks;
+    ks = FresnelSchlickRoughness(min(1,abs(dot(N,V))+1e-1), f0, roughness);
+    kd = vec3(1.0) - ks;
     kd *= (1 - metallic);
     vec3 irr_light = texture(IrradianceCubemap, N).xyz;
     vec3 ambient_diffuse = irr_light * albedo;
@@ -121,7 +131,7 @@ void main()
 
     vec3 Ambient = kd * ambient_diffuse + ambient_specular;
 
-    vec3 color = Ambient + LightColor.xyz * (Diffuse + Specular);
+    vec3 color = Ambient + LightColor.xyz * NdotL * (Diffuse + Specular);
 
     frag_color = vec4(color, 1.0);
 }
