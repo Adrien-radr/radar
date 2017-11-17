@@ -82,11 +82,11 @@ void main()
     vec3 R = reflect(V, N);
 
     vec3 albedo = pow(texture(Albedo, v_texcoord).xyz, vec3(2.2)) * AlbedoMult;
-    float metallic = texture(MetallicRoughness, v_texcoord).x * MetallicMult;
-    float roughness = texture(MetallicRoughness, v_texcoord).y * RoughnessMult;
-    vec3 irr_light = texture(IrradianceCubemap, N).xyz;
+    vec2 MR = texture(MetallicRoughness, v_texcoord).xy;
+    float metallic = min(1.0, MR.x * MetallicMult);
+    float roughness = min(1.0, MR.y * RoughnessMult);
 
-    float NdotV = min(1, abs(dot(N, V)) + 1e-1);//1e-5f);
+    float NdotV = min(1, abs(dot(N, V)) + 1e-1);
     float NdotL = max(0, dot(N, L));
     float HdotV = max(0, dot(H, V));
     float NdotH = max(0, dot(N, H));
@@ -112,6 +112,7 @@ void main()
     float ks = FresnelSchlick(min(1,abs(dot(N,V))+1e-1), f0, roughness).x;
     float kd = 1.0 - ks;
     kd *= (1 - metallic);
+    vec3 irr_light = texture(IrradianceCubemap, N).xyz;
     vec3 ambient_diffuse = irr_light * albedo;
 
     vec3 prefilteredColor = textureLod(Skybox, -R, roughness * MAX_REFLECTION_LOD).rgb;

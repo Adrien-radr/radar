@@ -1133,7 +1133,7 @@ mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint
     return Plane;
 }
 
-mesh MakeUnitSphere(bool MakeAdditionalAttribs)
+mesh MakeUnitSphere(bool MakeAdditionalAttribs, float TexScale)
 {
     mesh Sphere = {};
 
@@ -1172,13 +1172,13 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs)
 
     // UVs
     vec2f Texcoord[nVerts];
-    Texcoord[0] = vec2f(0, 1);
+    Texcoord[0] = vec2f(0, TexScale);
     Texcoord[nVerts - 1] = vec2f(0.f);
     for (uint32 lat = 0; lat < nLat; ++lat)
     {
         for (uint32 lon = 0; lon <= nLon; ++lon)
         {
-            Texcoord[lon + lat * (nLon + 1) + 1] = vec2f(lon / (real32) nLon, 1.f - (lat + 1) / (real32) (nLat + 1));
+            Texcoord[lon + lat * (nLon + 1) + 1] = vec2f(lon / (real32) nLon, 1.f - (lat + 1) / (real32) (nLat + 1)) * TexScale;
         }
     }
 

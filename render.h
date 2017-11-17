@@ -139,7 +139,7 @@ uint32 PrecomputeGGXLUT(render_resources *RenderResources, uint32 Width);
 mesh MakeUnitCube(bool MakeAdditionalAttribs = true);
 mesh Make2DQuad(vec2i Start, vec2i End);
 mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic = false);
-mesh MakeUnitSphere(bool MakeAdditionalAttribs = true);
+mesh MakeUnitSphere(bool MakeAdditionalAttribs = true, real32 TexScale = 1.f);
 
 uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath);
 

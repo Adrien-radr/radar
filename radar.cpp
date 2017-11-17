@@ -379,6 +379,10 @@ int RadarMain(int argc, char **argv)
         uint32 *Texture1 = ResourceLoad2DTexture(&Context->RenderResources, "data/crate1_diffuse.png",
                 false, false, Config.AnisotropicFiltering);
 
+        uint32 *PBRTex0_Albedo = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/StreakedMetal/albedo.png",
+                false, false, Config.AnisotropicFiltering);
+        uint32 *PBRTex0_MetalRoughness = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/StreakedMetal/metalroughness.png",
+                false, false, Config.AnisotropicFiltering);
 #if 0
         MakeRelativePath(TexPath, Memory.ExecutableFullPath, "data/brick_1/albedo.png");
         Image = ResourceLoadImage(TexPath);
@@ -403,7 +407,7 @@ int RadarMain(int argc, char **argv)
 
         // Cube Meshes Test
         mesh Cube = MakeUnitCube();
-        mesh Sphere = MakeUnitSphere();
+        mesh Sphere = MakeUnitSphere(true, 2);
         mesh SkyboxCube = MakeUnitCube(false);
 
         real32 Dim = 20.0f;
@@ -447,8 +451,8 @@ int RadarMain(int argc, char **argv)
         static uint32 id2 = 0;
         static real32 imgscale = 1.0f;
         static vec2f img_texoffset(0.f, 0.f);
-        static vec3i p2(300, 150, 0);
         static vec2i p2size(310, 330);
+        static vec3i p2(Context->WindowWidth - 10 - p2size.x, Context->WindowHeight - 10 - p2size.y, 0);
 
         while(Context->IsRunning)
         {
@@ -686,6 +690,49 @@ int RadarMain(int argc, char **argv)
                         glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
                     }
                 }
+                glActiveTexture(GL_TEXTURE0);
+            }
+#endif
+
+#if 1
+            { // NOTE - PBR materials rendering tests
+                glUseProgram(Program3D);
+                {
+                    uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
+                    SendMat4(Loc, ViewMatrix);
+                }
+                uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
+                SendVec4(Loc, State->LightColor);
+                Loc = glGetUniformLocation(Program3D, "SunDirection");
+                SendVec3(Loc, State->LightDirection);
+                Loc = glGetUniformLocation(Program3D, "CameraPos");
+                SendVec3(Loc, State->Camera.Position);
+
+                glBindVertexArray(Sphere.VAO);
+                mat4f ModelMatrix;
+                Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, *PBRTex0_Albedo);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, *PBRTex0_MetalRoughness);
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+                glActiveTexture(GL_TEXTURE4);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
+                uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
+                uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
+                uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
+                SendVec3(AlbedoLoc, vec3f(1));
+                SendFloat(MetallicLoc, 1.0);
+                SendFloat(RoughnessLoc, 1.0);
+                ModelMatrix.FromTRS(vec3f(-3.0, 3.0, 3.0), vec3f(0.f), vec3f(1.f));
+                SendMat4(Loc, ModelMatrix);
+                glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
+                CheckGLError("PBR draw");
+
                 glActiveTexture(GL_TEXTURE0);
             }
 #endif
