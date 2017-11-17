@@ -144,8 +144,9 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     glUseProgram(Program3D);
     SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
     SendInt(glGetUniformLocation(Program3D, "MetallicRoughness"), 1);
-    SendInt(glGetUniformLocation(Program3D, "Skybox"), 2);
-    SendInt(glGetUniformLocation(Program3D, "IrradianceCubemap"), 3);
+    SendInt(glGetUniformLocation(Program3D, "GGXLUT"), 2);
+    SendInt(glGetUniformLocation(Program3D, "Skybox"), 3);
+    SendInt(glGetUniformLocation(Program3D, "IrradianceCubemap"), 4);
     CheckGLError("Mesh Shader");
 
     context::RegisterShader3D(Context, Program3D);
@@ -424,7 +425,7 @@ int RadarMain(int argc, char **argv)
 
         uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap, HDRGlossyEnvmap;
         ComputeIrradianceCubemap(&Context->RenderResources, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRGlossyEnvmap, &HDRIrradianceEnvmap);
-        uint32 EnvmapToUse = HDRGlossyEnvmap;
+        uint32 EnvmapToUse = HDRCubemapEnvmap;
 
         uint32 GGXLUT = PrecomputeGGXLUT(&Context->RenderResources, 512);
 
@@ -663,8 +664,10 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, EnvmapToUse);
+                glBindTexture(GL_TEXTURE_2D, GGXLUT);
                 glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+                glActiveTexture(GL_TEXTURE4);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRIrradianceEnvmap);
 
                 int Count = 5;
