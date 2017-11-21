@@ -102,8 +102,8 @@ void main()
     float roughness = min(1.0, MR.y * RoughnessMult);
 
     //float NdotV = min(1, abs(dot(N, V)) + 1e-1);
-    float NdotV = min(1, max(0,dot(N, V)));
-    float NdotL = max(0, min(1,1e-3+dot(N, L)));
+    float NdotV = max(0, min(1,dot(N, V)));
+    float NdotL = max(0, min(1,dot(N, L)));
     float HdotV = max(0, min(1,dot(H, V)));
     float NdotH = max(0, dot(N, H));
     float LdotH = max(0, dot(L, H));

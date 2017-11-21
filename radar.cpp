@@ -572,6 +572,9 @@ int RadarMain(int argc, char **argv)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #if 1 // NOTE - Model rendering test
+                static float rotation = 0.f;
+                static float translation = 0.f;
+                static int translationDir = 1;
             {
                 glCullFace(GL_BACK);
                 glUseProgram(Program3D);
@@ -610,10 +613,14 @@ int RadarMain(int argc, char **argv)
                     glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
                     mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
                     Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                    ModelMatrix.FromTRS(vec3f(0,3,-3), vec3f(0), vec3f(2));
+                    ModelMatrix.FromTRS(vec3f(0,3 + translation,-3), vec3f(0,rotation,0), vec3f(2));
                     SendMat4(Loc, ModelMatrix);
                     glDrawElements(GL_TRIANGLES, gltfCube.Mesh[i].IndexCount, gltfCube.Mesh[i].IndexType, 0);
                 }
+                rotation += M_PI * Input.dTimeFixed * 0.02f;
+                if(translation > 1.f) translationDir = -1;
+                if(translation < -1.f) translationDir = 1;
+                translation += Input.dTimeFixed * translationDir * 0.05f;
             }
 #endif
 
