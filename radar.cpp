@@ -611,7 +611,7 @@ int RadarMain(int argc, char **argv)
                     glBindTexture(GL_TEXTURE_2D, GGXLUT);
                     glActiveTexture(GL_TEXTURE4);
                     glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
-                    mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
+                    mat4f ModelMatrix;
                     Loc = glGetUniformLocation(Program3D, "ModelMatrix");
                     ModelMatrix.FromTRS(vec3f(0,3 + translation,-3), vec3f(0,rotation,0), vec3f(2));
                     SendMat4(Loc, ModelMatrix);

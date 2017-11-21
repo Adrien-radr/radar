@@ -218,14 +218,13 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
         bool ValidMesh[4] = { false, false, false, false };
         size_t VCount = 0;
         size_t BufferSize = 0;
-        size_t NormalsOffset = 0, TangentsOffset = 0;
         for(auto const &it : prim.attributes)
         {
             const Accessor &acc = Mdl.accessors[it.second];
             const BufferView & bv = Mdl.bufferViews[acc.bufferView];
 
             int AttribIdx = GetAttribIndex(it.first);
-            int AttribStride = AttribIdx == 3 ? 3 : GetAttribStride(acc.type); // vec3 size for tangents instead of vec4
+            int AttribStride = GetAttribStride(acc.type);
 
             if(AttribIdx >= 0 && AttribIdx <= 3)
             {
@@ -234,14 +233,6 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
                 if(AttribIdx == 0)
                 {
                     VCount = acc.count;
-                }
-                else if(AttribIdx == 2)
-                {
-                    NormalsOffset = acc.byteOffset + bv.byteOffset;
-                }
-                else if(AttribIdx == 3)
-                {
-                    TangentsOffset = acc.byteOffset + bv.byteOffset;
                 }
             }
 
@@ -265,11 +256,7 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
         }
         if(!ValidMesh[3])
         { // Add buffer space for the tangents and bitangents
-            BufferSize += 2 * VCount * sizeof(vec3f);
-        }
-        else
-        { // Add buffer space for bitangents, if we already have the tangents
-            BufferSize += VCount * sizeof(vec3f);
+            BufferSize += VCount * sizeof(vec4f);
         }
 
         DstMesh.VBO[1] = AddEmptyVBO(BufferSize, GL_STATIC_DRAW);
@@ -283,7 +270,7 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
             const BufferView & bv = Mdl.bufferViews[acc.bufferView];
 
             int AttribIdx = GetAttribIndex(it.first);
-            int AttribStride = AttribIdx == 3 ? 3 : GetAttribStride(acc.type); // vec3 size for tangent instead of vec4
+            int AttribStride = GetAttribStride(acc.type);
             size_t AttribSize = acc.count * GetComponentSize(acc.componentType) * AttribStride;
 
             //printf("%s : Idx %d, Stride %d, Size %d\n", it.first.c_str(), AttribIdx, AttribStride, bv.byteLength);
@@ -294,51 +281,29 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
                 return false;
             }
 
-            if(AttribIdx >= 0 && AttribIdx <=2)
+            if(AttribIdx >= 0 && AttribIdx <= 3)
             {
                 FillVBO(AttribIdx, AttribStride, acc.componentType, AttribOffset, AttribSize, 
                         &DataBuffer.data[0] + acc.byteOffset + bv.byteOffset);
                 AttribOffset += AttribSize;
 
                 if(AttribIdx == 2 && !ValidMesh[3])
-                { // We have normals but no tangents nor bitangents, programatically compute them
+                { // We have normals but no tangents, programatically compute them
                     real32 *NormalPtr = (real32*)(&DataBuffer.data[0] + acc.byteOffset + bv.byteOffset);
 
                     // Generate tangents ourselves
-                    vec3f *Tangent = (vec3f*)alloca(sizeof(vec3f)*VCount);
-                    vec3f *Bitangent = (vec3f*)alloca(sizeof(vec3f)*VCount);
+                    vec4f *Tangent = (vec4f*)alloca(sizeof(vec4f)*acc.count);
+                    vec3f Dummy;
 
                     for(uint32 i = 0; i < VCount; ++i)
                     {
                         vec3f *N = (vec3f*)(NormalPtr + i * 3);
-                        BasisFrisvad(*N, Tangent[i], Bitangent[i]);
+                        BasisFrisvad(*N, *((vec3f*)&Tangent[i]), Dummy);
+                        Tangent[i].w = 1.f;
                     }
-                    FillVBO(3, 3, GL_FLOAT, AttribOffset, sizeof(Tangent), Tangent);
-                    AttribOffset += AttribSize;
-                    FillVBO(4, 3, GL_FLOAT, AttribOffset, sizeof(Bitangent), Bitangent);
-                    AttribOffset += AttribSize;
+                    FillVBO(3, 4, GL_FLOAT, AttribOffset, sizeof(Tangent), Tangent);
+                    AttribOffset += acc.count * sizeof(vec4f);
                 }
-            }
-            else if(AttribIdx == 3 && ValidMesh[3])
-            {
-                vec3f const *NormalPtr = (vec3f*)(&DataBuffer.data[NormalsOffset]);
-                vec4f const *TangentPtr = (vec4f*)(&DataBuffer.data[TangentsOffset]);
-
-                // For tangent, register .xyz as the tangents and use the .w for the handedness
-                vec3f *Tangent = (vec3f*)alloca(sizeof(vec3f)*VCount);
-                vec3f *Bitangent = (vec3f*)alloca(sizeof(vec3f)*VCount);
-                for(uint32 i = 0; i < VCount; ++i)
-                {
-                    vec4f const *T = TangentPtr + i;
-                    vec3f const *N = (NormalPtr + i);
-                    Tangent[i] = vec3f(T->x, T->y, T->z);
-                    Bitangent[i] = Cross(NormalPtr[i], Tangent[i]) * T->w;
-                }
-
-                FillVBO(3, AttribStride, GL_FLOAT, AttribOffset, AttribSize, Tangent);
-                AttribOffset += AttribSize;
-                FillVBO(4, AttribStride, GL_FLOAT, AttribOffset, AttribSize, Bitangent);
-                AttribOffset += AttribSize;
             }
 
             Attrib++;
