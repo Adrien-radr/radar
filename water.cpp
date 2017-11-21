@@ -429,7 +429,7 @@ void Initialization(game_memory *Memory, game_state *State, game_system *System,
     WaterSystem->IndexCount = IndexCount;
 }
 
-void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 Irrmap)
+void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 GGXLUT)
 {
     glUseProgram(WaterSystem->ProgramWater);
     glDisable(GL_CULL_FACE);
@@ -460,9 +460,9 @@ void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 
     real32 Interp = (State->WaterState+1) + State->WaterStateInterp;
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, Envmap);
+    glBindTexture(GL_TEXTURE_2D, GGXLUT);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, Irrmap);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, Envmap);
 
 
     int Repeat = 1;

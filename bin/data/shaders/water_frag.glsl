@@ -2,14 +2,15 @@
 
 #define PI     3.14159265358
 #define INV_PI 0.31830988618
+#define MAX_REFLECTION_LOD 4.0
 
 in vec3 v_position;
 in vec2 v_texcoord;
 in vec3 v_normal;
 in vec3 v_sundirection;
 
+uniform sampler2D GGXLUT;
 uniform samplerCube Skybox;
-uniform samplerCube IrradianceCubemap;
 
 uniform vec4 LightColor;
 uniform vec3 CameraPos;
@@ -22,7 +23,7 @@ const float SigmaA = 0.00055;
 const float SigmaS = 0.0000;
 const float SigmaT = SigmaA + SigmaS;
 const vec3 FogColor = vec3(0.20, 0.40, 0.70);
-const vec3 WaterColor = vec3(0.40, 0.60, 0.80);
+const vec3 WaterColor = vec3(0.05, 0.15, 0.30);
 const vec3 WaterCrestColor = vec3(0.80, 0.70, 0.90);
 const vec3 AmbWaterColor = vec3(0.16, 0.30, 0.40);
 const vec3 SSSColor = vec3(0, 0.1, 0.065);
@@ -38,9 +39,15 @@ const vec2 WindDirection = normalize(vec2(1,0));
 const vec2 WaveChopiness = vec2(0.81, 0.13);
 const vec2 WaveInvScale = vec2(0.15, 0.25);
 
-vec3 FresnelSchlick(float u, vec3 f0, float f90)
+
+vec3 FresnelSchlick(float u, vec3 f0)
 {
-    return f0 + (vec3(f90) - f0) * pow(1 - u, 5);
+    return f0 + (vec3(1.0) - f0) * pow(1 - u, 5);
+}
+
+vec3 FresnelSchlickRoughness(float u, vec3 f0, float roughness)
+{
+    return f0 + (max(vec3(1-roughness), f0) - f0) * pow(1 - u, 5);
 }
 
 float DistributionGGX(float NdotH, float roughness)
@@ -76,62 +83,50 @@ float GeometrySmith(float NdotV, float NdotL, float roughness)
     return ggx1 * ggx2;
 }
 
-float DisneyFrostbite(float NdotV, float NdotL, float LdotH, float linearRoughness)
-{
-    float eBias = mix(0.0, 0.5, linearRoughness);
-    float eFactor = mix(1.0, 1.0 / 1.51, linearRoughness);
-    float f90 = eBias + 2.0 * LdotH * LdotH * linearRoughness;
-    vec3 f0 = vec3(1);
-    float lightScatter = FresnelSchlick(NdotL, f0, f90).r;
-    float viewScatter = FresnelSchlick(NdotV, f0, f90).r;
-    return lightScatter * viewScatter * eFactor;
-}
-
 vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
 {
     vec3 V = -Rd;
     vec3 H = normalize(V + L);
     vec3 R = reflect(V, N);
     float NdotL = max(0.0, dot(N, L));
-    float NdotV = min(1, abs(dot(N, V)) + 1e-1);
+    float NdotV = max(0.0, min(1.0,1e-1+dot(N, V)));
     float NdotH = max(0.0, dot(N, H));
     float LdotH = max(0.0, dot(L, H));
+    float HdotV = max(0.0, min(1,dot(H, V)));
 
     vec3 Envmap = pow(texture(Skybox, -R).xyz, vec3(2.2));
-    vec3 Irradiance = pow(texture(IrradianceCubemap, -R).xyz, vec3(2.2));
+    vec3 Irradiance = textureLod(Skybox, N, MAX_REFLECTION_LOD).xyz;
     float spec = pow(NdotH, SpecularRoughness);
 
-    vec3 f0 = vec3(0.0001);
-    float roughness = 0.999991;
+    vec3 f0 = vec3(0.10);
+    float roughness = 0.1;
 
-    vec3 F = FresnelSchlick(LdotH, f0, 1);
+    vec3 F = FresnelSchlick(HdotV, f0);
     float G = GeometrySmith(NdotV, NdotL, roughness);
     float D = GeometrySchlickGGX(NdotH, roughness);
+    vec3 ks = F;
+    vec3 kd = vec3(1.0) - ks;
 
     vec3 light = vec3(0);
 
-    // Diffuse
-    #if 0
-    float ks = F;
-    float kd = 1 - ks;
-    float fake_kd = min(1, 1.5 - ks);
-    float fake_ks = 1 - fake_kd;
-    #endif
-
+    // Specular part
     vec3 nom = F*D*G;
-    float denom = (4.0 * NdotV * NdotL + 1e-4);
+    float denom = (4.0 * NdotV * NdotL + 1e-3);
+    vec3 Specular = nom / denom;
 
-    vec3 Specular = nom * NdotL * WaterCrestColor / denom;
-    //vec3 Diffuse = DisneyFrostbite(NdotV, NdotL, LdotH, 1.0-roughness) * WaterColor * NdotL / PI;
+    // Diffuse part
+    vec3 Diffuse = kd * AmbWaterColor / PI;
 
-    float ks = FresnelSchlick(min(1, abs(dot(N,V))+1e-1), f0, roughness).x;
-    float kd = 1.0 - ks;
-    vec3 ambient_diffuse = kd * Irradiance * WaterColor;
-    vec3 ambient_specular = (1-min(1, 1.3-ks)) * WaterCrestColor.xyz * FogColor.xyz;
-    //vec3 ambient_specular = min(1, 1.3-ks) * WaterCrestColor.xyz;
-    vec3 Ambient = ambient_specular + ambient_diffuse;
+    // Ambient
+    ks = FresnelSchlickRoughness(NdotV, f0, 0.5);
+    kd = vec3(1.0) - ks;
+    vec3 ambient_diffuse = Irradiance * WaterColor;
+    vec3 prefilteredColor = textureLod(Skybox, -R, roughness * MAX_REFLECTION_LOD).rgb;
+    vec2 brdfOffset = texture(GGXLUT, vec2(NdotV, roughness)).xy;
+    vec3 ambient_specular = prefilteredColor * (ks * brdfOffset.x + brdfOffset.y);
+    vec3 Ambient = kd * ambient_diffuse + ambient_specular;
 
-    light = Ambient + LightColor.xyz * (Specular);
+    light = Ambient + LightColor.xyz * NdotL * (Diffuse + Specular);
 
     //if(F > 0.0)
     //{
@@ -148,7 +143,7 @@ vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
         //light += F*D*G * NdotL / (4.0 * NdotV * NdotL + 1e-4) * FCol;
         //light += fake_kd * WaterColor;
         //light += fake_ks * WaterCrestColor.xyz;
-        light += kd * LightColor.xyz * SSSColor * pow(max(0.0, dot(V, -L)), 5)* NdotV * NdotV * NdotV;
+        //light += kd * LightColor.xyz * SSSColor * pow(max(0.0, dot(V, -L)), 5)* NdotV * NdotV * NdotV;
     #endif
     //}
     return light;

@@ -236,7 +236,7 @@ namespace context {
                         ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
 
                     Context->RenderResources.DefaultNormalTexture= 
-                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_diffuse.png", false, false, 1);
+                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_normal.png", false, false, 1);
                 }
                 else
                 {

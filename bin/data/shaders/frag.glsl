@@ -14,10 +14,10 @@ uniform float RoughnessMult;
 
 // In Order
 uniform sampler2D Albedo;
+uniform sampler2D NormalMap;
 uniform sampler2D MetallicRoughness; // x is metallic, y is roughness
 uniform sampler2D GGXLUT;
 uniform samplerCube Skybox;
-uniform samplerCube IrradianceCubemap;
 
 uniform vec4 LightColor;
 uniform vec3 CameraPos;
@@ -78,9 +78,29 @@ float DisneyFrostbite(float NdotV, float NdotL, float LdotH, float linearRoughne
     return lightScatter * viewScatter * eFactor;
 }
 
+void BasisFrisvad(vec3 n, out vec3 T, out vec3 BT)
+{
+    if(n.z < -0.9999999) // Handle the singularity
+    {
+        T = vec3( 0.0f, -1.0f, 0.0f);
+        BT = vec3(-1.0f,  0.0f, 0.0f);
+        return;
+    }
+    float a = 1.0f/(1.0f + n.z);
+    float b = -n.x*n.y*a;
+    T = vec3(1.0f - n.x*n.x*a, b, -n.x);
+    BT = vec3(b, 1.0f - n.y*n.y*a, -n.y);
+}
+
 void main()
 {
+    vec3 localNormal = texture(NormalMap, v_texcoord).xyz;
+    vec3 tN = normalize(2.0 * localNormal - vec3(1.0));
     vec3 N = normalize(v_normal);
+    vec3 T, BT;
+    BasisFrisvad(N, T, BT);
+    mat3 TBN = mat3(T, BT, N);
+    N = normalize(TBN * tN);
     vec3 L = normalize(v_sundirection);
     vec3 V = normalize(CameraPos - v_position);
     vec3 H = normalize(V + L);
@@ -91,9 +111,10 @@ void main()
     float metallic = min(1.0, MR.x * MetallicMult);
     float roughness = min(1.0, MR.y * RoughnessMult);
 
-    float NdotV = min(1, abs(dot(N, V)) + 1e-1);
-    float NdotL = max(0, dot(N, L));
-    float HdotV = max(0, dot(H, V));
+    //float NdotV = min(1, abs(dot(N, V)) + 1e-1);
+    float NdotV = min(1, max(0,dot(N, V)));
+    float NdotL = max(0, min(1,1e-3+dot(N, L)));
+    float HdotV = max(0, min(1,dot(H, V)));
     float NdotH = max(0, dot(N, H));
     float LdotH = max(0, dot(L, H));
 
@@ -119,10 +140,10 @@ void main()
     vec3 Diffuse = kd * albedo / PI;// * DisneyFrostbite(NdotV, NdotL, LdotH, 1 - roughness);
 
     // Ambient
-    ks = FresnelSchlickRoughness(min(1,abs(dot(N,V))+1e-1), f0, roughness);
+    ks = FresnelSchlickRoughness(NdotV, f0, roughness);
     kd = vec3(1.0) - ks;
     kd *= (1 - metallic);
-    vec3 irr_light = texture(IrradianceCubemap, N).xyz;
+    vec3 irr_light = textureLod(Skybox, N, MAX_REFLECTION_LOD).xyz;
     vec3 ambient_diffuse = irr_light * albedo;
 
     vec3 prefilteredColor = textureLod(Skybox, -R, roughness * MAX_REFLECTION_LOD).rgb;
