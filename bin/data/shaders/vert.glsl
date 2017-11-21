@@ -3,7 +3,8 @@
 layout(location=0) in vec3 in_position;
 layout(location=1) in vec2 in_texcoord;
 layout(location=2) in vec3 in_normal;
-layout(location=3) in vec4 in_tangent;
+layout(location=3) in vec3 in_tangent;
+layout(location=4) in vec3 in_bitangent;
 
 uniform mat4 ProjMatrix;
 uniform mat4 ViewMatrix;
@@ -16,6 +17,8 @@ out vec2 v_texcoord;
 out vec3 v_normal;
 out vec3 v_halfvector;
 out vec3 v_sundirection;
+out vec3 v_tangent;
+out vec3 v_bitangent;
 
 void main()
 {
@@ -27,6 +30,8 @@ void main()
     v_position = world_position.xyz;
     //v_halfvector = v_sundirection + normalize(-v_position);
     v_halfvector = normalize(v_sundirection);
+    v_tangent = in_tangent;
+    v_bitangent = in_bitangent;
 
     gl_Position = ProjMatrix * ViewMatrix * world_position;
 }

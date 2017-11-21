@@ -7,6 +7,8 @@ in vec2 v_texcoord;
 in vec3 v_normal;
 in vec3 v_halfvector;
 in vec3 v_sundirection;
+in vec3 v_tangent;
+in vec3 v_bitangent;
 
 uniform vec3  AlbedoMult;
 uniform float MetallicMult;
@@ -78,27 +80,15 @@ float DisneyFrostbite(float NdotV, float NdotL, float LdotH, float linearRoughne
     return lightScatter * viewScatter * eFactor;
 }
 
-void BasisFrisvad(vec3 n, out vec3 T, out vec3 BT)
-{
-    if(n.z < -0.9999999) // Handle the singularity
-    {
-        T = vec3( 0.0f, -1.0f, 0.0f);
-        BT = vec3(-1.0f,  0.0f, 0.0f);
-        return;
-    }
-    float a = 1.0f/(1.0f + n.z);
-    float b = -n.x*n.y*a;
-    T = vec3(1.0f - n.x*n.x*a, b, -n.x);
-    BT = vec3(b, 1.0f - n.y*n.y*a, -n.y);
-}
-
 void main()
 {
     vec3 localNormal = texture(NormalMap, v_texcoord).xyz;
     vec3 tN = normalize(2.0 * localNormal - vec3(1.0));
     vec3 N = normalize(v_normal);
-    vec3 T, BT;
-    BasisFrisvad(N, T, BT);
+    vec3 T = normalize(v_tangent);
+    vec3 BT = normalize(v_bitangent);
+    //vec3 T, BT;
+    //BasisFrisvad(N, T, BT);
     mat3 TBN = mat3(T, BT, N);
     N = normalize(TBN * tN);
     vec3 L = normalize(v_sundirection);

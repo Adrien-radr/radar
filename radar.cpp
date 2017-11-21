@@ -571,7 +571,7 @@ int RadarMain(int argc, char **argv)
             glBindFramebuffer(GL_FRAMEBUFFER, FPBackbuffer.FBO);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-#if 0 // NOTE - Model rendering test
+#if 1 // NOTE - Model rendering test
             {
                 glCullFace(GL_BACK);
                 glUseProgram(Program3D);
@@ -601,7 +601,7 @@ int RadarMain(int argc, char **argv)
                     glActiveTexture(GL_TEXTURE0);
                     glBindTexture(GL_TEXTURE_2D, Mat.AlbedoTexture);
                     glActiveTexture(GL_TEXTURE1);
-                    glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultNormalTexture);
+                    glBindTexture(GL_TEXTURE_2D, Mat.NormalTexture);
                     glActiveTexture(GL_TEXTURE2);
                     glBindTexture(GL_TEXTURE_2D, Mat.RoughnessMetallicTexture);
                     glActiveTexture(GL_TEXTURE3);
@@ -610,7 +610,7 @@ int RadarMain(int argc, char **argv)
                     glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
                     mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
                     Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                    ModelMatrix.FromTRS(vec3f(0), vec3f(0), vec3f(2));
+                    ModelMatrix.FromTRS(vec3f(0,3,-3), vec3f(0), vec3f(2));
                     SendMat4(Loc, ModelMatrix);
                     glDrawElements(GL_TRIANGLES, gltfCube.Mesh[i].IndexCount, gltfCube.Mesh[i].IndexType, 0);
                 }
@@ -792,7 +792,7 @@ int RadarMain(int argc, char **argv)
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             CheckGLError("FBO Bind");
 
-            //GLenum CurrWireframemode = context::SetWireframeMode(Context, GL_FILL);
+            GLenum CurrWireframemode = context::SetWireframeMode(Context, GL_FILL);
 
             // Draw the floatingpoint FBO to a screen quad
             glUseProgram(ProgramHDR);
@@ -819,7 +819,7 @@ int RadarMain(int argc, char **argv)
             MakeUI(Memory, Context, &Input);
             ui::Draw();
 
-            //context::SetWireframeMode(Context, CurrWireframemode);
+            context::SetWireframeMode(Context, CurrWireframemode);
 
             glfwSwapBuffers(Context->Window);
         }

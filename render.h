@@ -63,7 +63,7 @@ struct display_text
 struct mesh
 {
     uint32 VAO;
-    uint32 VBO[3]; // 0: indices, 1-? : data
+    uint32 VBO[5]; // 0: indices, 1-5 : position, normal, texcoords, tangent, bitangent
     uint32 IndexCount;
     uint32 IndexType;
 };
@@ -72,6 +72,7 @@ struct material
 {
     uint32 AlbedoTexture;
     uint32 RoughnessMetallicTexture;
+    uint32 NormalTexture;
 
     vec3f AlbedoMult;
     float RoughnessMult;

@@ -130,6 +130,9 @@
       },
       {
          "uri" : "Suzanne_MetallicRoughness.png"
+      },
+      {
+         "uri" : "Suzanne_Normal.png"
       }
    ],
    "materials" : [
@@ -141,6 +144,9 @@
             },
             "metallicRoughnessTexture" : {
                "index" : 1
+            },
+            "normalTexture" : {
+            	"index" : 2
             }
          }
       }
@@ -188,6 +194,10 @@
       {
          "sampler" : 0,
          "source" : 1
+      },
+      {
+         "sampler" : 0,
+         "source" : 2
       }
    ]
 }
