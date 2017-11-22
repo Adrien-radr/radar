@@ -1017,10 +1017,11 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs)
         vec3f(0, 0, 1)
     };
 
-    vec3f Tangent[24], Bitangent[24];
+    vec4f Tangent[24]; vec3f Dummy;
     for(uint32 i = 0; i < 24;++i)
     {
-        BasisFrisvad(Normal[i], Tangent[i], Bitangent[i]);
+        BasisFrisvad(Normal[i], *((vec3f*)&Tangent[i]), Dummy);
+        Tangent[i].w = 1.f;
     }
 
     uint32 Indices[36];
@@ -1041,13 +1042,12 @@ mesh MakeUnitCube(bool MakeAdditionalAttribs)
     Cube.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     if(MakeAdditionalAttribs)
     {
-        Cube.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal) + sizeof(Tangent) + sizeof(Bitangent), GL_STATIC_DRAW);
+        Cube.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal) + sizeof(Tangent), GL_STATIC_DRAW);
         size_t offset = 0;
         FillVBO(0, 3, GL_FLOAT, (offset+=0), sizeof(Position), Position);
         FillVBO(1, 2, GL_FLOAT, (offset+=sizeof(Position)), sizeof(Texcoord), Texcoord);
         FillVBO(2, 3, GL_FLOAT, (offset+=sizeof(Texcoord)), sizeof(Normal), Normal);
-        FillVBO(3, 3, GL_FLOAT, (offset+=sizeof(Normal)), sizeof(Tangent), Tangent);
-        FillVBO(4, 3, GL_FLOAT, (offset+=sizeof(Tangent)), sizeof(Bitangent), Bitangent);
+        FillVBO(3, 4, GL_FLOAT, (offset+=sizeof(Normal)), sizeof(Tangent), Tangent);
     }
     else
     {
@@ -1102,12 +1102,12 @@ mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint
     size_t NormalsSize = 4 * BaseSize * sizeof(vec3f);
     size_t TexcoordsSize = 4 * BaseSize * sizeof(vec2f);
     size_t IndicesSize = 6 * BaseSize * sizeof(uint32);
+    size_t TangentsSize = 4 * BaseSize * sizeof(vec4f);
 
     vec3f *Positions = (vec3f*)PushArenaData(&Memory->ScratchArena, PositionsSize);
     vec3f *Normals = (vec3f*)PushArenaData(&Memory->ScratchArena, NormalsSize);
     vec2f *Texcoords = (vec2f*)PushArenaData(&Memory->ScratchArena, TexcoordsSize);
-    vec3f *Tangents = (vec3f*)PushArenaData(&Memory->ScratchArena, PositionsSize);
-    vec3f *Bitangents = (vec3f*)PushArenaData(&Memory->ScratchArena, PositionsSize);
+    vec4f *Tangents = (vec4f*)PushArenaData(&Memory->ScratchArena, TangentsSize);
     uint32 *Indices = (uint32*)PushArenaData(&Memory->ScratchArena, IndicesSize);
 
     vec2i SubdivDim = Dimension / Subdivisions;
@@ -1124,10 +1124,10 @@ mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint
             Positions[Idx*4+2] = vec3f((i+1)*SubdivDim.x, 0.f, (j+1)*SubdivDim.y);
             Positions[Idx*4+3] = vec3f((i+1)*SubdivDim.x, 0.f, j*SubdivDim.y);
 
-            Normals[Idx*4+0] = vec3f(0,1,0); Tangents[Idx*4+0] = vec3f(1,0,0); Bitangents[Idx*4+0] = vec3f(0,0,1);
-            Normals[Idx*4+1] = vec3f(0,1,0); Tangents[Idx*4+1] = vec3f(1,0,0); Bitangents[Idx*4+1] = vec3f(0,0,1);
-            Normals[Idx*4+2] = vec3f(0,1,0); Tangents[Idx*4+2] = vec3f(1,0,0); Bitangents[Idx*4+2] = vec3f(0,0,1);
-            Normals[Idx*4+3] = vec3f(0,1,0); Tangents[Idx*4+3] = vec3f(1,0,0); Bitangents[Idx*4+3] = vec3f(0,0,1);
+            Normals[Idx*4+0] = vec3f(0,1,0); Tangents[Idx*4+0] = vec4f(1,0,0,1);
+            Normals[Idx*4+1] = vec3f(0,1,0); Tangents[Idx*4+1] = vec4f(1,0,0,1);
+            Normals[Idx*4+2] = vec3f(0,1,0); Tangents[Idx*4+2] = vec4f(1,0,0,1);
+            Normals[Idx*4+3] = vec3f(0,1,0); Tangents[Idx*4+3] = vec4f(1,0,0,1);
 
             Texcoords[Idx*4+0] = vec2f(0.f, TexMax.y);
             Texcoords[Idx*4+1] = vec2f(0.f, 0.f);
@@ -1148,13 +1148,12 @@ mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint
     Plane.VAO = MakeVertexArrayObject();
     Plane.VBO[0] = AddIBO(GL_STATIC_DRAW, IndicesSize, Indices);
     // Positions and Normals in the 1st VBO
-    Plane.VBO[1] = AddEmptyVBO(PositionsSize + NormalsSize + TexcoordsSize + 2*PositionsSize, Dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+    Plane.VBO[1] = AddEmptyVBO(PositionsSize + NormalsSize + TexcoordsSize + TangentsSize, Dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
     size_t offset = 0;
     FillVBO(0, 3, GL_FLOAT, 0, PositionsSize, Positions);
     FillVBO(1, 2, GL_FLOAT, (offset+=PositionsSize), TexcoordsSize, Texcoords);
     FillVBO(2, 3, GL_FLOAT, (offset+=TexcoordsSize), NormalsSize, Normals);
-    FillVBO(3, 3, GL_FLOAT, (offset+=NormalsSize), PositionsSize, Tangents);
-    FillVBO(4, 3, GL_FLOAT, (offset+=PositionsSize), PositionsSize, Bitangents);
+    FillVBO(3, 4, GL_FLOAT, (offset+=NormalsSize), TangentsSize, Tangents);
     glBindVertexArray(0);
 
     return Plane;
@@ -1192,14 +1191,12 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs, float TexScale)
 
     // Normals
     vec3f Normal[nVerts];
-    vec3f Tangent[nVerts];
-    vec3f Bitangent[nVerts];
+    vec4f Tangent[nVerts]; vec3f Dummy;
     for (uint32 i = 0; i < nVerts; ++i)
     {
         Normal[i] = Normalize(Position[i]);
-        //Tangent[i] = vec3f(1,0,0);
-        //Bitangent[i] = vec3f(0,1,0);
-        BasisFrisvad(Normal[i], Tangent[i], Bitangent[i]);
+        BasisFrisvad(Normal[i], *((vec3f*)&Tangent[i]), Dummy);
+        Tangent[i].w = 1.f;
     }
 
     // UVs
@@ -1259,13 +1256,12 @@ mesh MakeUnitSphere(bool MakeAdditionalAttribs, float TexScale)
     Sphere.VBO[0] = AddIBO(GL_STATIC_DRAW, sizeof(Indices), Indices);
     if(MakeAdditionalAttribs)
     {
-        Sphere.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal) + sizeof(Tangent) + sizeof(Bitangent), GL_STATIC_DRAW);
+        Sphere.VBO[1] = AddEmptyVBO(sizeof(Position) + sizeof(Texcoord) + sizeof(Normal) + sizeof(Tangent), GL_STATIC_DRAW);
         size_t offset = 0;
         FillVBO(0, 3, GL_FLOAT, 0, sizeof(Position), Position);
         FillVBO(1, 2, GL_FLOAT, (offset+=sizeof(Position)), sizeof(Texcoord), Texcoord);
         FillVBO(2, 3, GL_FLOAT, (offset+=sizeof(Texcoord)), sizeof(Normal), Normal);
-        FillVBO(3, 3, GL_FLOAT, (offset+=sizeof(Normal)), sizeof(Tangent), Tangent);
-        FillVBO(4, 3, GL_FLOAT, (offset+=sizeof(Tangent)), sizeof(Bitangent), Bitangent);
+        FillVBO(3, 4, GL_FLOAT, (offset+=sizeof(Normal)), sizeof(Tangent), Tangent);
     }
     else
     {
