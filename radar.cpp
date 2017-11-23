@@ -145,8 +145,9 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
     SendInt(glGetUniformLocation(Program3D, "NormalMap"), 1);
     SendInt(glGetUniformLocation(Program3D, "MetallicRoughness"), 2);
-    SendInt(glGetUniformLocation(Program3D, "GGXLUT"), 3);
-    SendInt(glGetUniformLocation(Program3D, "Skybox"), 4);
+    SendInt(glGetUniformLocation(Program3D, "Emissive"), 3);
+    SendInt(glGetUniformLocation(Program3D, "GGXLUT"), 4);
+    SendInt(glGetUniformLocation(Program3D, "Skybox"), 5);
     CheckGLError("Mesh Shader");
 
     context::RegisterShader3D(Context, Program3D);
@@ -377,7 +378,7 @@ int RadarMain(int argc, char **argv)
         uint32 const PBRModelsCount = 2;
         model PBRModels[PBRModelsCount];
         float rotation[PBRModelsCount] = { 0.f };
-        float translation[PBRModelsCount] = { 0.f , 10.f };
+        vec3f translation[PBRModelsCount] = { vec3f(-5.f, 0.f, 0.f) , vec3f(0,-1.98f,0) };
         int translationDir[PBRModelsCount] = { 1 };
         if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Context))
             return 1;
@@ -496,6 +497,7 @@ int RadarMain(int argc, char **argv)
             if(context::WindowResized(Context))
             {
                 // Resize FBO
+                printf("Remaking Floating Point Backbuffer\n");
                 DestroyFramebuffer(&FPBackbuffer);
                 FPBackbuffer = MakeFramebuffer(1, vec2i(Context->WindowWidth, Context->WindowHeight));
                 FramebufferAttachBuffer(&FPBackbuffer, 0, 4, true, true, true); // RGBA16F attachment
@@ -596,6 +598,7 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
+                uint32 EmissiveLoc = glGetUniformLocation(Program3D, "EmissiveMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
                 for(uint32  m = 0; m < PBRModelsCount; ++m)
@@ -606,6 +609,7 @@ int RadarMain(int argc, char **argv)
                         material const &Mat = Model->Material[Model->MaterialIdx[i]];
 
                         SendVec3(AlbedoLoc, Mat.AlbedoMult);
+                        SendVec3(EmissiveLoc, Mat.EmissiveMult);
                         SendFloat(MetallicLoc, Mat.MetallicMult);
                         SendFloat(RoughnessLoc, Mat.RoughnessMult);
                         glBindVertexArray(Model->Mesh[i].VAO);
@@ -616,24 +620,27 @@ int RadarMain(int argc, char **argv)
                         glActiveTexture(GL_TEXTURE2);
                         glBindTexture(GL_TEXTURE_2D, Mat.RoughnessMetallicTexture);
                         glActiveTexture(GL_TEXTURE3);
-                        glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                        glBindTexture(GL_TEXTURE_2D, Mat.EmissiveTexture);
                         glActiveTexture(GL_TEXTURE4);
+                        glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                        glActiveTexture(GL_TEXTURE5);
                         glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
                         mat4f ModelMatrix;
                         Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                        ModelMatrix.FromTRS(vec3f(0,3 + translation[m],-3), vec3f(0,rotation[m],0), vec3f(1));
+                        ModelMatrix.FromTRS(translation[m]+vec3f(0,3,-3), vec3f(0,rotation[m],0), vec3f(1));
+                        ModelMatrix = ModelMatrix * Model->Mesh[i].ModelMatrix;
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, Model->Mesh[i].IndexCount, Model->Mesh[i].IndexType, 0);
                     }
                 }
                 rotation[0] += M_PI * Input.dTimeFixed * 0.02f;
-                if(translation[0] > 1.f) translationDir[0] = -1;
-                if(translation[0] < -1.f) translationDir[0] = 1;
-                translation[0] += Input.dTimeFixed * translationDir[0] * 0.05f;
+                if(translation[0].y > 1.f) translationDir[0] = -1;
+                if(translation[0].y < -1.f) translationDir[0] = 1;
+                translation[0].y += Input.dTimeFixed * translationDir[0] * 0.05f;
             }
 #endif
 
-#if 0 // NOTE - CUBE DRAWING Test Put somewhere else
+#if 1 // NOTE - CUBE DRAWING Test Put somewhere else
             {
                 glUseProgram(Program3D);
                 {
@@ -650,22 +657,36 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
                 glBindVertexArray(Cube.VAO);
-                glBindTexture(GL_TEXTURE_2D, Texture1);
                 mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                for(uint32 i = 0; i < 5; ++i)
-                {
-                    ModelMatrix.FromTRS(CubePos[i], CubeRot[i], vec3f(1.f));
-                    SendMat4(Loc, ModelMatrix);
-                    CheckGLError("ModelMatrix");
-                    glDrawElements(GL_TRIANGLES, Cube.IndexCount, Cube.IndexType, 0);
-                }
+                uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
+                uint32 EmissiveLoc = glGetUniformLocation(Program3D, "EmissiveMult");
+                uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
+                uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
 
-                real32 hW = PlaneWidth/2.f;
-                ModelMatrix.FromTRS(vec3f(-hW, -7.f, -hW), vec3f(0), vec3f(1));
+                SendVec3(AlbedoLoc, vec3f(1));
+                SendVec3(EmissiveLoc, vec3f(1));
+                SendFloat(MetallicLoc, 0.1f);
+                SendFloat(RoughnessLoc, 0.9f);
+                glBindVertexArray(Cube.VAO);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
+                glActiveTexture(GL_TEXTURE2);
+                glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultNormalTexture);
+                glActiveTexture(GL_TEXTURE3);
+                glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultEmissiveTexture);
+                glActiveTexture(GL_TEXTURE4);
+                glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                glActiveTexture(GL_TEXTURE5);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+
+                float planesize = 20;
+                ModelMatrix.FromTRS(vec3f(-planesize/2.f-2,1,planesize/2.f+2), vec3f(0), vec3f(planesize,0.2f,planesize));
                 SendMat4(Loc, ModelMatrix);
-                glBindVertexArray(UnderPlane.VAO);
-                glDrawElements(GL_TRIANGLES, UnderPlane.IndexCount, UnderPlane.IndexType, 0);
+                CheckGLError("ModelMatrix");
+                glDrawElements(GL_TRIANGLES, Cube.IndexCount, Cube.IndexType, 0);
             }
 #endif
 
@@ -696,21 +717,25 @@ int RadarMain(int argc, char **argv)
                 glActiveTexture(GL_TEXTURE2);
                 glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
                 glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultEmissiveTexture);
                 glActiveTexture(GL_TEXTURE4);
+                glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                glActiveTexture(GL_TEXTURE5);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
 
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
+                uint32 EmissiveLoc = glGetUniformLocation(Program3D, "EmissiveMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
                 SendVec3(AlbedoLoc, vec3f(0.7, 0.7, 0.7));
+                SendVec3(EmissiveLoc, vec3f(1));
                 for(int j = 0; j < PBRCount; ++j)
                 {
                     SendFloat(MetallicLoc, (j)/(real32)PBRCount);
-                    for(int i = 0; i < 5; ++i)
+                    for(int i = 0; i < 9; ++i)
                     {
-                        SendFloat(RoughnessLoc, Clamp((i)/5.0, 0.05f, 1.f));
-                        ModelMatrix.FromTRS(vec3f(-3*(j+1), 3.0, 3*(i+1)), vec3f(0.f), vec3f(1.f));
+                        SendFloat(RoughnessLoc, Clamp((i)/9.0, 0.05f, 1.f));
+                        ModelMatrix.FromTRS(vec3f(-3*(j), 3.0, 3*(i+1)), vec3f(0.f), vec3f(1.f));
                         SendMat4(Loc, ModelMatrix);
                         glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
                     }
@@ -738,14 +763,16 @@ int RadarMain(int argc, char **argv)
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
 
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
+                uint32 EmissiveLoc = glGetUniformLocation(Program3D, "EmissiveMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
 
-                glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_2D, GGXLUT);
                 glActiveTexture(GL_TEXTURE4);
+                glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                glActiveTexture(GL_TEXTURE5);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
                 SendVec3(AlbedoLoc, vec3f(1));
+                SendVec3(EmissiveLoc, vec3f(1));
                 SendFloat(MetallicLoc, 1.0);
 
                 auto DrawSpheres = [&](int idx, uint32 albedo, uint32 mr, uint32 nrm)
@@ -756,7 +783,9 @@ int RadarMain(int argc, char **argv)
                     glBindTexture(GL_TEXTURE_2D, nrm);
                     glActiveTexture(GL_TEXTURE2);
                     glBindTexture(GL_TEXTURE_2D, mr);
-                    for(int i = 0; i < 5; ++ i)
+                    glActiveTexture(GL_TEXTURE3);
+                    glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultEmissiveTexture);
+                    for(int i = 0; i < 9; ++ i)
                     {
                         SendFloat(RoughnessLoc, 1.0 + 0.5 * i);
                         ModelMatrix.FromTRS(vec3f(-(PBRCount+idx) * 3.0, 3.0, 3.0*(i+1)), vec3f(0.f), vec3f(1.f));
@@ -764,12 +793,12 @@ int RadarMain(int argc, char **argv)
                         glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
                     }
                 };
-                DrawSpheres(1, *PBRTex0_Albedo, *PBRTex0_MetalRoughness, *PBRTex0_Normal);
-                DrawSpheres(2, *PBRTex1_Albedo, *PBRTex1_MetalRoughness, *PBRTex1_Normal);
-                DrawSpheres(3, *PBRTex2_Albedo, *PBRTex2_MetalRoughness, *PBRTex2_Normal);
-                DrawSpheres(4, *PBRTex3_Albedo, *PBRTex3_MetalRoughness, *PBRTex3_Normal);
-                DrawSpheres(5, *PBRTex4_Albedo, *PBRTex4_MetalRoughness, *PBRTex4_Normal);
-                DrawSpheres(6, *PBRTex5_Albedo, *PBRTex5_MetalRoughness, *PBRTex5_Normal);
+                DrawSpheres(0, *PBRTex0_Albedo, *PBRTex0_MetalRoughness, *PBRTex0_Normal);
+                DrawSpheres(1, *PBRTex1_Albedo, *PBRTex1_MetalRoughness, *PBRTex1_Normal);
+                DrawSpheres(2, *PBRTex2_Albedo, *PBRTex2_MetalRoughness, *PBRTex2_Normal);
+                DrawSpheres(3, *PBRTex3_Albedo, *PBRTex3_MetalRoughness, *PBRTex3_Normal);
+                DrawSpheres(4, *PBRTex4_Albedo, *PBRTex4_MetalRoughness, *PBRTex4_Normal);
+                DrawSpheres(5, *PBRTex5_Albedo, *PBRTex5_MetalRoughness, *PBRTex5_Normal);
 
                 CheckGLError("PBR draw");
 
@@ -828,7 +857,7 @@ int RadarMain(int argc, char **argv)
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
             ui::BeginPanel(&id2, "Texture Viewer", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
-            ui::MakeImage(&imgscale, PBRModels[1].Material[PBRModels[1].MaterialIdx[0]].NormalTexture, &img_texoffset, vec2i(300, 300), false);
+            ui::MakeImage(&imgscale, GGXLUT, &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
 

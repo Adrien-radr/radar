@@ -66,6 +66,7 @@ struct mesh
     uint32 VBO[5]; // 0: indices, 1-5 : position, normal, texcoords, tangent, bitangent
     uint32 IndexCount;
     uint32 IndexType;
+    mat4f  ModelMatrix;
 };
 
 struct material
@@ -73,8 +74,10 @@ struct material
     uint32 AlbedoTexture;
     uint32 RoughnessMetallicTexture;
     uint32 NormalTexture;
+    uint32 EmissiveTexture;
 
     vec3f AlbedoMult;
+    vec3f EmissiveMult;
     float RoughnessMult;
     float MetallicMult;
 };
@@ -114,6 +117,7 @@ struct render_resources
     resource_helper *RH;
     uint32 *DefaultDiffuseTexture;
     uint32 *DefaultNormalTexture;
+    uint32 *DefaultEmissiveTexture;
 
     resource_store Images;
     resource_store Textures;

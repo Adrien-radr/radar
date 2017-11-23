@@ -153,12 +153,26 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
                 DstMtl.NormalTexture = *Context->RenderResources.DefaultNormalTexture;
             }
 
+            auto EmissiveTexIdx = SrcMtl.values.find("emissiveTexture");
+            if(EmissiveTexIdx != SrcMtl.values.end())
+            {
+                int TextureIndex = (int)EmissiveTexIdx->second.json_double_value.at("index");
+                const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
+                const Sampler &spl = Mdl.samplers[Mdl.textures[TextureIndex].sampler];
+                DstMtl.EmissiveTexture = Make2DTexture((void*)&img.image[0], img.width, img.height, img.component,
+                        false, false, Context->GameConfig->AnisotropicFiltering, spl.magFilter, spl.minFilter, spl.wrapS, spl.wrapT);
+            }
+            else
+            {
+                DstMtl.EmissiveTexture = *Context->RenderResources.DefaultEmissiveTexture;
+            }
+
             auto AlbedoMultIdx = SrcMtl.values.find("albedoFactor");
             if(AlbedoMultIdx != SrcMtl.values.end())
             {
                 DstMtl.AlbedoMult = vec3f(AlbedoMultIdx->second.number_array[0],
-                        AlbedoMultIdx->second.number_array[1],
-                        AlbedoMultIdx->second.number_array[2]);
+                                          AlbedoMultIdx->second.number_array[1],
+                                          AlbedoMultIdx->second.number_array[2]);
             }
             else
             {
@@ -183,6 +197,18 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
             else
             {
                 DstMtl.MetallicMult = 1.f;
+            }
+
+            auto EmissiveMultIdx = SrcMtl.values.find("emissiveFactor");
+            if(EmissiveMultIdx != SrcMtl.values.end())
+            {
+                DstMtl.EmissiveMult = vec3f(EmissiveMultIdx->second.number_array[0],
+                                            EmissiveMultIdx->second.number_array[1],
+                                            EmissiveMultIdx->second.number_array[2]);
+            }
+            else
+            {
+                DstMtl.EmissiveMult = vec3f(1.f);
             }
         }
     }
@@ -313,6 +339,45 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
         }
 
         ++iter;
+    }
+
+    // Retrieve mesh relative positions
+    for(auto const &SrcNode : Mdl.nodes)
+    {
+        int DstMeshIdx = SrcNode.mesh;
+        if(DstMeshIdx < 0) continue;
+        // TODO - handle children group
+
+        mesh &DstMesh = Model->Mesh[DstMeshIdx];
+        DstMesh.ModelMatrix.Identity();
+
+        vec3f Translation(0), Rotation(0), Scale(1);
+
+        if(SrcNode.rotation.size())
+        {
+            Rotation = vec3f(SrcNode.rotation[0], SrcNode.rotation[1], SrcNode.rotation[2]);
+        }
+        if(SrcNode.translation.size())
+        {
+            Translation = vec3f(SrcNode.translation[0], SrcNode.translation[1], SrcNode.translation[2]);
+        }
+        if(SrcNode.scale.size())
+        {
+            Scale = vec3f(SrcNode.scale[0], SrcNode.scale[1], SrcNode.scale[2]);
+        }
+
+        if(SrcNode.matrix.size())
+        {
+            std::vector<double> const &sm = SrcNode.matrix;
+            DstMesh.ModelMatrix = mat4f(sm[0], sm[1], sm[2], sm[3],
+                                        sm[4], sm[5], sm[6], sm[7],
+                                        sm[8], sm[9], sm[10], sm[11],
+                                        sm[12], sm[13], sm[14], sm[15]);
+        }
+        else
+        {
+            DstMesh.ModelMatrix.FromTRS(Translation, Rotation, Scale);
+        }
     }
 
 

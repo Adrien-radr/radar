@@ -11,6 +11,7 @@ in vec3 v_tangent;
 in vec3 v_bitangent;
 
 uniform vec3  AlbedoMult;
+uniform vec3  EmissiveMult;
 uniform float MetallicMult;
 uniform float RoughnessMult;
 
@@ -18,6 +19,7 @@ uniform float RoughnessMult;
 uniform sampler2D Albedo;
 uniform sampler2D NormalMap;
 uniform sampler2D MetallicRoughness; // x is metallic, y is roughness
+uniform sampler2D Emissive;
 uniform sampler2D GGXLUT;
 uniform samplerCube Skybox;
 
@@ -96,6 +98,7 @@ void main()
     vec3 H = normalize(V + L);
     vec3 R = reflect(V, N);
 
+    vec3 emissive = pow(texture(Emissive, v_texcoord).xyz, vec3(2.2)) * EmissiveMult;
     vec3 albedo = pow(texture(Albedo, v_texcoord).xyz, vec3(2.2)) * AlbedoMult;
     vec2 MR = texture(MetallicRoughness, v_texcoord).xy;
     float metallic = min(1.0, MR.x * MetallicMult);
@@ -142,8 +145,7 @@ void main()
 
     vec3 Ambient = kd * ambient_diffuse + ambient_specular;
 
-    vec3 color = Ambient + LightColor.xyz * NdotL * (Diffuse + Specular);
+    vec3 color = emissive + Ambient + LightColor.xyz * NdotL * (Diffuse + Specular);
 
     frag_color = vec4(color, 1.0);
-    //frag_color = vec4(abs(normalize(N)), 1.0);
 }

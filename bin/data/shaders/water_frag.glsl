@@ -19,14 +19,14 @@ uniform float Time;
 out vec4 frag_color;
 
 // TODO - Constants, parameterize this
-const float SigmaA = 0.00055;
+const float SigmaA = 0.00025;
 const float SigmaS = 0.0000;
 const float SigmaT = SigmaA + SigmaS;
-const vec3 FogColor = vec3(0.20, 0.40, 0.70);
-const vec3 WaterColor = vec3(0.05, 0.15, 0.30);
-const vec3 WaterCrestColor = vec3(0.80, 0.70, 0.90);
-const vec3 AmbWaterColor = vec3(0.16, 0.30, 0.40);
-const vec3 SSSColor = vec3(0, 0.1, 0.065);
+const vec3 FogColor = vec3(0.10, 0.17, 0.35);
+const vec3 WaterColor = vec3(0.01, 0.03, 0.06);
+const vec3 WaterCrestColor = vec3(1);//vec3(0.80, 0.70, 0.90);
+const vec3 AmbWaterColor = vec3(0.01,0.05,0.2);//vec3(0.16, 0.30, 0.40);
+const vec3 SSSColor = vec3(0, 0.40, 0.260);
 const float SeaHeight = -10.0;
 const float DiffusePart = 0.05;
 const float SpecularPart = 4.0;
@@ -94,14 +94,13 @@ vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
     float LdotH = max(0.0, dot(L, H));
     float HdotV = max(0.0, min(1,dot(H, V)));
 
-    vec3 Envmap = pow(texture(Skybox, -R).xyz, vec3(2.2));
     vec3 Irradiance = textureLod(Skybox, N, MAX_REFLECTION_LOD).xyz;
     float spec = pow(NdotH, SpecularRoughness);
 
-    vec3 f0 = vec3(0.10);
+    vec3 f0 = vec3(0.01);
     float roughness = 0.1;
 
-    vec3 F = FresnelSchlick(HdotV, f0);
+    vec3 F = FresnelSchlickRoughness(HdotV, f0, roughness);
     float G = GeometrySmith(NdotV, NdotL, roughness);
     float D = GeometrySchlickGGX(NdotH, roughness);
     vec3 ks = F;
@@ -115,10 +114,11 @@ vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
     vec3 Specular = nom / denom;
 
     // Diffuse part
+    vec3 SSS = kd * SSSColor * max(0.0, dot(V, -L)) * NdotV * NdotV * max(0.0, 0.5 - max(0.0, V.y)) / PI;
     vec3 Diffuse = kd * AmbWaterColor / PI;
 
     // Ambient
-    ks = FresnelSchlickRoughness(NdotV, f0, 0.5);
+    ks = FresnelSchlickRoughness(NdotV, f0, 1.0);
     kd = vec3(1.0) - ks;
     vec3 ambient_diffuse = Irradiance * WaterColor;
     vec3 prefilteredColor = textureLod(Skybox, -R, roughness * MAX_REFLECTION_LOD).rgb;
@@ -126,26 +126,12 @@ vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
     vec3 ambient_specular = prefilteredColor * (ks * brdfOffset.x + brdfOffset.y);
     vec3 Ambient = kd * ambient_diffuse + ambient_specular;
 
-    light = Ambient + LightColor.xyz * NdotL * (Diffuse + Specular);
+    light = Ambient + (Diffuse * NdotL + SSS)  * LightColor.xyz;// + LightColor.xyz * NdotL * (Diffuse + Specular);
 
-    //if(F > 0.0)
-    //{
-    #if 0
-        vec3 env_light = mix(Irradiance, Envmap, 0.07 * exp(-water_dist * 0.001));//0.085);
-        light += F*G*D * NdotL / (4.0 * NdotV * NdotL + 1e-4) * env_light * FCol;
-        light += spec * SpecularPart * kd * LightColor.xyz;
-
-        // fake SSS
-        light += kd * SSSColor * NdotV * NdotV * NdotV * pow(max(0.0, dot(V, -L)), 5) * max(0.0, 0.5 - max(0.0, dot(V, vec3(0, 1, 0))));
-        light += kd * 0.04 * AmbWaterColor;
-    #else
 
         //light += F*D*G * NdotL / (4.0 * NdotV * NdotL + 1e-4) * FCol;
         //light += fake_kd * WaterColor;
         //light += fake_ks * WaterCrestColor.xyz;
-        //light += kd * LightColor.xyz * SSSColor * pow(max(0.0, dot(V, -L)), 5)* NdotV * NdotV * NdotV;
-    #endif
-    //}
     return light;
 }
 

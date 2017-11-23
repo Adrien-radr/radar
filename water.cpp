@@ -465,7 +465,7 @@ void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 
     glBindTexture(GL_TEXTURE_CUBE_MAP, Envmap);
 
 
-    int Repeat = 1;
+    int Repeat = 15;
     int Middle = (Repeat-1)/2;
     for(int j = 0; j < Repeat; ++j)
     {

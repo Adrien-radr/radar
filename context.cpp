@@ -237,6 +237,9 @@ namespace context {
 
                     Context->RenderResources.DefaultNormalTexture= 
                         ResourceLoad2DTexture(&Context->RenderResources, "data/default_normal.png", false, false, 1);
+                    
+                    Context->RenderResources.DefaultEmissiveTexture =
+                        ResourceLoad2DTexture(&Context->RenderResources, "data/default_emissive.png", false, false, 1);
                 }
                 else
                 {
