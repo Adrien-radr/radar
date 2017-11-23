@@ -337,7 +337,7 @@ void Update(game_state *State, water_system *WaterSystem, game_input *Input)
     UpdateWaterMesh(WaterSystem);
 }
 
-void Initialization(game_memory *Memory, game_state *State, game_system *System, uint32 BeaufortState)
+void Init(game_memory *Memory, game_state *State, game_system *System, uint32 BeaufortState)
 {
     int N = water_system::WaterN;
     int NPlus1 = N+1;

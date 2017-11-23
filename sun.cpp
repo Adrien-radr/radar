@@ -147,10 +147,9 @@ void MovePlayer(game_state *State, game_input *Input)
     if(KEY_DOWN(Input->KeyR)) CameraMove += Camera.Up;
     if(KEY_DOWN(Input->KeyF)) CameraMove -= Camera.Up;
 
-    if(KEY_HIT(Input->KeyLShift))      Camera.SpeedMode += 1;
-    else if(KEY_UP(Input->KeyLShift))  Camera.SpeedMode -= 1;
-    if(KEY_HIT(Input->KeyLCtrl))       Camera.SpeedMode -= 1;
-    else if(KEY_UP(Input->KeyLCtrl))   Camera.SpeedMode += 1;
+    if(KEY_DOWN(Input->KeyLShift))      Camera.SpeedMode = 1;
+    else if(KEY_DOWN(Input->KeyLCtrl))  Camera.SpeedMode = -1;
+    else                                Camera.SpeedMode = 0;
 
     Normalize(CameraMove);
     real32 SpeedMult = Camera.SpeedMode ? (Camera.SpeedMode > 0 ? Camera.SpeedMult : 1.0f / Camera.SpeedMult) : 1.0f;

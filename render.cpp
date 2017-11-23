@@ -45,7 +45,7 @@ void *ResourceCheckExist(render_resources *RenderResources, render_resource_type
     {
         for(uint32 i = 0; i < Store->Keys.size(); ++i)
         {
-            if(!strncmp(Store->Keys[i], Filename, MAX_PATH))
+            if(!strncmp(Store->Keys[i].c_str(), Filename, MAX_PATH))
             {
                 LogDebug("Found %s, returning it", Filename);
                 return Store->Values[i];
@@ -63,12 +63,13 @@ void ResourceStore(render_resources *RenderResources, render_resource_type Type,
     resource_store *Store = GetStore(RenderResources, Type);
     if(Store)
     {
-        LogDebug("Storing %s [%llu]", Filename, (uint64)Resource);
-        Store->Keys.push_back((char*)Filename);
+        LogDebug("Storing %s [%llu]", Filename, (Type == RESOURCE_IMAGE || Type == RESOURCE_TEXTURE) ? (uint64)*((uint32*)Resource) : (uint64)Resource);
+        Store->Keys.push_back(std::string(Filename));
         Store->Values.push_back(Resource);
     }
 }
 
+void DestroyImage(image *Image);
 void ResourceFree(render_resources *RenderResources)
 {
     resource_store *Store;
@@ -76,7 +77,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Images;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogDebug("Destroying image %s", Store->Keys[i]);
+            LogDebug("Destroying image %s", Store->Keys[i].c_str());
             DestroyImage((image*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -86,7 +87,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Fonts;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogDebug("Destroying font %s", Store->Keys[i]);
+            LogDebug("Destroying font %s", Store->Keys[i].c_str());
         }
         Store->Values.clear();
         Store->Keys.clear();
@@ -95,7 +96,7 @@ void ResourceFree(render_resources *RenderResources)
         Store = &RenderResources->Textures;
         for(uint32 i = 0; i < Store->Values.size(); ++i)
         {
-            LogDebug("Destroying texture %s", Store->Keys[i]);
+            LogDebug("Destroying texture %s", Store->Keys[i].c_str());
             glDeleteTextures(1, (uint32*)Store->Values[i]);
         }
         Store->Values.clear();
@@ -320,11 +321,16 @@ static GLuint FBOAttachments[MAX_FBO_ATTACHMENTS] =
 
 void DestroyFramebuffer(frame_buffer *FB)
 {
-    glDeleteTextures(MAX_FBO_ATTACHMENTS, FB->BufferIDs);
-    glDeleteRenderbuffers(1, &FB->DepthBufferID);
-    glDeleteFramebuffers(1, &FB->FBO);
-    FB->Size = vec2i(0);
-    FB->FBO = 0;
+    if(FB->FBO > 0)
+    {
+        glDeleteTextures(FB->NumAttachments, FB->BufferIDs);
+        glDeleteRenderbuffers(1, &FB->DepthBufferID);
+        FB->DepthBufferID = 0;
+        glDeleteFramebuffers(1, &FB->FBO);
+        FB->FBO = 0;
+        FB->Size = vec2i(0);
+        FB->NumAttachments = 0;
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

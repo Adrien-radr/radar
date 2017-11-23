@@ -3,10 +3,10 @@
 #define ACCURATE_GAMMA
 
 #ifndef FXAA_REDUCE_MIN
-    #define FXAA_REDUCE_MIN   (1.0/ 4.0)
+    #define FXAA_REDUCE_MIN   (1.0/ 32.0)
 #endif
 #ifndef FXAA_REDUCE_MUL
-    #define FXAA_REDUCE_MUL   (1.0 / 4.0)
+    #define FXAA_REDUCE_MUL   (1.0 / 2.0)
 #endif
 #ifndef FXAA_SPAN_MAX
     #define FXAA_SPAN_MAX     8.0

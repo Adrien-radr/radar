@@ -145,4 +145,5 @@ void main()
     vec3 color = Ambient + LightColor.xyz * NdotL * (Diffuse + Specular);
 
     frag_color = vec4(color, 1.0);
+    //frag_color = vec4(abs(normalize(N)), 1.0);
 }

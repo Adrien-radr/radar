@@ -191,7 +191,7 @@ void InitializeFromGame(game_memory *Memory)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
-    Water::Initialization(Memory, State, System, State->WaterState);
+    Water::Init(Memory, State, System, State->WaterState);
 
     water_system *WaterSystem = System->WaterSystem;
     WaterSystem->VAO = MakeVertexArrayObject();
@@ -374,6 +374,16 @@ int RadarMain(int argc, char **argv)
         }
 #endif
 
+        uint32 const PBRModelsCount = 2;
+        model PBRModels[PBRModelsCount];
+        float rotation[PBRModelsCount] = { 0.f };
+        float translation[PBRModelsCount] = { 0.f , 10.f };
+        int translationDir[PBRModelsCount] = { 1 };
+        if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Context))
+            return 1;
+        if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Context))
+            return 1;
+
         // Texture Test
         //image *Image = ResourceLoadImage(&Context.RenderResources, "data/crate1_diffuse.png", false);
         uint32 *Texture1 = ResourceLoad2DTexture(&Context->RenderResources, "data/crate1_diffuse.png",
@@ -448,17 +458,15 @@ int RadarMain(int argc, char **argv)
 
         uint32 GGXLUT = PrecomputeGGXLUT(&Context->RenderResources, 512);
 
-        model gltfCube = {};
         mesh defCube = MakeUnitCube();
-        //if(!ResourceLoadGLTFModel(&gltfCube, "data/gltftest/PBRSpheres/MetalRoughSpheres.gltf", &Context))
-        if(!ResourceLoadGLTFModel(&Context->RenderResources, &gltfCube, "data/gltftest/suzanne/Suzanne.gltf", Context))
-            return 1;
+
+
 
         bool LastDisableMouse = false;
         int LastMouseX = 0, LastMouseY = 0;
 
         mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
-        frame_buffer FPBackbuffer;
+        frame_buffer FPBackbuffer = {};
 
         real64 TimeCounter = 0.0;
 
@@ -572,9 +580,6 @@ int RadarMain(int argc, char **argv)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 #if 1 // NOTE - Model rendering test
-                static float rotation = 0.f;
-                static float translation = 0.f;
-                static int translationDir = 1;
             {
                 glCullFace(GL_BACK);
                 glUseProgram(Program3D);
@@ -593,34 +598,38 @@ int RadarMain(int argc, char **argv)
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
                 uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
                 uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-                for(uint32 i = 0; i < gltfCube.Mesh.size(); ++i)
+                for(uint32  m = 0; m < PBRModelsCount; ++m)
                 {
-                    material const &Mat = gltfCube.Material[gltfCube.MaterialIdx[i]];
+                    model *Model = &PBRModels[m];
+                    for(uint32 i = 0; i < Model->Mesh.size(); ++i)
+                    {
+                        material const &Mat = Model->Material[Model->MaterialIdx[i]];
 
-                    SendVec3(AlbedoLoc, Mat.AlbedoMult);
-                    SendFloat(MetallicLoc, Mat.MetallicMult);
-                    SendFloat(RoughnessLoc, Mat.RoughnessMult);
-                    glBindVertexArray(gltfCube.Mesh[i].VAO);
-                    glActiveTexture(GL_TEXTURE0);
-                    glBindTexture(GL_TEXTURE_2D, Mat.AlbedoTexture);
-                    glActiveTexture(GL_TEXTURE1);
-                    glBindTexture(GL_TEXTURE_2D, Mat.NormalTexture);
-                    glActiveTexture(GL_TEXTURE2);
-                    glBindTexture(GL_TEXTURE_2D, Mat.RoughnessMetallicTexture);
-                    glActiveTexture(GL_TEXTURE3);
-                    glBindTexture(GL_TEXTURE_2D, GGXLUT);
-                    glActiveTexture(GL_TEXTURE4);
-                    glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
-                    mat4f ModelMatrix;
-                    Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                    ModelMatrix.FromTRS(vec3f(0,3 + translation,-3), vec3f(0,rotation,0), vec3f(2));
-                    SendMat4(Loc, ModelMatrix);
-                    glDrawElements(GL_TRIANGLES, gltfCube.Mesh[i].IndexCount, gltfCube.Mesh[i].IndexType, 0);
+                        SendVec3(AlbedoLoc, Mat.AlbedoMult);
+                        SendFloat(MetallicLoc, Mat.MetallicMult);
+                        SendFloat(RoughnessLoc, Mat.RoughnessMult);
+                        glBindVertexArray(Model->Mesh[i].VAO);
+                        glActiveTexture(GL_TEXTURE0);
+                        glBindTexture(GL_TEXTURE_2D, Mat.AlbedoTexture);
+                        glActiveTexture(GL_TEXTURE1);
+                        glBindTexture(GL_TEXTURE_2D, Mat.NormalTexture);
+                        glActiveTexture(GL_TEXTURE2);
+                        glBindTexture(GL_TEXTURE_2D, Mat.RoughnessMetallicTexture);
+                        glActiveTexture(GL_TEXTURE3);
+                        glBindTexture(GL_TEXTURE_2D, GGXLUT);
+                        glActiveTexture(GL_TEXTURE4);
+                        glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+                        mat4f ModelMatrix;
+                        Loc = glGetUniformLocation(Program3D, "ModelMatrix");
+                        ModelMatrix.FromTRS(vec3f(0,3 + translation[m],-3), vec3f(0,rotation[m],0), vec3f(1));
+                        SendMat4(Loc, ModelMatrix);
+                        glDrawElements(GL_TRIANGLES, Model->Mesh[i].IndexCount, Model->Mesh[i].IndexType, 0);
+                    }
                 }
-                rotation += M_PI * Input.dTimeFixed * 0.02f;
-                if(translation > 1.f) translationDir = -1;
-                if(translation < -1.f) translationDir = 1;
-                translation += Input.dTimeFixed * translationDir * 0.05f;
+                rotation[0] += M_PI * Input.dTimeFixed * 0.02f;
+                if(translation[0] > 1.f) translationDir[0] = -1;
+                if(translation[0] < -1.f) translationDir[0] = 1;
+                translation[0] += Input.dTimeFixed * translationDir[0] * 0.05f;
             }
 #endif
 
@@ -819,7 +828,7 @@ int RadarMain(int argc, char **argv)
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
             ui::BeginPanel(&id2, "Texture Viewer", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
-            ui::MakeImage(&imgscale, GGXLUT, &img_texoffset, vec2i(300, 300), false);
+            ui::MakeImage(&imgscale, PBRModels[1].Material[PBRModels[1].MaterialIdx[0]].NormalTexture, &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
 

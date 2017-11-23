@@ -24,6 +24,7 @@ SRCS= \
 	sound.cpp \
 	ui.cpp \
 	water.cpp \
+	atmosphere.cpp \
 	radar.cpp
 OBJ_DIR=obj/
 INCLUDES=radar.h

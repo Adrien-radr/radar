@@ -105,7 +105,7 @@ enum render_resource_type
 
 struct resource_store
 {
-    std::vector<char*> Keys;
+    std::vector<std::string> Keys;
     std::vector<void*> Values;
 };
 
@@ -127,7 +127,6 @@ void ResourceStore(render_resources *RenderResources, render_resource_type Type,
 void ResourceFree(render_resources *RenderResources);
 image *ResourceLoadImage(render_resources *RenderResources, path const Filename, bool IsFloat, bool FlipY = true,
                          int32 ForceNumChannel = 0);
-void DestroyImage(image *Image);
 font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 PixelHeight, int Char0 = 32, int CharN = 127);
 uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
                               uint32 AnisotropicLevel, int32 ForceNumChannel = 0);

@@ -68,7 +68,7 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
     bool Ret = Loader.LoadASCIIFromFile(&Mdl, &LoadErr, Filepath);
     if(!LoadErr.empty())
     {
-        printf("Error loading glTF model %s\n", Filepath);
+        printf("Error loading glTF model %s : %s\n", Filepath, LoadErr.c_str());
         return false;
     }
 
@@ -102,6 +102,7 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
         { // NOTE - Default Magenta color for error
             DstMtl.AlbedoTexture = *Context->RenderResources.DefaultDiffuseTexture;
             DstMtl.RoughnessMetallicTexture = *Context->RenderResources.DefaultDiffuseTexture;
+            DstMtl.NormalTexture = *Context->RenderResources.DefaultNormalTexture;
             DstMtl.AlbedoMult = vec3f(1,0,1); // Magenta error color
             DstMtl.RoughnessMult = 1.f;
             DstMtl.MetallicMult = 0.f;
@@ -141,7 +142,6 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
             auto NormalTexIdx = SrcMtl.values.find("normalTexture");
             if(NormalTexIdx != SrcMtl.values.end())
             {
-                // TODO
                 int TextureIndex = (int)NormalTexIdx->second.json_double_value.at("index");
                 const Image &img = Mdl.images[Mdl.textures[TextureIndex].source];
                 const Sampler &spl = Mdl.samplers[Mdl.textures[TextureIndex].sampler];
@@ -153,7 +153,7 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
                 DstMtl.NormalTexture = *Context->RenderResources.DefaultNormalTexture;
             }
 
-            auto AlbedoMultIdx = SrcMtl.values.find("roughnessFactor");
+            auto AlbedoMultIdx = SrcMtl.values.find("albedoFactor");
             if(AlbedoMultIdx != SrcMtl.values.end())
             {
                 DstMtl.AlbedoMult = vec3f(AlbedoMultIdx->second.number_array[0],
@@ -289,20 +289,23 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
 
                 if(AttribIdx == 2 && !ValidMesh[3])
                 { // We have normals but no tangents, programatically compute them
+                    printf("No tangents, generating..\n");
                     real32 *NormalPtr = (real32*)(&DataBuffer.data[0] + acc.byteOffset + bv.byteOffset);
 
                     // Generate tangents ourselves
-                    vec4f *Tangent = (vec4f*)alloca(sizeof(vec4f)*acc.count);
+                    uint32 TangentSize = sizeof(vec4f) * acc.count;
+                    vec4f *Tangent = (vec4f*)alloca(TangentSize);
                     vec3f Dummy;
 
                     for(uint32 i = 0; i < VCount; ++i)
                     {
                         vec3f *N = (vec3f*)(NormalPtr + i * 3);
+                        printf("%f %f %f\n", N->x, N->y, N->z);
                         BasisFrisvad(*N, *((vec3f*)&Tangent[i]), Dummy);
                         Tangent[i].w = 1.f;
                     }
-                    FillVBO(3, 4, GL_FLOAT, AttribOffset, sizeof(Tangent), Tangent);
-                    AttribOffset += acc.count * sizeof(vec4f);
+                    FillVBO(3, 4, GL_FLOAT, AttribOffset, TangentSize, Tangent);
+                    AttribOffset += TangentSize;
                 }
             }
 
