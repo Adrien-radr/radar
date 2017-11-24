@@ -203,6 +203,22 @@ namespace Atmosphere
                CIE_2_DEG_COLOR_MATCHING_FUNCTIONS[4 * (Row + 1) + Col] * u;
     }
 
+    static real32 Interpolate(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Wavelength)
+    {
+        if(Wavelength < Wavelengths[0])
+            return Wavelengths[0];
+
+        for(int i = 0; i < N; ++i)
+        {
+            if(Wavelength < Wavelengths[i+1])
+            {
+                real32 u = (Wavelength - Wavelengths[i]) / (Wavelengths[i+1] - Wavelengths[i]);
+                return WavelengthFunctions[i] * (1.f - u) + WavelengthFunctions[i+1] * u;
+            }
+        }
+        return WavelengthFunctions[N-1];
+    }
+
     vec3f ConvertSpectrumToSRGB(real32 *Wavelengths, real32 *Spectrum, int N)
     {
         vec3f xyz(0), SRGB(0);
@@ -210,7 +226,7 @@ namespace Atmosphere
         int const dLambda = 1;
         for(int lambda = LAMBDA_MIN; lambda < LAMBDA_MAX; lambda += dLambda)
         {
-            real32 Val = Interpolate(Wavelengths, Spectrum, lambda);
+            real32 Val = Interpolate(Wavelengths, Spectrum, N, lambda);
             xyz.x += CieColorMatchingFunctionTableValue(lambda, 1) * Val;
             xyz.y += CieColorMatchingFunctionTableValue(lambda, 2) * Val;
             xyz.z += CieColorMatchingFunctionTableValue(lambda, 3) * Val;

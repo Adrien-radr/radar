@@ -1510,6 +1510,29 @@ int rectangle_equal_size(const rectangle a, const rectangle b) {
 
 #undef INLINE
 */
+struct quaternion
+{
+    float x, y, z, w;
+};
+
+vec3f QuaternionToEulerAngle(quaternion const &Q)
+{
+    vec3f R;
+    float sinRoll = 2.f * (Q.w * Q.x + Q.y * Q.z);
+    float cosRoll = 1.f - 2.f * (Q.x * Q.x + Q.y * Q.y);
+    R.y = std::atan2(sinRoll, cosRoll);
+
+    float sinPitch = 2.f * (Q.w * Q.y - Q.z * Q.x);
+    if(std::abs(sinPitch) >= 1.f)
+        R.x = std::copysign(M_PI_OVER_TWO, sinPitch);
+    else
+        R.x = std::asin(sinPitch);
+
+    float sinYaw = 2.f * (Q.w * Q.z - Q.x * Q.y);
+    float cosYaw = 1.f - 2.f * (Q.y * Q.y + Q.z * Q.z);
+    R.z = std::atan2(sinYaw, cosYaw);
+    return R;
+}
 
 // {theta, phi} -> [x, y, z]
 inline vec3f SphericalToCartesian(float Theta, float Phi)

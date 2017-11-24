@@ -16,6 +16,9 @@ namespace Atmosphere
     static real32 const LAMBDA_G = 550.0;
     static real32 const LAMBDA_B = 440.0;
 
+    // Conversion factor between watts and lumens
+    static real32 const MAX_LUMINOUS_EFFICACY = 683.f;
+
     void Init(game_memory *Memory, game_state *State, game_system *System);
     void Update();
     void Render();
