@@ -6,6 +6,7 @@
 #include "context.h"
 #include "ui.h"
 #include "water.h"
+#include "atmosphere.h"
 #include "sun.h"
 
 // PLATFORM
@@ -179,7 +180,7 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     CheckGLError("HDR Shader");
 
     ui::ReloadShaders(Memory, Context);
-    CheckGLError("UI Shader");
+    Atmosphere::ReloadShaders(Memory, Context);
 
     context::UpdateShaderProjection(Context);
 
@@ -193,6 +194,7 @@ void InitializeFromGame(game_memory *Memory)
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
     Water::Init(Memory, State, System, State->WaterState);
+    Atmosphere::Init(Memory, State, System);
 
     water_system *WaterSystem = System->WaterSystem;
     WaterSystem->VAO = MakeVertexArrayObject();
@@ -385,8 +387,7 @@ int RadarMain(int argc, char **argv)
         if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Context))
             return 1;
 
-        // Texture Test
-        //image *Image = ResourceLoadImage(&Context.RenderResources, "data/crate1_diffuse.png", false);
+        // PBR Texture Test
         uint32 *Texture1 = ResourceLoad2DTexture(&Context->RenderResources, "data/crate1_diffuse.png",
                 false, false, Config.AnisotropicFiltering);
 
@@ -458,9 +459,6 @@ int RadarMain(int argc, char **argv)
         ComputeIrradianceCubemap(&Context->RenderResources, "data/envmap_monument.hdr", &HDRCubemapEnvmap, &HDRGlossyEnvmap, &HDRIrradianceEnvmap);
 
         uint32 GGXLUT = PrecomputeGGXLUT(&Context->RenderResources, 512);
-
-        mesh defCube = MakeUnitCube();
-
 
 
         bool LastDisableMouse = false;
@@ -811,6 +809,7 @@ int RadarMain(int argc, char **argv)
             Water::Render(State, System->WaterSystem, HDRGlossyEnvmap, GGXLUT);
 #endif
 
+#if 0
             { // NOTE - Skybox Rendering Test, put somewhere else
                 glDisable(GL_CULL_FACE);
                 glDepthFunc(GL_LEQUAL);
@@ -833,6 +832,9 @@ int RadarMain(int argc, char **argv)
                 glDepthFunc(GL_LESS);
                 glEnable(GL_CULL_FACE);
             }
+#endif
+
+            Atmosphere::Render();
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             CheckGLError("FBO Bind");
@@ -852,7 +854,6 @@ int RadarMain(int argc, char **argv)
 
             glBindVertexArray(ScreenQuad.VAO);
             glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
-
 
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);

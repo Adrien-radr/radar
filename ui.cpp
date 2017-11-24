@@ -155,6 +155,8 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     glUseProgram(ProgramRGBTexture);
     SendInt(glGetUniformLocation(ProgramRGBTexture, "Texture0"), 0);
     context::RegisterShader2D(Context, ProgramRGBTexture);
+
+    CheckGLError("UI Shader");
 }
 
 void BeginFrame(game_memory *Memory, game_input *Input)
