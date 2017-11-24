@@ -1515,7 +1515,7 @@ struct quaternion
     float x, y, z, w;
 };
 
-vec3f QuaternionToEulerAngle(quaternion const &Q)
+inline vec3f QuaternionToEulerAngle(quaternion const &Q)
 {
     vec3f R;
     float sinRoll = 2.f * (Q.w * Q.x + Q.y * Q.z);

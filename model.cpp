@@ -355,7 +355,9 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
 
         if(SrcNode.rotation.size())
         {
-            Rotation = vec3f(SrcNode.rotation[0], SrcNode.rotation[1], SrcNode.rotation[2]);
+            // TODO - The engine should use quaternions in the future, instead of Euler angles.
+            quaternion Q = { (real32)SrcNode.rotation[0], (real32)SrcNode.rotation[1], (real32)SrcNode.rotation[2], (real32)SrcNode.rotation[3] };
+            Rotation = QuaternionToEulerAngle(Q);
         }
         if(SrcNode.translation.size())
         {
