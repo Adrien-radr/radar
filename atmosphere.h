@@ -21,7 +21,7 @@ namespace Atmosphere
 
     void Init(game_memory *Memory, game_state *State, game_system *System);
     void Update();
-    void Render();
+    void Render(game_state *State, game_context *Context);
     void ReloadShaders(game_memory *Memory, game_context *Context);
 
     /// Converts a function of wavelength to linear sRGB.

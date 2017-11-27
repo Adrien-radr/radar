@@ -1,6 +1,6 @@
 #version 400
 
-#define ACCURATE_GAMMA
+//#define ACCURATE_GAMMA
 
 #ifndef FXAA_REDUCE_MIN
     #define FXAA_REDUCE_MIN   (1.0/ 16.0)
@@ -17,6 +17,7 @@ in vec2 v_texcoord;
 uniform sampler2D HDRFB;
 uniform float MipmapQueryLevel;
 uniform vec2  Resolution;
+uniform vec3 CameraPosition;
 
 out vec4 frag_color;
 
@@ -54,6 +55,7 @@ vec3 ToneMapping(vec3 Col, float Exposure)
 
 vec3 GammaCorrection(vec3 Col)
 {
+// NOTE - The Y <= 0.003.. doesnt work, this is not right, fix it
 #ifdef ACCURATE_GAMMA
     float Y = dot(Col, vec3(0.2126, 0.7152, 0.0722));
     vec3 srgblo = Col * 12.92;
@@ -142,6 +144,7 @@ void main()
     //float Exp = Exposure;
 
     // Tone mapping and Gamma correction
+    hdrColor = texture(HDRFB, v_texcoord).xyz;
     hdrColor = PostProcess(hdrColor, Exp);
 
     frag_color = vec4(hdrColor, 1.0);

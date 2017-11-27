@@ -834,7 +834,7 @@ int RadarMain(int argc, char **argv)
             }
 #endif
 
-            Atmosphere::Render();
+            Atmosphere::Render(State, Context);
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             CheckGLError("FBO Bind");
@@ -847,6 +847,7 @@ int RadarMain(int argc, char **argv)
             uint32 ResolutionLoc = glGetUniformLocation(ProgramHDR, "Resolution");
             SendFloat(MipmapLogLoc, Context->WindowSizeLogLevel);
             SendVec2(ResolutionLoc, vec2f(Context->WindowWidth, Context->WindowHeight));
+            SendVec3(glGetUniformLocation(ProgramHDR, "CameraPosition"), vec3f(State->Camera.Position.y));
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, FPBackbuffer.BufferIDs[0]);
             glGenerateMipmap(GL_TEXTURE_2D); // generate mipmap for the color buffer
@@ -858,7 +859,7 @@ int RadarMain(int argc, char **argv)
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
             ui::BeginPanel(&id2, "Texture Viewer", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
-            ui::MakeImage(&imgscale, GGXLUT, &img_texoffset, vec2i(300, 300), false);
+            ui::MakeImage(&imgscale, FPBackbuffer.BufferIDs[0], &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
 

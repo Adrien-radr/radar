@@ -136,40 +136,85 @@ namespace Atmosphere
     
     struct atmosphere_parameters
     {
-        vec3f  SolarIrradiance;     // defined at the top of the atmosphere
-        real32 SunAngularRadius;    // < 0.1 radians
-        real32 BottomRadius;        // distance between planet's center and bottom of atmosphere
+        //vec3f  SolarIrradiance;     // defined at the top of the atmosphere
+        //real32 SunAngularRadius;    // < 0.1 radians
         real32 TopRadius;           // distance between planet's center and top of atmosphere
-        density_profile Rayleigh;   // density profile of air molecules
-        density_profile Mie;        // density profile of aerosols
-        density_profile Absorption; // density profile of air molecules that absorb light (e.g. ozone)
-        vec3f  AbsorptionScattering;// scattering coefficient of air molecules that absorb light at max density (function of wavelength)
-        vec3f  AbsorptionExtinction;// extinction coefficient of air molecules that absorb light at max density (function of wavelength);
-        vec3f  RayleighScattering;  // scattering coefficient of air molecules at max density (function of wavelength)
-        vec3f  MieScattering;       // scattering coefficient of aerosols at max density (function of wavelength)
-        vec3f  MieExtinction;       // extinction coefficient of aerosols at max density (function of wavelength)
-        real32 MiePhaseG;           // asymmetry coefficient for the Mie phase function
-        vec3f  GroundAlbedo;        // average albedo of the ground
-        real32 MinMuS;              // Cosine of the maximum sun zenith (102deg for earth, so that MinMuS = -0.208)
+        real32 BottomRadius;        // distance between planet's center and bottom of atmosphere
+        //density_profile Rayleigh;   // density profile of air molecules
+        //density_profile Mie;        // density profile of aerosols
+        //density_profile Absorption; // density profile of air molecules that absorb light (e.g. ozone)
+        //vec3f  AbsorptionScattering;// scattering coefficient of air molecules that absorb light at max density (function of wavelength)
+        //vec3f  AbsorptionExtinction;// extinction coefficient of air molecules that absorb light at max density (function of wavelength);
+        //vec3f  RayleighScattering;  // scattering coefficient of air molecules at max density (function of wavelength)
+        //vec3f  MieScattering;       // scattering coefficient of aerosols at max density (function of wavelength)
+        //vec3f  MieExtinction;       // extinction coefficient of aerosols at max density (function of wavelength)
+        //real32 MiePhaseG;           // asymmetry coefficient for the Mie phase function
+        //vec3f  GroundAlbedo;        // average albedo of the ground
+        //real32 MinMuS;              // Cosine of the maximum sun zenith (102deg for earth, so that MinMuS = -0.208)
 
     };
+
+    atmosphere_parameters AtmosphereParameters;
+
+    static const real32 kLengthUnitInMeters = 1000.f;
 
     void Init(game_memory *Memory, game_state *State, game_system *System)
     {
         ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+
+        AtmosphereParameters.TopRadius = 6420000.f;
+        AtmosphereParameters.BottomRadius = 6360000.f;
     }
 
     void Update()
     {
     }
 
-    void Render()
+    void Render(game_state *State, game_context *Context)
     {
+#if 1
+        real32 Zenith = Min(State->Camera.Theta, real32(M_PI)/2.f);
+        real32 CosZ = cosf(Zenith);
+        real32 SinZ = sinf(Zenith);
+        real32 CosA = cosf(State->Camera.Phi);
+        real32 SinA = sinf(State->Camera.Phi);
+        real32 L = State->Camera.Position.y;//ViewDistanceMeters / kLengthUnitInMeters;
+        vec3f ux(-SinA, CosA, 0.f);
+        vec3f uy(-CosZ * CosA, -CosZ * SinA, SinZ);
+        vec3f uz(SinZ * CosA, SinZ * SinA, CosZ);
+        mat4f ModelFromView
+        (
+            ux.x, uy.x, uz.x, uz.x * L,
+            ux.y, uy.y, uz.y, uz.y * L,
+            ux.z, uy.z, uz.z, uz.z * L,
+            0.f, 0.f, 0.f, 1.f
+        );
+#else
+        mat4f ModelFromView = State->Camera.ViewMatrix.Inverse();
+#endif
+
+        real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
+        real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
+        real32 TanFovY = tanf(FovRadians * 0.5f);
+        mat4f ViewFromClip
+        (
+            TanFovY * AspectRatio, 0.f, 0.f, 0.f,
+            0.f, TanFovY, 0.f, 0.f,
+            0.f, 0.f, 0.f, -1.f,
+            0.f, 0.f, 1.f, 1.f
+        );
+
         glDepthFunc(GL_LEQUAL);
 
         glUseProgram(AtmosphereProgram);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.BottomRadius"), AtmosphereParameters.BottomRadius);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.TopRadius"), AtmosphereParameters.TopRadius);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), vec3f(uz.x*L, uz.y*L, uz.z*L));
         glBindVertexArray(ScreenQuad.VAO);
         glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+        glUseProgram(0);
 
         glDepthFunc(GL_LESS);
     }
