@@ -109,11 +109,12 @@ void main()
     float DToBottom = DistanceToBottomBoundary(Atmosphere, r, mu);
 
     float IsGround = float(RayIntersectsGround(Atmosphere, r, mu));
-    float DistToGround = r*r*(mu*mu-1.0);//+Atmosphere.BottomRadius*Atmosphere.BottomRadius;
-    vec3 water_contrib = IsGround * vec3(0,0, DistToGround);
+    float DistToGround = exp(-0.000001*(r*r*(mu*mu-1.0)+Atmosphere.BottomRadius*Atmosphere.BottomRadius));
+    vec3 uik = DistToGround * vec3(1) + (1.0 - DistToGround) * vec3(0.01,0.05,0.1);
+    vec3 water_contrib = uik * IsGround;
 
     vec3 TransmittanceSky = ComputeTransmittanceToTopAtmosphereBoundary(Atmosphere, r, mu);
-    vec3 sky_contrib = (1.0 - IsGround) * TransmittanceSky;
+    vec3 sky_contrib = (1.0 - IsGround) * (vec3(1)-TransmittanceSky);
 
     frag_color = vec4(water_contrib + sky_contrib, 1); 
 }
