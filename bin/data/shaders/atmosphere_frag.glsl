@@ -40,6 +40,16 @@ float ClampDistance(float D)
     return max(D, 0.0);
 }
 
+float ClampCosine(float C)
+{
+    return clamp(C, -1.0, 1.0);
+}
+
+float ClampRadius(in atmosphere_parameters atmosphere, float R)
+{
+   return clamp(R, atmosphere.BottomRadius, atmosphere.TopRadius); 
+}
+
 float SafeSqrt(float V)
 {
     return sqrt(max(V, 0));
@@ -102,19 +112,44 @@ vec3 ComputeTransmittanceToTopAtmosphereBoundary(in atmosphere_parameters atmosp
 void main()
 {
     vec3 E = normalize(v_eyeRay);
+    vec3 p = CameraPosition + vec3(0,0,Atmosphere.BottomRadius);
+    float PdotV = dot(p, E);
+    float PdotP = dot(p, p);
+    float ray_earth_center_squared_distance = PdotP - PdotV * PdotV;
+    float distance_to_intersection = -PdotV - sqrt(-ray_earth_center_squared_distance);
     float r = length(CameraPosition) + Atmosphere.BottomRadius;
     float mu = E.z;
     float rmu = mu * r;
-    float DToTop = DistanceToTopBoundary(Atmosphere, r, mu);
-    float DToBottom = DistanceToBottomBoundary(Atmosphere, r, mu);
 
-    float IsGround = float(RayIntersectsGround(Atmosphere, r, mu));
-    float DistToGround = exp(-0.000001*(r*r*(mu*mu-1.0)+Atmosphere.BottomRadius*Atmosphere.BottomRadius));
-    vec3 uik = DistToGround * vec3(1) + (1.0 - DistToGround) * vec3(0.01,0.05,0.1);
-    vec3 water_contrib = uik * IsGround;
 
-    vec3 TransmittanceSky = ComputeTransmittanceToTopAtmosphereBoundary(Atmosphere, r, mu);
-    vec3 sky_contrib = (1.0 - IsGround) * (vec3(1)-TransmittanceSky);
+    vec3 contrib = vec3(0);
+    if(distance_to_intersection > 0.0)
+    {
+        contrib += vec3(1,0,0);
+    }
+    else
+    {
+        contrib += vec3(0,0,(PdotP-PdotV*PdotV)*1e-8);
+    }
+#if 0
+    bool IsGround = RayIntersectsGround(Atmosphere, r, mu);
+    if(IsGround)
+    {
+        float d = DistanceToBottomBoundary(Atmosphere, r, mu);
+        float r_d = ClampRadius(Atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+        float mu_d = ClampCosine((r * mu * d) / r_d);
+        contrib += min(ComputeTransmittanceToTopAtmosphereBoundary(Atmosphere, r_d, -mu_d) /
+                       ComputeTransmittanceToTopAtmosphereBoundary(Atmosphere, r, -mu), vec3(1));
+    }
+    else
+    {
+        float d = DistanceToTopBoundary(Atmosphere, r, mu);
+        float r_d = ClampRadius(Atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
+        float mu_d = ClampCosine((r * mu * d) / r_d);
+        contrib += min(ComputeTransmittanceToTopAtmosphereBoundary(Atmosphere, r, mu) /
+                       ComputeTransmittanceToTopAtmosphereBoundary(Atmosphere, r_d, mu_d), vec3(1));
+    }
+    #endif
 
-    frag_color = vec4(water_contrib + sky_contrib, 1); 
+    frag_color = vec4(contrib, 1); 
 }
