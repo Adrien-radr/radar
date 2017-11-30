@@ -112,127 +112,15 @@ namespace Atmosphere
         -0.9689f, +1.8758f, +0.0415f,
         +0.0557f, -0.2040f, +1.0570f
     };
-
-    mesh ScreenQuad = {};
-    uint32 AtmosphereProgram;
-
-    /// Defined as "ExpTerm * exp(ExpScale * H) + LinearTerm * H + ConstantTerm"
-    /// Clamped in [0,1]
-    struct density_profile_layer
-    {
-        real32 Height;
-        real32 ExpTerm;
-        real32 ExpScale;
-        real32 LinearTerm;
-        real32 ConstantTerm;
+    static const real32 kOzoneCrossSection[48] = {
+        1.18e-27f, 2.182e-28f, 2.818e-28f, 6.636e-28f, 1.527e-27f, 2.763e-27f, 5.52e-27f,
+        8.451e-27f, 1.582e-26f, 2.316e-26f, 3.669e-26f, 4.924e-26f, 7.752e-26f, 9.016e-26f,
+        1.48e-25f, 1.602e-25f, 2.139e-25f, 2.755e-25f, 3.091e-25f, 3.5e-25f, 4.266e-25f,
+        4.672e-25f, 4.398e-25f, 4.701e-25f, 5.019e-25f, 4.305e-25f, 3.74e-25f, 3.215e-25f,
+        2.662e-25f, 2.238e-25f, 1.852e-25f, 1.473e-25f, 1.209e-25f, 9.423e-26f, 7.455e-26f,
+        6.566e-26f, 5.105e-26f, 4.15e-26f, 4.228e-26f, 3.237e-26f, 2.451e-26f, 2.801e-26f,
+        2.534e-26f, 1.624e-26f, 1.465e-26f, 2.078e-26f, 1.383e-26f, 7.105e-27f
     };
-
-    /// Atmosphere is made of several layers from bottom to top
-    /// The height of the topmost layer is inconsequential as it extends always to the top of the atmosphere
-    struct density_profile
-    {
-        density_profile_layer Layers[2];
-    };
-    
-    struct atmosphere_parameters
-    {
-        //vec3f  SolarIrradiance;     // defined at the top of the atmosphere
-        //real32 SunAngularRadius;    // < 0.1 radians
-        real32 TopRadius;           // distance between planet's center and top of atmosphere
-        real32 BottomRadius;        // distance between planet's center and bottom of atmosphere
-        //density_profile Rayleigh;   // density profile of air molecules
-        //density_profile Mie;        // density profile of aerosols
-        //density_profile Absorption; // density profile of air molecules that absorb light (e.g. ozone)
-        //vec3f  AbsorptionScattering;// scattering coefficient of air molecules that absorb light at max density (function of wavelength)
-        //vec3f  AbsorptionExtinction;// extinction coefficient of air molecules that absorb light at max density (function of wavelength);
-        //vec3f  RayleighScattering;  // scattering coefficient of air molecules at max density (function of wavelength)
-        //vec3f  MieScattering;       // scattering coefficient of aerosols at max density (function of wavelength)
-        //vec3f  MieExtinction;       // extinction coefficient of aerosols at max density (function of wavelength)
-        //real32 MiePhaseG;           // asymmetry coefficient for the Mie phase function
-        //vec3f  GroundAlbedo;        // average albedo of the ground
-        //real32 MinMuS;              // Cosine of the maximum sun zenith (102deg for earth, so that MinMuS = -0.208)
-
-    };
-
-    atmosphere_parameters AtmosphereParameters;
-
-    static const real32 kLengthUnitInMeters = 1000.f;
-
-    void Init(game_memory *Memory, game_state *State, game_system *System)
-    {
-        ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
-
-        AtmosphereParameters.TopRadius = 6420000.f;
-        AtmosphereParameters.BottomRadius = 6360000.f;
-    }
-
-    void Update()
-    {
-    }
-
-    void Render(game_state *State, game_context *Context)
-    {
-#if 1
-        real32 Zenith = Min(State->Camera.Theta, real32(M_PI)/2.f);
-        real32 CosZ = cosf(Zenith);
-        real32 SinZ = sinf(Zenith);
-        real32 CosA = cosf(State->Camera.Phi);
-        real32 SinA = sinf(State->Camera.Phi);
-        real32 L = State->Camera.Position.y;//ViewDistanceMeters / kLengthUnitInMeters;
-        vec3f ux(-SinA, CosA, 0.f);
-        vec3f uy(-CosZ * CosA, -CosZ * SinA, SinZ);
-        vec3f uz(SinZ * CosA, SinZ * SinA, CosZ);
-        mat4f ModelFromView
-        (
-            ux.x, uy.x, uz.x, uz.x * L,
-            ux.y, uy.y, uz.y, uz.y * L,
-            ux.z, uy.z, uz.z, uz.z * L,
-            0.f, 0.f, 0.f, 1.f
-        );
-#else
-        mat4f ModelFromView = State->Camera.ViewMatrix.Inverse();
-#endif
-
-        real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
-        real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
-        real32 TanFovY = tanf(FovRadians * 0.5f);
-        mat4f ViewFromClip
-        (
-            TanFovY * AspectRatio, 0.f, 0.f, 0.f,
-            0.f, TanFovY, 0.f, 0.f,
-            0.f, 0.f, 0.f, -1.f,
-            0.f, 0.f, 1.f, 1.f
-        );
-
-        glDepthFunc(GL_LEQUAL);
-
-        glUseProgram(AtmosphereProgram);
-        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.BottomRadius"), AtmosphereParameters.BottomRadius);
-        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.TopRadius"), AtmosphereParameters.TopRadius);
-        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
-        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
-        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), vec3f(uz.x*L, uz.y*L, uz.z*L));
-        glBindVertexArray(ScreenQuad.VAO);
-        glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
-        glUseProgram(0);
-
-        glDepthFunc(GL_LESS);
-    }
-
-    void ReloadShaders(game_memory *Memory, game_context *Context)
-    {
-        resource_helper *RH = &Memory->ResourceHelper;
-
-        path VSPath, FSPath;
-        MakeRelativePath(RH, VSPath, "data/shaders/atmosphere_vert.glsl");
-        MakeRelativePath(RH, FSPath, "data/shaders/atmosphere_frag.glsl");
-        AtmosphereProgram = BuildShader(Memory, VSPath, FSPath);
-        glUseProgram(AtmosphereProgram);
-        //SendInt(glGetUniformLocation(ProgramHDR, "HDRFB"), 0);
-        CheckGLError("Atmosphere Shader");
-
-        glUseProgram(0);
-    }
 
     // Match a wavelength to a CIE color tabulated value
     static real32 CieColorMatchingFunctionTableValue(real32 Wavelength, int Col)
@@ -262,6 +150,215 @@ namespace Atmosphere
             }
         }
         return WavelengthFunctions[N-1];
+    }
+
+    mesh ScreenQuad = {};
+    uint32 AtmosphereProgram;
+
+    /// Defined as "ExpTerm * exp(ExpScale * H) + LinearTerm * H + ConstantTerm"
+    /// Clamped in [0,1]
+    struct density_profile_layer
+    {
+        real32 Width;
+        real32 ExpTerm;
+        real32 ExpScale;
+        real32 LinearTerm;
+        real32 ConstantTerm;
+    };
+
+    /// Atmosphere is made of several layers from bottom to top
+    /// The height of the topmost layer is inconsequential as it extends always to the top of the atmosphere
+    struct density_profile
+    {
+        density_profile_layer Layers[2];
+    };
+    
+    struct atmosphere_parameters
+    {
+        //vec3f  SolarIrradiance;     // defined at the top of the atmosphere
+        //real32 SunAngularRadius;    // < 0.1 radians
+        real32 TopRadius;           // distance between planet's center and top of atmosphere
+        real32 BottomRadius;        // distance between planet's center and bottom of atmosphere
+        vec3f  RayleighScattering;  // scattering coefficient of air molecules at max density (function of wavelength)
+        density_profile Rayleigh;   // density profile of air molecules
+        vec3f  MieScattering;       // scattering coefficient of aerosols at max density (function of wavelength)
+        vec3f  MieExtinction;       // extinction coefficient of aerosols at max density (function of wavelength)
+        density_profile Mie;        // density profile of aerosols
+        //vec3f  AbsorptionScattering;// scattering coefficient of air molecules that absorb light at max density (function of wavelength)
+        vec3f  AbsorptionExtinction;// extinction coefficient of air molecules that absorb light at max density (function of wavelength);
+        density_profile Absorption; // density profile of air molecules that absorb light (e.g. ozone)
+        //real32 MiePhaseG;           // asymmetry coefficient for the Mie phase function
+        //vec3f  GroundAlbedo;        // average albedo of the ground
+        //real32 MinMuS;              // Cosine of the maximum sun zenith (102deg for earth, so that MinMuS = -0.208)
+
+    };
+
+    atmosphere_parameters AtmosphereParameters;
+
+    static const real32 kLengthUnitInMeters = 1000.f;
+    static const real32 kRayleighScaleHeight = 8000.f;
+    static const real32 kRayleigh = 1.24062e-6f;
+    static const real32 kMieScaleHeight = 1200.f;
+    static const real32 kMieAngstromAlpha = 0.f;
+    static const real32 kMieAngstromBeta = 5.328e-3f;
+    static const real32 kMieSingleScatteringAlbedo = 0.9f;
+    static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
+    static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
+
+    static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
+    {
+        real32 R = Interpolate(Wavelengths, WavelengthFunctions, N, LAMBDA_R) * Scale;
+        real32 G = Interpolate(Wavelengths, WavelengthFunctions, N, LAMBDA_G) * Scale;
+        real32 B = Interpolate(Wavelengths, WavelengthFunctions, N, LAMBDA_B) * Scale;
+        return vec3f(R, G, B);
+    }
+
+    void Init(game_memory *Memory, game_state *State, game_system *System)
+    {
+        ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+
+        AtmosphereParameters.TopRadius = 6420000.f;
+        AtmosphereParameters.BottomRadius = 6360000.f;
+
+        density_profile_layer DefaultLayer = { 0.f, 0.f, 0.f, 0.f, 0.f };
+        density_profile_layer RayleighLayer = { 0.f, 1.f, -1.f / kRayleighScaleHeight, 0.f, 0.f };
+        density_profile_layer MieLayer = { 0.f, 1.f, -1.f / kMieScaleHeight, 0.f, 0.f };
+        density_profile_layer Ozone0Layer = { 25000.f, 0.f, 0.f, 1.f / 15000.f, -2.f / 3.f };
+        density_profile_layer Ozone1Layer = { 0.f, 0.f, 0.f, -1.f / 15000.f, 8.f / 3.f };
+
+        // Compute absorption and scattering SRGB colors from wavelength
+        int const nWavelengths = (LAMBDA_MAX-LAMBDA_MIN) / 10;
+        real32 Wavelengths[nWavelengths];
+        real32 RayleighScatteringWavelengths[nWavelengths];
+        real32 MieScatteringWavelengths[nWavelengths];
+        real32 MieExtinctionWavelengths[nWavelengths];
+        real32 AbsorptionExtinctionWavelengths[nWavelengths];
+        for(int l = LAMBDA_MIN; l <= LAMBDA_MAX; l += 10)
+        {
+            int Idx = (l-LAMBDA_MIN)/10;
+            real32 Lambda = (real32)l * 1e-3f; // micrometers
+            real32 Mie = kMieAngstromBeta / kMieScaleHeight * std::pow(Lambda, -kMieAngstromAlpha);
+            Wavelengths[Idx] = l;
+            RayleighScatteringWavelengths[Idx] = kRayleigh * std::pow(Lambda, -4);
+            MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
+            MieExtinctionWavelengths[Idx] = Mie;
+            AbsorptionExtinctionWavelengths[Idx] = kMaxOzoneNumberDensity * kOzoneCrossSection[Idx];
+        }
+
+        AtmosphereParameters.RayleighScattering = ScatteringSpectrumToSRGB(Wavelengths, RayleighScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.Rayleigh.Layers[0] = DefaultLayer;
+        AtmosphereParameters.Rayleigh.Layers[1] = RayleighLayer;
+        AtmosphereParameters.MieScattering = ScatteringSpectrumToSRGB(Wavelengths, MieExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.Mie.Layers[0] = DefaultLayer;
+        AtmosphereParameters.Mie.Layers[1] = MieLayer;
+        AtmosphereParameters.AbsorptionExtinction = ScatteringSpectrumToSRGB(Wavelengths, AbsorptionExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.Absorption.Layers[0] = Ozone0Layer;
+        AtmosphereParameters.Absorption.Layers[1] = Ozone1Layer;
+    }
+
+    void Update()
+    {
+    }
+
+    void Render(game_state *State, game_context *Context)
+    {
+        real32 Zenith = Min(State->Camera.Theta, real32(M_PI));
+        real32 CosZ = cosf(Zenith);
+        real32 SinZ = sinf(Zenith);
+        real32 CosA = cosf(State->Camera.Phi);
+        real32 SinA = sinf(State->Camera.Phi);
+        real32 L = State->Camera.Position.y / kLengthUnitInMeters;
+        vec3f ux(-SinA, CosA, 0.f);
+        vec3f uy(-CosZ * CosA, -CosZ * SinA, SinZ);
+        vec3f uz(SinZ * CosA, SinZ * SinA, CosZ);
+        mat4f ModelFromView
+        (
+            ux.x, uy.x, uz.x, uz.x * L,
+            ux.y, uy.y, uz.y, uz.y * L,
+            ux.z, uy.z, uz.z, uz.z * L,
+            0.f, 0.f, 0.f, 1.f
+        );
+
+        real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
+        real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
+        real32 TanFovY = tanf(FovRadians * 0.5f);
+        mat4f ViewFromClip
+        (
+            TanFovY * AspectRatio, 0.f, 0.f, 0.f,
+            0.f, TanFovY, 0.f, 0.f,
+            0.f, 0.f, 0.f, -1.f,
+            0.f, 0.f, 1.f, 1.f
+        );
+
+        glDepthFunc(GL_LEQUAL);
+
+        glUseProgram(AtmosphereProgram);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), vec3f(uz.x*L, uz.y*L, uz.z*L));
+        glBindVertexArray(ScreenQuad.VAO);
+        glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+        glUseProgram(0);
+
+        glDepthFunc(GL_LESS);
+    }
+
+    void ReloadShaders(game_memory *Memory, game_context *Context)
+    {
+        resource_helper *RH = &Memory->ResourceHelper;
+
+        path VSPath, FSPath;
+        MakeRelativePath(RH, VSPath, "data/shaders/atmosphere_vert.glsl");
+        MakeRelativePath(RH, FSPath, "data/shaders/atmosphere_frag.glsl");
+        AtmosphereProgram = BuildShader(Memory, VSPath, FSPath);
+        glUseProgram(AtmosphereProgram);
+        CheckGLError("Atmosphere Shader");
+
+        // Init constants
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.BottomRadius"), AtmosphereParameters.BottomRadius / kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.TopRadius"), AtmosphereParameters.TopRadius / kLengthUnitInMeters);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighScattering"), AtmosphereParameters.RayleighScattering);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[0].Width"), AtmosphereParameters.Rayleigh.Layers[0].Width / kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[0].ExpTerm"), AtmosphereParameters.Rayleigh.Layers[0].ExpTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[0].ExpScale"), AtmosphereParameters.Rayleigh.Layers[0].ExpScale * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[0].LinearTerm"), AtmosphereParameters.Rayleigh.Layers[0].LinearTerm * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[0].ConstantTerm"), AtmosphereParameters.Rayleigh.Layers[0].ConstantTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[1].Width"), AtmosphereParameters.Rayleigh.Layers[1].Width / kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[1].ExpTerm"), AtmosphereParameters.Rayleigh.Layers[1].ExpTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[1].ExpScale"), AtmosphereParameters.Rayleigh.Layers[1].ExpScale * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[1].LinearTerm"), AtmosphereParameters.Rayleigh.Layers[1].LinearTerm * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighDensity.Layers[1].ConstantTerm"), AtmosphereParameters.Rayleigh.Layers[1].ConstantTerm);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieExtinction"), AtmosphereParameters.MieExtinction);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[0].Width"), AtmosphereParameters.Mie.Layers[0].Width / kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[0].ExpTerm"), AtmosphereParameters.Mie.Layers[0].ExpTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[0].ExpScale"), AtmosphereParameters.Mie.Layers[0].ExpScale * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[0].LinearTerm"), AtmosphereParameters.Mie.Layers[0].LinearTerm * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[0].ConstantTerm"), AtmosphereParameters.Mie.Layers[0].ConstantTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[1].Width"), AtmosphereParameters.Mie.Layers[1].Width / kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[1].ExpTerm"), AtmosphereParameters.Mie.Layers[1].ExpTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[1].ExpScale"), AtmosphereParameters.Mie.Layers[1].ExpScale * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[1].LinearTerm"), AtmosphereParameters.Mie.Layers[1].LinearTerm * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MieDensity.Layers[1].ConstantTerm"), AtmosphereParameters.Mie.Layers[1].ConstantTerm);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionExtinction"), AtmosphereParameters.AbsorptionExtinction);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[0].Width"), AtmosphereParameters.Absorption.Layers[0].Width / kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[0].ExpTerm"), AtmosphereParameters.Absorption.Layers[0].ExpTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[0].ExpScale"), AtmosphereParameters.Absorption.Layers[0].ExpScale * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[0].LinearTerm"), AtmosphereParameters.Absorption.Layers[0].LinearTerm * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[0].ConstantTerm"), AtmosphereParameters.Absorption.Layers[0].ConstantTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].Width"), AtmosphereParameters.Absorption.Layers[1].Width / kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].ExpTerm"), AtmosphereParameters.Absorption.Layers[1].ExpTerm);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].ExpScale"), AtmosphereParameters.Absorption.Layers[1].ExpScale * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].LinearTerm"), AtmosphereParameters.Absorption.Layers[1].LinearTerm * kLengthUnitInMeters);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].ConstantTerm"), AtmosphereParameters.Absorption.Layers[1].ConstantTerm);
+        CheckGLError("Atmosphere Shader");
+
+        for(int i = 0; i < 2; ++i)
+        {
+            density_profile_layer &L = AtmosphereParameters.Rayleigh.Layers[i];
+            LogDebug("%f %f %f %f %f", L.Width / kLengthUnitInMeters, L.ExpTerm, L.ExpScale * kLengthUnitInMeters, L.LinearTerm * kLengthUnitInMeters, L.ConstantTerm);
+        }
+
+        glUseProgram(0);
     }
 
     vec3f ConvertSpectrumToSRGB(real32 *Wavelengths, real32 *Spectrum, int N)
