@@ -124,9 +124,9 @@ vec3 Shading(vec3 Pos, float water_dist, vec3 Rd, vec3 N, vec3 L)
     vec3 prefilteredColor = textureLod(Skybox, -R, roughness * MAX_REFLECTION_LOD).rgb;
     vec2 brdfOffset = texture(GGXLUT, vec2(NdotV, roughness)).xy;
     vec3 ambient_specular = prefilteredColor * (ks * brdfOffset.x + brdfOffset.y);
-    vec3 Ambient = kd * ambient_diffuse + ambient_specular;
+    vec3 Ambient = vec3(0);//kd * ambient_diffuse + ambient_specular;
 
-    light = Ambient + (Diffuse * NdotL + SSS)  * LightColor.xyz;// + LightColor.xyz * NdotL * (Diffuse + Specular);
+    light = Ambient + ((Specular + Diffuse) * NdotL + SSS)  * LightColor.xyz;// + LightColor.xyz * NdotL * (Diffuse + Specular);
 
 
         //light += F*D*G * NdotL / (4.0 * NdotV * NdotL + 1e-4) * FCol;

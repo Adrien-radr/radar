@@ -12,6 +12,6 @@ out vec3 v_eyeRay;
 void main()
 {
     v_texcoord = in_texcoord;
-    v_eyeRay = ((InverseModelMatrix) * vec4((transpose(InverseProjMatrix) * vec4(in_position.xy, 0.0, 1.0)).xyz,0.0)).xyz;
+    v_eyeRay = ((InverseModelMatrix) * vec4(((InverseProjMatrix) * vec4(in_position.xy, 0.0, 1.0)).xyz,0.0)).xyz;
     gl_Position = vec4(in_position, 1.0, 1.0);
 }

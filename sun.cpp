@@ -205,7 +205,8 @@ void MovePlayer(game_state *State, game_input *Input)
 
 void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_input *Input)
 {
-	Local->DayPhase = fmod(Local->DayPhase + 0.2f * M_PI * Input->dTime, 2.f * M_PI);
+    float Sunspeed = 0.05f;
+	Local->DayPhase = fmod(Local->DayPhase + Sunspeed * M_PI * Input->dTime, 2.f * M_PI);
 
 
 	real32 CosET = cosf(Local->EarthTilt);
@@ -227,7 +228,7 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
         Local->IsNight = true;
     }
 
-	//State->LightDirection = Normalize(SunPos);
+	State->LightDirection = Normalize(SunPos);
     //State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
     State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
 }

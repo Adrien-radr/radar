@@ -175,8 +175,6 @@ namespace Atmosphere
     
     struct atmosphere_parameters
     {
-        //vec3f  SolarIrradiance;     // defined at the top of the atmosphere
-        //real32 SunAngularRadius;    // < 0.1 radians
         real32 TopRadius;           // distance between planet's center and top of atmosphere
         real32 BottomRadius;        // distance between planet's center and bottom of atmosphere
         vec3f  RayleighScattering;  // scattering coefficient of air molecules at max density (function of wavelength)
@@ -187,8 +185,10 @@ namespace Atmosphere
         //vec3f  AbsorptionScattering;// scattering coefficient of air molecules that absorb light at max density (function of wavelength)
         vec3f  AbsorptionExtinction;// extinction coefficient of air molecules that absorb light at max density (function of wavelength);
         density_profile Absorption; // density profile of air molecules that absorb light (e.g. ozone)
-        //real32 MiePhaseG;           // asymmetry coefficient for the Mie phase function
-        //vec3f  GroundAlbedo;        // average albedo of the ground
+        vec3f  GroundAlbedo;        // average albedo of the ground
+        vec3f  SolarIrradiance;     // defined at the top of the atmosphere
+        real32 SunAngularRadius;    // < 0.1 radians
+        real32 MiePhaseG;           // asymmetry coefficient for the Mie phase function
         //real32 MinMuS;              // Cosine of the maximum sun zenith (102deg for earth, so that MinMuS = -0.208)
 
     };
@@ -204,6 +204,11 @@ namespace Atmosphere
     static const real32 kMieSingleScatteringAlbedo = 0.9f;
     static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
+    static const real32 kConstantSolarIrradiance = 1.5f;
+    static const real32 kGroundAlbedo = 0.1f;
+    static const real32 kSunAngularRadius = 0.00935f / 2.f;
+    static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
+    static const real32 kMiePhaseG = 0.8;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
     {
@@ -229,6 +234,8 @@ namespace Atmosphere
         // Compute absorption and scattering SRGB colors from wavelength
         int const nWavelengths = (LAMBDA_MAX-LAMBDA_MIN) / 10;
         real32 Wavelengths[nWavelengths];
+        real32 SolarIrradianceWavelengths[nWavelengths];
+        real32 GroundAlbedoWavelengths[nWavelengths];
         real32 RayleighScatteringWavelengths[nWavelengths];
         real32 MieScatteringWavelengths[nWavelengths];
         real32 MieExtinctionWavelengths[nWavelengths];
@@ -243,6 +250,8 @@ namespace Atmosphere
             MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
             MieExtinctionWavelengths[Idx] = Mie;
             AbsorptionExtinctionWavelengths[Idx] = kMaxOzoneNumberDensity * kOzoneCrossSection[Idx];
+            SolarIrradianceWavelengths[Idx] = kConstantSolarIrradiance;
+            GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
         }
 
         AtmosphereParameters.RayleighScattering = ScatteringSpectrumToSRGB(Wavelengths, RayleighScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
@@ -254,6 +263,10 @@ namespace Atmosphere
         AtmosphereParameters.AbsorptionExtinction = ScatteringSpectrumToSRGB(Wavelengths, AbsorptionExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.Absorption.Layers[0] = Ozone0Layer;
         AtmosphereParameters.Absorption.Layers[1] = Ozone1Layer;
+        AtmosphereParameters.GroundAlbedo = ScatteringSpectrumToSRGB(Wavelengths, GroundAlbedoWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.SolarIrradiance = ScatteringSpectrumToSRGB(Wavelengths, SolarIrradianceWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.SunAngularRadius = kSunAngularRadius;
+        AtmosphereParameters.MiePhaseG = kMiePhaseG;
     }
 
     void Update()
@@ -269,8 +282,8 @@ namespace Atmosphere
         real32 SinA = sinf(State->Camera.Phi);
         real32 L = State->Camera.Position.y / kLengthUnitInMeters;
         vec3f ux(-SinA, CosA, 0.f);
-        vec3f uy(-CosZ * CosA, -CosZ * SinA, SinZ);
-        vec3f uz(SinZ * CosA, SinZ * SinA, CosZ);
+        vec3f uy(SinZ * CosA, SinZ * SinA, CosZ);
+        vec3f uz(-CosZ * CosA, -CosZ * SinA, SinZ);
         mat4f ModelFromView
         (
             ux.x, uy.x, uz.x, uz.x * L,
@@ -278,6 +291,7 @@ namespace Atmosphere
             ux.z, uy.z, uz.z, uz.z * L,
             0.f, 0.f, 0.f, 1.f
         );
+        ModelFromView = State->Camera.ViewMatrix.Inverse();
 
         real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
         real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
@@ -292,10 +306,12 @@ namespace Atmosphere
 
         glDepthFunc(GL_LEQUAL);
 
+
         glUseProgram(AtmosphereProgram);
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
-        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), vec3f(uz.x*L, uz.y*L, uz.z*L));
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), State->Camera.Position/kLengthUnitInMeters);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->LightDirection);
         glBindVertexArray(ScreenQuad.VAO);
         glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
         glUseProgram(0);
@@ -315,6 +331,7 @@ namespace Atmosphere
         CheckGLError("Atmosphere Shader");
 
         // Init constants
+        // TODO - Write the constants directly in the header (construct it from here), instead of this disgusting mess
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.BottomRadius"), AtmosphereParameters.BottomRadius / kLengthUnitInMeters);
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.TopRadius"), AtmosphereParameters.TopRadius / kLengthUnitInMeters);
         SendVec3(glGetUniformLocation(AtmosphereProgram, "Atmosphere.RayleighScattering"), AtmosphereParameters.RayleighScattering);
@@ -350,6 +367,10 @@ namespace Atmosphere
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].ExpScale"), AtmosphereParameters.Absorption.Layers[1].ExpScale * kLengthUnitInMeters);
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].LinearTerm"), AtmosphereParameters.Absorption.Layers[1].LinearTerm * kLengthUnitInMeters);
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.AbsorptionDensity.Layers[1].ConstantTerm"), AtmosphereParameters.Absorption.Layers[1].ConstantTerm);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "Atmosphere.GroundAlbedo"), AtmosphereParameters.GroundAlbedo);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "Atmosphere.SolarIrradiance"), AtmosphereParameters.SolarIrradiance);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.SunAngularRadius"), AtmosphereParameters.SunAngularRadius);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Atmosphere.MiePhaseG"), AtmosphereParameters.MiePhaseG);
         CheckGLError("Atmosphere Shader");
 
         for(int i = 0; i < 2; ++i)
