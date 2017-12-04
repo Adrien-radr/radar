@@ -187,14 +187,14 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
     glUseProgram(0);
 }
 
-void InitializeFromGame(game_memory *Memory)
+void InitializeFromGame(game_memory *Memory, game_context *Context)
 {
     // Initialize Water from game Info
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
     Water::Init(Memory, State, System, State->WaterState);
-    Atmosphere::Init(Memory, State, System);
+    Atmosphere::Init(Memory, Context, State, System);
 
     water_system *WaterSystem = System->WaterSystem;
     WaterSystem->VAO = MakeVertexArrayObject();
@@ -521,7 +521,7 @@ int RadarMain(int argc, char **argv)
 
             if(!Memory->IsInitialized)
             {
-                InitializeFromGame(Memory);
+                InitializeFromGame(Memory, Context);
                 ReloadShaders(Memory, Context);			// First Shader loading after the game is initialize
             }
 
@@ -859,7 +859,7 @@ int RadarMain(int argc, char **argv)
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
             ui::BeginPanel(&id2, "Texture Viewer", &p2, &p2size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
-            ui::MakeImage(&imgscale, FPBackbuffer.BufferIDs[0], &img_texoffset, vec2i(300, 300), false);
+            ui::MakeImage(&imgscale, Atmosphere::IrradianceTexture/*FPBackbuffer.BufferIDs[0]*/, &img_texoffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
 

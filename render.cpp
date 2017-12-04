@@ -211,6 +211,7 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
 {
     uint32 Texture;
     glGenTextures(1, &Texture);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, Texture);
 
     GLint CurrentAlignment;
@@ -240,6 +241,41 @@ uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Chan
     glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
 
     glBindTexture(GL_TEXTURE_2D, 0);
+
+    return Texture;
+}
+
+uint32 Make3DTexture(uint32 Width, uint32 Height, uint32 Depth, uint32 Channels, bool IsFloat, bool FloatHalfPrecision,
+        int MagFilter, int MinFilter, int WrapS, int WrapT, int WrapR)
+{
+    uint32 Texture;
+    glGenTextures(1, &Texture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_3D, Texture);
+
+    GLint CurrentAlignment;
+    glGetIntegerv(GL_UNPACK_ALIGNMENT, &CurrentAlignment);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFilter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, WrapS);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, WrapT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, WrapR);
+
+    GLint BaseFormat, Format;
+    FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
+    GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
+
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    glTexImage3D(GL_TEXTURE_3D, 0, BaseFormat, Width, Height, Depth, 0, Format, Type, NULL);
+    CheckGLError("glTexImage3D");
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
+    glBindTexture(GL_TEXTURE_3D, 0);
 
     return Texture;
 }

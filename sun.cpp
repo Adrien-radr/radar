@@ -228,7 +228,7 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
         Local->IsNight = true;
     }
 
-	State->LightDirection = Normalize(SunPos);
+	//State->LightDirection = Normalize(SunPos);
     //State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
     State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
 }

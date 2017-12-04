@@ -135,6 +135,10 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
 uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
                               uint32 AnisotropicLevel, int32 ForceNumChannel = 0);
 
+uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat,
+        bool FloatHalfPrecision, real32 AnisotropicLevel, int MagFilter, int MinFilter, int WrapS, int WrapT);
+uint32 Make3DTexture(uint32 Width, uint32 Height, uint32 Depth, uint32 Channels, bool IsFloat, bool FloatHalfPrecision,
+        int MagFilter, int MinFilter, int WrapS, int WrapT, int WrapR);
 uint32 MakeCubemap(render_resources *RenderResources, path *Paths, bool IsFloat, bool FloatHalfPrecision, uint32 Width, uint32 Height, bool MakeMipmap);
 void ComputeIrradianceCubemap(render_resources *RenderResources, char const *HDREnvmapFilename,
         uint32 *HDRCubemapEnvmap, uint32 *HDRGlossyEnvmap, uint32 *HDRIrradianceEnvmap);
