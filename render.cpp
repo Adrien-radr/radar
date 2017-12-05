@@ -564,15 +564,20 @@ uint32 _CompileShader(game_memory *Memory, char *Src, int Type)
     return Shader;
 }
 
-uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
+uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath, char *GSPath)
 {
-    char *VSrc = NULL, *FSrc = NULL;
+    char *VSrc = NULL, *FSrc = NULL, *GSrc = NULL;
 
     VSrc = (char*)ReadFileContents(&Memory->ScratchArena, VSPath, 0);
     FSrc = (char*)ReadFileContents(&Memory->ScratchArena, FSPath, 0);
 
+    if(GSPath)
+    {
+        GSrc = (char*)ReadFileContents(&Memory->ScratchArena, GSPath, 0);
+    }
+
     uint32 ProgramID = 0;
-    bool IsValid = VSrc && FSrc;
+    bool IsValid = VSrc && FSrc && (!GSPath || GSrc);
 
     if(IsValid)
     {
@@ -594,8 +599,27 @@ uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath)
             return 0;
         }
 
+        uint32 GShader = 0;
+        if(GSPath)
+        {
+            GShader = _CompileShader(Memory, GSrc, GL_GEOMETRY_SHADER);
+            if(!GShader)
+            {
+                LogError("Failed to build %s Geometry Shader.", GSPath);
+                glDeleteShader(VShader);
+                glDeleteShader(FShader);
+                glDeleteProgram(ProgramID);
+                return 0;
+            }
+        }
+
         glAttachShader(ProgramID, VShader);
         glAttachShader(ProgramID, FShader);
+        if(GSPath)
+        {
+            glAttachShader(ProgramID, GShader);
+            glDeleteShader(GShader);
+        }
 
         glDeleteShader(VShader);
         glDeleteShader(FShader);

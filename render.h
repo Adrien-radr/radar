@@ -149,7 +149,7 @@ mesh Make2DQuad(vec2i Start, vec2i End);
 mesh Make3DPlane(game_memory *Memory, vec2i Dimension, uint32 Subdivisions, uint32 TextureRepeatCount, bool Dynamic = false);
 mesh MakeUnitSphere(bool MakeAdditionalAttribs = true, real32 TexScale = 1.f);
 
-uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath);
+uint32 BuildShader(game_memory *Memory, char *VSPath, char *FSPath, char *GSPath = NULL);
 
 void SendVec2(uint32 Loc, vec2f value);
 void SendVec3(uint32 Loc, vec3f value);

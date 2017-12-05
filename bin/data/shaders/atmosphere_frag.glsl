@@ -8,6 +8,15 @@
 #define IRRADIANCE_TEXTURE_WIDTH 64
 #define IRRADIANCE_TEXTURE_HEIGHT 16
 
+#define SCATTERING_TEXTURE_R_SIZE 32
+#define SCATTERING_TEXTURE_MU_SIZE 128
+#define SCATTERING_TEXTURE_MU_S_SIZE 32
+#define SCATTERING_TEXTURE_NU_SIZE 8
+
+#define SCATTERING_TEXTURE_WIDTH (SCATTERING_TEXTURE_NU_SIZE * SCATTERING_TEXTURE_MU_S_SIZE)
+#define SCATTERING_TEXTURE_HEIGHT SCATTERING_TEXTURE_MU_SIZE
+#define SCATTERING_TEXTURE_DEPTH SCATTERING_TEXTURE_R_SIZE
+
 struct density_profile_layer
 {
     float Width;
@@ -37,6 +46,7 @@ struct atmosphere_parameters
     vec3            SolarIrradiance;
     float           SunAngularRadius;
     float           MiePhaseG;
+    float           MinMuS;
 };
 
 
@@ -168,33 +178,6 @@ vec3 GetIrradiance(float r, float mu_s)
 #if 0
 
 
-void ComputeSingleScatteringIntegrand(in atmosphere_parameters atmosphere, float r, float mu, float mu_s, float nu, float d, bool IntersectsGround, out vec3 Rayleigh, out vec3 Mie)
-{
-    float r_d = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
-    float mu_s_d = ClampCosine((r * mu_s + d * nu) / r_d);
-    vec3 Transmittance = GetTransmittance(atmosphere, r, mu, d, IntersectsGround) * GetTransmittanceToSun(atmosphere, r_d, mu_s_d);
-    Rayleigh = Transmittance * GetProfileDensity(atmosphere.RayleighDensity, r_d - atmosphere.BottomRadius);
-    Mie = Transmittance * GetProfileDensity(atmosphere.MieDensity, r_d - atmosphere.BottomRadius);
-}
-
-void ComputeSingleScattering(in atmosphere_parameters atmosphere, float r, float mu, float mu_s, float nu, bool IntersectsGround, out vec3 Rayleigh, out vec3 Mie)
-{
-    int SAMPLE_COUNT = 30;
-    float dx = DistanceToNearestAtmosphereBoundary(atmosphere, r, mu, IntersectsGround) / float(SAMPLE_COUNT);
-    vec3 RayleighSum = vec3(0);
-    vec3 MieSum = vec3(0);
-    for(int i = 0; i <= SAMPLE_COUNT; ++i)
-    {
-        float d_i = float(i) * dx;
-        vec3 R_i, M_i;
-        ComputeSingleScatteringIntegrand(atmosphere, r, mu, mu_s, nu, d_i, IntersectsGround, R_i, M_i);
-        float w_i = (i == 0 || i == SAMPLE_COUNT) ? 0.5 : 1.0;
-        RayleighSum += R_i * w_i;
-        MieSum += M_i * w_i;
-    }
-    Rayleigh = RayleighSum * dx * atmosphere.SolarIrradiance * atmosphere.RayleighScattering;
-    Mie = MieSum * dx * atmosphere.SolarIrradiance * atmosphere.MieExtinction;
-}
 
 float RayleighPhaseFunction(float nu)
 {

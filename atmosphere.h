@@ -17,6 +17,7 @@ namespace Atmosphere
     static real32 const LAMBDA_B = 440.0;
     extern uint32 TransmittanceTexture;
     extern uint32 IrradianceTexture;
+    extern uint32 ScatteringTexture;
 
     // Conversion factor between watts and lumens
     static real32 const MAX_LUMINOUS_EFFICACY = 683.f;
