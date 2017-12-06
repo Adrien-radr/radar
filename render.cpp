@@ -109,20 +109,32 @@ void CheckGLError(const char *Mark)
     uint32 Err = glGetError();
     if(Err != GL_NO_ERROR)
     {
-        char ErrName[32];
+        char ErrName[64];
         switch(Err)
         {
             case GL_INVALID_ENUM:
-                snprintf(ErrName, 32, "GL_INVALID_ENUM");
+                snprintf(ErrName, 64, "GL_INVALID_ENUM");
                 break;
             case GL_INVALID_VALUE:
-                snprintf(ErrName, 32, "GL_INVALID_VALUE");
+                snprintf(ErrName, 64, "GL_INVALID_VALUE");
                 break;
             case GL_INVALID_OPERATION:
-                snprintf(ErrName, 32, "GL_INVALID_OPERATION");
+                snprintf(ErrName, 64, "GL_INVALID_OPERATION");
+                break;
+            case GL_STACK_OVERFLOW:
+                snprintf(ErrName, 64, "GL_STACK_OVERFLOW");
+                break;
+            case GL_STACK_UNDERFLOW:
+                snprintf(ErrName, 64, "GL_STACK_UNDERFLOW");
+                break;
+            case GL_OUT_OF_MEMORY:
+                snprintf(ErrName, 64, "GL_OUT_OF_MEMORY");
+                break;
+            case GL_INVALID_FRAMEBUFFER_OPERATION:
+                snprintf(ErrName, 64, "GL_INVALID_FRAMEBUFFER_OPERATION");
                 break;
             default:
-                snprintf(ErrName, 32, "UNKNOWN [%u]", Err);
+                snprintf(ErrName, 64, "UNKNOWN [%u]", Err);
                 break;
         }
         LogError("[%s] GL Error %s", Mark, ErrName);
@@ -253,18 +265,11 @@ uint32 Make3DTexture(uint32 Width, uint32 Height, uint32 Depth, uint32 Channels,
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_3D, Texture);
 
-    GLint CurrentAlignment;
-    glGetIntegerv(GL_UNPACK_ALIGNMENT, &CurrentAlignment);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFilter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, MagFilter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, WrapS);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, WrapT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, WrapR);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, MinFilter);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, MagFilter);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, WrapS);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, WrapT);
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, WrapR);
 
     GLint BaseFormat, Format;
     FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
@@ -274,7 +279,6 @@ uint32 Make3DTexture(uint32 Width, uint32 Height, uint32 Depth, uint32 Channels,
     glTexImage3D(GL_TEXTURE_3D, 0, BaseFormat, Width, Height, Depth, 0, Format, Type, NULL);
     CheckGLError("glTexImage3D");
 
-    glPixelStorei(GL_UNPACK_ALIGNMENT, CurrentAlignment);
     glBindTexture(GL_TEXTURE_3D, 0);
 
     return Texture;
@@ -371,29 +375,31 @@ void DestroyFramebuffer(frame_buffer *FB)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size)
+frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size, bool AddDepthBuffer)
 {
     Assert(NumAttachments <= MAX_FBO_ATTACHMENTS);
 
     frame_buffer FB = {};
+    FB.Size = Size;
+    FB.NumAttachments = NumAttachments;
+
     glGenFramebuffers(1, &FB.FBO);
     glBindFramebuffer(GL_FRAMEBUFFER, FB.FBO);
     glDrawBuffers((GLsizei) NumAttachments, FBOAttachments);
 
-    // NOTE - Always attach a depth buffer : is there an instance where you dont want that ?
-    glGenRenderbuffers(1, &FB.DepthBufferID);
-    glBindRenderbuffer(GL_RENDERBUFFER, FB.DepthBufferID);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, Size.x, Size.y);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, FB.DepthBufferID);
-
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    if(AddDepthBuffer)
     {
-        LogError("Framebuffer creation error : not complete.");
-        DestroyFramebuffer(&FB);
-    }
+        glGenRenderbuffers(1, &FB.DepthBufferID);
+        glBindRenderbuffer(GL_RENDERBUFFER, FB.DepthBufferID);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, Size.x, Size.y);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, FB.DepthBufferID);
 
-    FB.Size = Size;
-    FB.NumAttachments = NumAttachments;
+        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            LogError("Framebuffer creation error : not complete.");
+            DestroyFramebuffer(&FB);
+        }
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

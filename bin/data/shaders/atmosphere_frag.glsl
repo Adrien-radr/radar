@@ -58,6 +58,7 @@ uniform vec3 CameraPosition;
 uniform vec3 SunDirection;
 uniform sampler2D TransmittanceTexture;
 uniform sampler2D IrradianceTexture;
+uniform sampler3D ScatteringTexture;
 
 out vec4 frag_color;
 
@@ -134,6 +135,40 @@ vec2 GetIrradianceTextureUVFromRMuS(float r, float mu_s)
     return vec2(GetTextureCoordFromUnitRange(x_mu_s, IRRADIANCE_TEXTURE_WIDTH), GetTextureCoordFromUnitRange(x_r, IRRADIANCE_TEXTURE_HEIGHT));
 }
 
+vec4 GetScatteringTextureUVWZFromRMuMuSNu(float r, float mu, float mu_s, float nu, bool IntersectsGround)
+{
+    float H = sqrt(Atmosphere.TopRadius * Atmosphere.TopRadius - Atmosphere.BottomRadius * Atmosphere.BottomRadius);
+    float rho = SafeSqrt(r * r - Atmosphere.BottomRadius * Atmosphere.BottomRadius);
+    float u_r = GetTextureCoordFromUnitRange(rho / H, SCATTERING_TEXTURE_R_SIZE);
+
+    float r_mu = r * mu;
+    float discriminant = r_mu * r_mu - r * r + Atmosphere.BottomRadius * Atmosphere.BottomRadius; // from RayIntersectsGround
+    float u_mu;
+    if(IntersectsGround)
+    {
+        float d = -r_mu - SafeSqrt(discriminant);
+        float d_min = r - Atmosphere.BottomRadius;
+        float d_max = rho;
+        u_mu = 0.5 - 0.5 * GetTextureCoordFromUnitRange(d_max == d_min ? 0.0 : (d - d_min) / (d_max - d_min), SCATTERING_TEXTURE_MU_SIZE / 2);
+    }
+    else
+    {
+        float d = -r_mu + SafeSqrt(discriminant + H * H);
+        float d_min = Atmosphere.TopRadius - r;
+        float d_max = rho + H;
+        u_mu = 0.5 + 0.5 * GetTextureCoordFromUnitRange((d - d_min) / (d_max - d_min), SCATTERING_TEXTURE_MU_SIZE / 2);
+    }
+
+    float d = DistanceToTopBoundary(Atmosphere.BottomRadius, mu_s);
+    float d_min = Atmosphere.TopRadius - Atmosphere.BottomRadius;
+    float d_max = H;
+    float a = (d - d_min) / (d_max - d_min);
+    float A = -2.0 * Atmosphere.MinMuS * Atmosphere.BottomRadius / (d_max - d_min);
+    float u_mu_s = GetTextureCoordFromUnitRange(max(1.0 - a / A, 0.0) / (1.0 + a), SCATTERING_TEXTURE_MU_S_SIZE);
+    float u_nu = (nu + 1.0) / 2.0;
+    return vec4(u_nu, u_mu_s, u_mu, u_r);
+}
+
 vec3 GetTransmittanceToTopAtmosphereBoundary(float r, float mu)
 {
     vec2 uv = GetTransmittanceTextureUVFromRMu(r, mu);
@@ -175,10 +210,6 @@ vec3 GetIrradiance(float r, float mu_s)
     return texture(IrradianceTexture, uv).xyz;
 }
 
-#if 0
-
-
-
 float RayleighPhaseFunction(float nu)
 {
     float k = 3.0 / (16.0 * PI);
@@ -191,29 +222,32 @@ float MiePhaseFunction(float g, float nu)
     return k * (1.0 + nu * nu) / pow(1.0 + g * g - 2.0 * g * nu, 1.5);
 }
 
-vec3 ComputeCombinedScattering(in atmosphere_parameters atmosphere, float r, float mu, float mu_s, float nu, bool IntersectsGround, out vec3 Mie)
-{
-    float rmu = r * mu;
-    float d = -rmu - sqrt(rmu * rmu - r * r + atmosphere.TopRadius * atmosphere.TopRadius);
-    float r_d = ClampRadius(atmosphere, sqrt(d * d + 2.0 * r * mu * d + r * r));
-    float mu_d = ClampCosine((r * mu * d) / r_d);
-
-    Mie = vec3(0);
-    vec3 contrib = vec3(0);
-    contrib = min(ComputeTransmittanceToTopAtmosphereBoundary(atmosphere, r, mu) /
-            ComputeTransmittanceToTopAtmosphereBoundary(atmosphere, r_d, mu_d), vec3(1));
-    //vec3 R, M;
-    //ComputeSingleScattering(atmosphere, r, mu, mu_s, nu, IntersectsGround, R, M);
-    //contrib += R;
-    //Mie += M;
-    return contrib;
-}
-
-
-#endif
 vec3 GetSolarRadiance()
 {
     return Atmosphere.SolarIrradiance / (PI * Atmosphere.SunAngularRadius * Atmosphere.SunAngularRadius);
+}
+
+vec3 GetExtrapolatedSingleMieScattering(in vec4 Scattering)
+{
+    if(Scattering.r == 0.0) return vec3(0.0);
+    return Scattering.rgb * Scattering.a / Scattering.r * (Atmosphere.RayleighScattering.r / Atmosphere.MieScattering.r) *
+            (Atmosphere.MieScattering / Atmosphere.RayleighScattering);
+}
+
+vec3 GetScattering(float r, float mu, float mu_s, float nu, bool IntersectsGround, out vec3 Mie)
+{
+    vec4 uvwz = GetScatteringTextureUVWZFromRMuMuSNu(r, mu, mu_s, nu, IntersectsGround);
+    float texCoordX = uvwz.x * float(SCATTERING_TEXTURE_NU_SIZE - 1);
+    float texX = floor(texCoordX);
+    float lerp = texCoordX - texX;
+    vec3 uvw0 = vec3((texX + uvwz.y) / float(SCATTERING_TEXTURE_NU_SIZE), uvwz.z, uvwz.w);
+    vec3 uvw1 = vec3((texX + 1.0 + uvwz.y) / float(SCATTERING_TEXTURE_NU_SIZE), uvwz.z, uvwz.w);
+
+    vec4 CombinedScattering = (texture(ScatteringTexture, uvw0) * (1.0 - lerp) + 
+                               texture(ScatteringTexture, uvw1) * lerp);
+    Mie = GetExtrapolatedSingleMieScattering(CombinedScattering);
+
+    return CombinedScattering.rgb;
 }
 
 vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
@@ -234,7 +268,6 @@ vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
         return vec3(0);
     }
 
-    vec3 contrib = vec3(0);
     float mu = rmu / r;
     float mu_s = dot(P, L) / r;
     float nu = max(0.0,dot(E, L));
@@ -243,14 +276,11 @@ vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
     float mu_d = ClampCosine((r * mu * d) / r_d);
     bool IntersectsGround = RayIntersectsGround(r, mu);
 
-    Transmittance = min(vec3(1), GetTransmittance(r, mu, d, IntersectsGround));
-    contrib += Transmittance;
-    //contrib += min(ComputeTransmittanceToTopAtmosphereBoundary(atmosphere, r, mu) /
-            //ComputeTransmittanceToTopAtmosphereBoundary(atmosphere, r_d, mu_d), vec3(1));
-    //vec3 MieScattering;
-    //contrib += ComputeCombinedScattering(atmosphere, r, mu, mu_s, nu, IntersectsGround, MieScattering);
+    Transmittance = IntersectsGround ? vec3(0.0) : GetTransmittanceToTopAtmosphereBoundary(r, mu);
+    vec3 Rayleigh, Mie;
+    Rayleigh = GetScattering(r, mu, mu_s, nu, IntersectsGround, Mie);
 
-    return contrib;// * RayleighPhaseFunction(nu) + MieScattering * MiePhaseFunction(atmosphere.MiePhaseG, nu);
+    return Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu);
 }
 
 vec3 GetSkyRadianceToPoint(vec3 Camera, vec3 P, vec3 L, out vec3 Transmittance)
@@ -273,8 +303,23 @@ vec3 GetSkyRadianceToPoint(vec3 Camera, vec3 P, vec3 L, out vec3 Transmittance)
     bool IntersectsGround = RayIntersectsGround(r, mu);
 
     Transmittance = GetTransmittance(r, mu, d, IntersectsGround);
-    // TODO - single & multiple scattering
-    return vec3(0);
+    vec3 Rayleigh, Mie;
+    Rayleigh = GetScattering(r, mu, mu_s, nu, IntersectsGround, Mie);
+
+    float r_p = ClampRadius(sqrt(d * d + 2.0 * r * mu * d + r * r));
+    float mu_p = (r * mu + d) / r_p;
+    float mu_s_p = (r * mu_s + d * nu) / r_p;
+
+    vec3 Rayleigh_p, Mie_p;
+    Rayleigh_p = GetScattering(r_p, mu_p, mu_s_p, nu, IntersectsGround, Mie_p);
+
+    Rayleigh = Rayleigh - Transmittance * Rayleigh_p;
+    Mie = Mie - Transmittance * Mie_p;
+    Mie = GetExtrapolatedSingleMieScattering(vec4(Rayleigh, Mie.r));
+
+    Mie = Mie * smoothstep(0.0, 0.01, mu_s);
+
+    return Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu);
 }
 
 vec3 GetGroundIrradiance(vec3 P, vec3 N, vec3 L, out vec3 SkyIrradiance)
@@ -304,7 +349,7 @@ void main()
     {
         vec3 Point = CameraPosition + E * Depth;
         vec3 N = normalize(Point - EarthCenter);
-        Point += N * 1e-3; // To avoid depth fighting
+        //Point += N * 1e-3; // To avoid depth fighting
 
         vec3 SkyIrradiance;
         vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, N, L, SkyIrradiance);
@@ -312,7 +357,7 @@ void main()
 
         vec3 Transmittance;
         vec3 Inscattering = GetSkyRadianceToPoint(p, Point - EarthCenter, L, Transmittance);
-        contrib += GroundRadiance * Transmittance + Inscattering;
+        contrib += 1e-3 * GroundRadiance * Transmittance + Inscattering;
     }
     else
     {
@@ -323,18 +368,6 @@ void main()
             contrib += Transmittance * GetSolarRadiance();
         }
     }
-
-    #if 0
-    if(Depth > 0.0)
-    {
-
-        vec3 SunRadiance = GetGroundIrradiance(Atmosphere, Point - EarthCenter, N, L);
-        contrib += 1e-4 * SunRadiance * Atmosphere.GroundAlbedo * (1.0/PI);
-    }
-    else
-    {
-    }
-    #endif
 
     frag_color = vec4(contrib, 1); 
 }

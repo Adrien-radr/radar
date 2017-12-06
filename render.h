@@ -158,7 +158,7 @@ void SendMat4(uint32 Loc, mat4f value);
 void SendInt(uint32 Loc, int value);
 void SendFloat(uint32 Loc, real32 value);
 
-frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size);
+frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size, bool AddDepthBuffer = true);
 void DestroyFramebuffer(frame_buffer *FB);
 void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Mipmap);
 

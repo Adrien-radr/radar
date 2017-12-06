@@ -213,7 +213,7 @@ namespace Atmosphere
     static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
     static const real32 kConstantSolarIrradiance = 1.5f;
-    static const real32 kGroundAlbedo = 0.1f;
+    static const real32 kGroundAlbedo = 0.01f;
     static const real32 kSunAngularRadius = 0.00935f / 2.f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
     static const real32 kMiePhaseG = 0.8;
@@ -360,6 +360,8 @@ namespace Atmosphere
         glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, IrradianceTexture);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_3D, ScatteringTexture);
         glBindVertexArray(ScreenQuad.VAO);
         glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
         glUseProgram(0);
@@ -431,31 +433,28 @@ namespace Atmosphere
         CheckGLError("Scattering Precompute Shader");
 
         DestroyFramebuffer(&RenderBuffer);
-        RenderBuffer = MakeFramebuffer(3, vec2i(kScatteringTextureSize.x, kScatteringTextureSize.y));
+        RenderBuffer = MakeFramebuffer(3, vec2i(kScatteringTextureSize.x, kScatteringTextureSize.y), false);
         glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
         glDeleteTextures(1, &ScatteringTexture);
         ScatteringTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, true, 
                                           GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        uint32 DeltaRayleighTexture= Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, true, 
+        uint32 DeltaRayleighTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, true, 
                                           GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
         uint32 DeltaMieTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, true, 
                                           GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        CheckGLError("Scattering Textures");
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, DeltaRayleighTexture, 0);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, DeltaMieTexture, 0);
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, ScatteringTexture, 0);
-        CheckGLError("Scattering Attachments");
+        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            LogError("Incomplete Framebuffer 2");
+        }
         glViewport(0, 0, kScatteringTextureSize.x, kScatteringTextureSize.y);
-        CheckGLError("Scattering glViewport");
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        CheckGLError("Scattering glClear");
         glActiveTexture(GL_TEXTURE0);
-        CheckGLError("Scattering glActive");
         glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
         glBindVertexArray(ScreenQuad.VAO);
-        CheckGLError("Scattering Others");
         uint32 LayerLoc = glGetUniformLocation(ScatteringProgram, "ScatteringLayer");
-        CheckGLError("Scattering Pre Precomputation");
         for(int layer = 0; layer < kScatteringTextureSize.z; ++layer)
         {
             SendInt(LayerLoc, layer);
@@ -489,6 +488,7 @@ namespace Atmosphere
         SendShaderUniforms(AtmosphereProgram);
         SendInt(glGetUniformLocation(AtmosphereProgram, "TransmittanceTexture"), 0);
         SendInt(glGetUniformLocation(AtmosphereProgram, "IrradianceTexture"), 1);
+        SendInt(glGetUniformLocation(AtmosphereProgram, "ScatteringTexture"), 2);
 
         glUseProgram(0);
     }

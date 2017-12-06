@@ -91,9 +91,9 @@ void GameInitialization(game_memory *Memory)
     InitCamera(&State->Camera, Memory);
 	
 	// Bretagne, France
-	Local->Latitude = 48.2020f * DEG2RAD;
+	//Local->Latitude = 48.2020f * DEG2RAD;
 	// Abidjan, Ivory Coast
-	//Local->Latitude = 5.345317f * DEG2RAD;
+	Local->Latitude = 5.345317f * DEG2RAD;
 	// Summer solstice
 	Local->EarthTilt = 23.43f * DEG2RAD;
 
@@ -203,9 +203,10 @@ void MovePlayer(game_state *State, game_input *Input)
     State->PlayerPosition = Move;
 }
 
+static float Sunspeed = 0.010f;
+
 void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_input *Input)
 {
-    float Sunspeed = 0.05f;
 	Local->DayPhase = fmod(Local->DayPhase + Sunspeed * M_PI * Input->dTime, 2.f * M_PI);
 
 
@@ -228,7 +229,7 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
         Local->IsNight = true;
     }
 
-	//State->LightDirection = Normalize(SunPos);
+	State->LightDirection = Normalize(SunPos);
     //State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
     State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
 }
@@ -302,12 +303,14 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
     if(KEY_DOWN(Input->KeyNumMultiply))
     {
-        State->WaterDirection += Input->dTime * 0.05;
+       // State->WaterDirection += Input->dTime * 0.05;
+        Sunspeed *= 1.05;
     }
 
     if(KEY_DOWN(Input->KeyNumDivide))
     {
-        State->WaterDirection -= Input->dTime * 0.05;
+        //State->WaterDirection -= Input->dTime * 0.05;
+        Sunspeed *= 0.95;
     }
 
     if(KEY_HIT(Input->KeyF3))
