@@ -835,6 +835,7 @@ public:
 		R[0][2] = +(M[0][1] * M[1][2] - M[1][1] * M[0][2]) * oneOverDet;
 		R[1][2] = -(M[0][0] * M[1][2] - M[1][0] * M[0][2]) * oneOverDet;
 		R[2][2] = +(M[0][0] * M[1][1] - M[1][0] * M[0][1]) * oneOverDet;
+        return R;
 	}
 
 	vec3<T> M[3];
@@ -874,6 +875,14 @@ public:
 	{
 		(*this) = v;
 	}
+
+    mat4(const mat3<T> &A)
+    {
+        M[0] = vec4<T>(A.M[0].x, A.M[0].y, A.M[0].z, 0.f);
+        M[1] = vec4<T>(A.M[1].x, A.M[1].y, A.M[1].z, 0.f);
+        M[2] = vec4<T>(A.M[2].x, A.M[2].y, A.M[2].z, 0.f);
+        M[3] = vec4<T>(0.f, 0.f, 0.f, 1.f);
+    }
 
 	void Identity()
 	{
@@ -1272,6 +1281,16 @@ public:
 
 typedef mat4<float> mat4f;
 typedef mat4<int> mat4i;
+
+template<typename T>
+inline mat3<T> mat3FromMat4(const mat4<T> &A)
+{
+    mat3<T> m;
+    m.M[0] = vec3<T>(A.M[0].x, A.M[0].y, A.M[0].z);
+    m.M[1] = vec3<T>(A.M[1].x, A.M[1].y, A.M[1].z);
+    m.M[2] = vec3<T>(A.M[2].x, A.M[2].y, A.M[2].z);
+    return m;
+}
 
 class complex {
 public:

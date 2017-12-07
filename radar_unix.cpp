@@ -67,7 +67,11 @@ static void CopyFile(path const Src, path const Dst)
         {
             break;
         }
-        write(DFD, FileBuf, Read);
+        ssize_t Written = write(DFD, FileBuf, Read);
+        if(Read != Written)
+        {
+            printf("Copy File Error [%s].\n", Dst);
+        }
     }
 
     close(SFD);

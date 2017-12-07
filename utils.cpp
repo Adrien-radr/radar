@@ -30,7 +30,11 @@ void *ReadFileContents(memory_arena *Arena, path const Filename, int32 *FileSize
             int32 Size = ftell(fp);
             rewind(fp);
             Contents = (char*)PushArenaData(Arena, Size+1);
-            fread(Contents, Size, 1, fp);
+            size_t Read = fread(Contents, Size, 1, fp);
+            if(Read != 1)
+            {
+                LogError("File Open Error [%s] : Reading error or EOF reached.", Filename);
+            }
             Contents[Size] = 0;
             if(FileSize)
             {
@@ -39,13 +43,13 @@ void *ReadFileContents(memory_arena *Arena, path const Filename, int32 *FileSize
         }
         else
         {
-            printf("File Open Error : fseek not 0.\n");
+            LogError("File Open Error [%s] : fseek not 0.", Filename);
         }
         fclose(fp);
     }
     else
     {
-        printf("Coudln't open file %s.\n", Filename);
+        LogError("File Open Error [%s] : Couldn't open file.", Filename);
     }
 
     return (void*)Contents;

@@ -79,7 +79,7 @@ namespace rlog
 
         char Str[512];
         int CharCount = 0;
-        if(LogLevel == LOG_DEBUG)
+        if(LogLevel == LOG_DEBUG || LogLevel == LOG_ERROR)
             CharCount = snprintf(Str, 512, "%s <%s:%d> %s", LogLevelStr[LogLevel], File, Line, LocalBuf);
         else
             CharCount = snprintf(Str, 512, "%s %s", LogLevelStr[LogLevel], LocalBuf);

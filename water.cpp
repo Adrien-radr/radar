@@ -443,7 +443,7 @@ void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 
     Loc = glGetUniformLocation(WaterSystem->ProgramWater, "CameraPos");
     SendVec3(Loc, State->Camera.Position);
     Loc = glGetUniformLocation(WaterSystem->ProgramWater, "SunDirection");
-    SendVec3(Loc, State->LightDirection);
+    SendVec3(Loc, State->SunDirection);
     Loc = glGetUniformLocation(WaterSystem->ProgramWater, "Time");
     SendFloat(Loc, State->EngineTime);
 

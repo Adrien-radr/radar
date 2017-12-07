@@ -44,6 +44,8 @@ struct game_config
     real32  CameraSpeedAngular;
     vec3f   CameraPosition;
     vec3f   CameraTarget;
+
+    real32  TimeScale; // Ratio for the length of a day. 1.0 is real time. 30.0 is 1 day = 48 minutes
 };
 
 struct memory_arena
@@ -282,12 +284,14 @@ struct game_state
     bool DisableMouse;
     vec3f PlayerPosition;
     vec4f LightColor;
-    vec3f LightDirection;
 
     real64 WaterCounter;
     real32 WaterStateInterp;
     real32 WaterDirection;
     int    WaterState;
+
+    vec3f  SunDirection;
+    real32 SunSpeed;
 };
 
 struct tmp_sound_data

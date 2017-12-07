@@ -124,7 +124,8 @@ struct render_resources
     resource_store Fonts;
 };
 
-void CheckGLError(const char *Mark = "");
+void CheckGLError(char const *Mark = "");
+void CheckFramebufferError(char const *Mark = "");
 
 void *ResourceCheckExist(render_resources *RenderResources, render_resource_type Type, path const Filename);
 void ResourceStore(render_resources *RenderResources, render_resource_type Type, path const Filename, void *Resource);
@@ -135,6 +136,8 @@ font *ResourceLoadFont(render_resources *RenderResources, path const Filename, u
 uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
                               uint32 AnisotropicLevel, int32 ForceNumChannel = 0);
 
+void BindTexture2D(uint32 TextureID, uint32 TextureUnit);
+void BindTexture3D(uint32 TextureID, uint32 TextureUnit);
 uint32 Make2DTexture(void *ImageBuffer, uint32 Width, uint32 Height, uint32 Channels, bool IsFloat,
         bool FloatHalfPrecision, real32 AnisotropicLevel, int MagFilter, int MinFilter, int WrapS, int WrapT);
 uint32 Make3DTexture(uint32 Width, uint32 Height, uint32 Depth, uint32 Channels, bool IsFloat, bool FloatHalfPrecision,
@@ -160,7 +163,9 @@ void SendFloat(uint32 Loc, real32 value);
 
 frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size, bool AddDepthBuffer = true);
 void DestroyFramebuffer(frame_buffer *FB);
-void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Mipmap);
+void FramebufferAttachBuffer(frame_buffer *FB, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Mipmap);
+void FramebufferAttachBuffer(frame_buffer *FB, uint32 Attachment, uint32 TextureID);
+void FramebufferSetAttachmentCount(frame_buffer *FB, int Count);
 
 uint32 MakeVertexArrayObject();
 uint32 AddIBO(uint32 Usage, uint32 Size, void const *Data);
@@ -168,6 +173,7 @@ uint32 AddEmptyVBO(uint32 Size, uint32 Usage);
 void FillVBO(uint32 Attrib, uint32 AttribStride, uint32 Type, size_t ByteOffset, uint32 Size, void const *Data);
 void UpdateVBO(uint32 VBO, size_t ByteOffset, uint32 Size, void *Data);
 void DestroyMesh(mesh *Mesh);
+void RenderMesh(mesh *Mesh);
 
 real32 GetDisplayTextWidth(char const *Text, font *Font, real32 Scale);
 void FillDisplayTextInterleaved(char const *Text, uint32 TextLength, font *Font, vec3i Pos, int MaxPixelWidth,

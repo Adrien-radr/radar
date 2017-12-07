@@ -76,6 +76,7 @@ void GameInitialization(game_memory *Memory)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
+    game_config *Config = &Memory->Config;
 
     System->DLLStorage = PushArenaStruct(&Memory->SessionArena, sun_storage);
     sun_storage *Local = (sun_storage*)System->DLLStorage;
@@ -97,32 +98,34 @@ void GameInitialization(game_memory *Memory)
 	// Summer solstice
 	Local->EarthTilt = 23.43f * DEG2RAD;
 
+    State->SunSpeed = Config->TimeScale * (M_PI / 86400.f);
+
     // TODO - Pack Sun color and direction from envmaps
 #if 1
     // Monument Envmap
-    State->LightDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
+    State->SunDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
     State->LightColor = vec4f(1.0f, 0.6, 0.5, 1.0f);
 #endif
 #if 0
     // Arch Envmap
     State->LightColor = vec4f(1, 241.f/255.f, 234.f/255.f, 1.0f);
-    State->LightDirection = SphericalToCartesian(0.365 * M_PI, M_TWO_PI * 0.080);
+    State->SunDirection = SphericalToCartesian(0.365 * M_PI, M_TWO_PI * 0.080);
 #endif
 #if 0
     // Malibu Envmap
     State->LightColor = vec4f(255.f/255.f, 251.f/255.f, 232.f/255.f, 1.0f);
-    State->LightDirection = SphericalToCartesian(0.15 * M_PI, M_TWO_PI * 0.95);
+    State->SunDirection = SphericalToCartesian(0.15 * M_PI, M_TWO_PI * 0.95);
 #endif
 #if 0
     // Tropical Envmap
     State->LightColor = vec4f(255.f/255.f, 252.f/255.f, 245.f/255.f, 1.0f);
-    State->LightDirection = SphericalToCartesian(0.12 * M_PI, M_TWO_PI * 0.33);
+    State->SunDirection = SphericalToCartesian(0.12 * M_PI, M_TWO_PI * 0.33);
 #endif
 #if 0 // Skybox 1
-        State->LightDirection = Normalize(vec3f(0.5, 0.2, 1.0));
+        State->SunDirection = Normalize(vec3f(0.5, 0.2, 1.0));
 #endif
 #if 0 // Skybox 2
-        State->LightDirection = Normalize(vec3f(0.7, 1.2, -0.7));
+        State->SunDirection = Normalize(vec3f(0.7, 1.2, -0.7));
 #endif
 
     State->WaterCounter = 0.0;
@@ -155,6 +158,8 @@ void MovePlayer(game_state *State, game_input *Input)
     real32 SpeedMult = Camera.SpeedMode ? (Camera.SpeedMode > 0 ? Camera.SpeedMult : 1.0f / Camera.SpeedMult) : 1.0f;
     CameraMove *= (real32)(Input->dTime * Camera.LinearSpeed * SpeedMult);
     Camera.Position += CameraMove;
+
+    Camera.Position.y = Max(0.5, Camera.Position.y); // Min at .5 meters
 
     if(MOUSE_HIT(Input->MouseRight))
     {
@@ -203,11 +208,9 @@ void MovePlayer(game_state *State, game_input *Input)
     State->PlayerPosition = Move;
 }
 
-static float Sunspeed = 0.010f;
-
 void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_input *Input)
 {
-	Local->DayPhase = fmod(Local->DayPhase + Sunspeed * M_PI * Input->dTime, 2.f * M_PI);
+	Local->DayPhase = fmod(Local->DayPhase + State->SunSpeed * M_PI * Input->dTime, 2.f * M_PI);
 
 
 	real32 CosET = cosf(Local->EarthTilt);
@@ -229,7 +232,7 @@ void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_
         Local->IsNight = true;
     }
 
-	State->LightDirection = Normalize(SunPos);
+	State->SunDirection = Normalize(SunPos);
     //State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
     State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
 }
@@ -304,13 +307,13 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     if(KEY_DOWN(Input->KeyNumMultiply))
     {
        // State->WaterDirection += Input->dTime * 0.05;
-        Sunspeed *= 1.05;
+        State->SunSpeed *= 1.05;
     }
 
     if(KEY_DOWN(Input->KeyNumDivide))
     {
         //State->WaterDirection -= Input->dTime * 0.05;
-        Sunspeed *= 0.95;
+        State->SunSpeed *= 0.95;
     }
 
     if(KEY_HIT(Input->KeyF3))
@@ -344,10 +347,13 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
 
         Local->NightDayText.Color = ui::COLOR_DEBUGFG;
         Local->NightDayText.Position = vec2i(4,46);
+
+        int CharWritten = snprintf(Local->NightDayText.String, UI_STRINGLEN, "Sun Speed : %.3f", State->SunSpeed);
+
         if(Local->IsNight)
-            snprintf(Local->NightDayText.String, UI_STRINGLEN, "Day");
+            snprintf(Local->NightDayText.String + CharWritten, UI_STRINGLEN - CharWritten, " Day");
         else
-            snprintf(Local->NightDayText.String, UI_STRINGLEN, "Night");
+            snprintf(Local->NightDayText.String + CharWritten, UI_STRINGLEN - CharWritten, " Night");
 
         Local->Counter = 0.0;
     }

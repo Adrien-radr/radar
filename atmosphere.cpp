@@ -200,7 +200,7 @@ namespace Atmosphere
 
     static const vec2i  kTransmittanceTextureSize = vec2i(256, 64);
     static const vec2i  kIrradianceTextureSize = vec2i(64, 16);
-    static const vec4i  kScatteringTextureRMuMuSNuSize = vec4i(32, 128, 32, 8);
+    static const vec4i  kScatteringTextureRMuMuSNuSize = vec4i(64, 128, 32, 8);
     static const vec3i  kScatteringTextureSize = vec3i(kScatteringTextureRMuMuSNuSize.w * kScatteringTextureRMuMuSNuSize.z, kScatteringTextureRMuMuSNuSize.y, kScatteringTextureRMuMuSNuSize.x);
 
     static const real32 kLengthUnitInMeters = 1000.f;
@@ -213,11 +213,11 @@ namespace Atmosphere
     static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
     static const real32 kConstantSolarIrradiance = 1.5f;
-    static const real32 kGroundAlbedo = 0.01f;
+    static const real32 kGroundAlbedo = 0.000012f;
     static const real32 kSunAngularRadius = 0.00935f / 2.f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = 0.8;
-    static const real32 kMaxSunZenithAngle = DEG2RAD * 102.f;
+    static const real32 kMiePhaseG = 0.99;
+    static const real32 kMaxSunZenithAngle = DEG2RAD * 180.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
     {
@@ -301,7 +301,7 @@ namespace Atmosphere
         for(int l = LAMBDA_MIN; l <= LAMBDA_MAX; l += 10)
         {
             int Idx = (l-LAMBDA_MIN)/10;
-            real32 Lambda = (real32)l * 1e-3f; // micrometers
+            real32 Lambda = (real32)l / kLengthUnitInMeters; // micrometers
             real32 Mie = kMieAngstromBeta / kMieScaleHeight * std::pow(Lambda, -kMieAngstromAlpha);
             Wavelengths[Idx] = l;
             RayleighScatteringWavelengths[Idx] = kRayleigh * std::pow(Lambda, -4);
@@ -350,12 +350,19 @@ namespace Atmosphere
 
         glDepthFunc(GL_LEQUAL);
 
+        vec3f Camera;
+        real32 l = 1.0f / (kLengthUnitInMeters);
+        Camera.x = ModelFromView.M[3].x * l;
+        Camera.y = ModelFromView.M[3].y * l;
+        Camera.z = ModelFromView.M[3].z * l;
+    
+
 
         glUseProgram(AtmosphereProgram);
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
-        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), State->Camera.Position/kLengthUnitInMeters);
-        SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->LightDirection);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), Camera);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
         glActiveTexture(GL_TEXTURE1);
@@ -363,8 +370,9 @@ namespace Atmosphere
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_3D, ScatteringTexture);
         glBindVertexArray(ScreenQuad.VAO);
-        glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+        RenderMesh(&ScreenQuad);
         glUseProgram(0);
+
 
         glDepthFunc(GL_LESS);
     }
@@ -384,6 +392,11 @@ namespace Atmosphere
         CheckGLError("Atmosphere Precompute Shader");
 
         SendShaderUniforms(AtmospherePrecomputeProgram);
+        SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex0"), 0);
+        SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex1"), 1);
+        SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex2"), 2);
+        SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex3"), 3);
+        SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex4"), 4);
 
         // Transmittance texture
         SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ProgramUnit"), 0);
@@ -399,11 +412,10 @@ namespace Atmosphere
         glClearColor(0,0,0,0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glBindVertexArray(ScreenQuad.VAO);
-        glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+        RenderMesh(&ScreenQuad);
 
         // Ground Irradiance texture
         SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ProgramUnit"), 1);
-        SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex0"), 0);
         DestroyFramebuffer(&RenderBuffer);
         RenderBuffer = MakeFramebuffer(2, kIrradianceTextureSize);
         glDeleteTextures(1, &IrradianceTexture);
@@ -420,7 +432,7 @@ namespace Atmosphere
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
         glBindVertexArray(ScreenQuad.VAO);
-        glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+        RenderMesh(&ScreenQuad);
 
         // Single Scattering
         path GSPath;
@@ -430,25 +442,29 @@ namespace Atmosphere
         SendShaderUniforms(ScatteringProgram);
         SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 2);
         SendInt(glGetUniformLocation(ScatteringProgram, "Tex0"), 0);
+        SendInt(glGetUniformLocation(ScatteringProgram, "Tex1"), 1);
+        SendInt(glGetUniformLocation(ScatteringProgram, "Tex2"), 2);
+        SendInt(glGetUniformLocation(ScatteringProgram, "Tex3"), 3);
+        SendInt(glGetUniformLocation(ScatteringProgram, "Tex4"), 4);
         CheckGLError("Scattering Precompute Shader");
 
         DestroyFramebuffer(&RenderBuffer);
         RenderBuffer = MakeFramebuffer(3, vec2i(kScatteringTextureSize.x, kScatteringTextureSize.y), false);
         glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
         glDeleteTextures(1, &ScatteringTexture);
-        ScatteringTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, true, 
+        ScatteringTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false, 
                                           GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        uint32 DeltaRayleighTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, true, 
+        uint32 DeltaRayleighTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false, 
                                           GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        uint32 DeltaMieTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, true, 
+        uint32 DeltaMieTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false, 
                                           GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, DeltaRayleighTexture, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, DeltaMieTexture, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, ScatteringTexture, 0);
-        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        FramebufferAttachBuffer(&RenderBuffer, 0, DeltaRayleighTexture);
+        FramebufferAttachBuffer(&RenderBuffer, 1, DeltaMieTexture);
+        FramebufferAttachBuffer(&RenderBuffer, 2, ScatteringTexture);
+        D(if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         {
-            LogError("Incomplete Framebuffer 2");
-        }
+            LogError("Incomplete Scattering Framebuffer");
+        })
         glViewport(0, 0, kScatteringTextureSize.x, kScatteringTextureSize.y);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glActiveTexture(GL_TEXTURE0);
@@ -458,10 +474,82 @@ namespace Atmosphere
         for(int layer = 0; layer < kScatteringTextureSize.z; ++layer)
         {
             SendInt(LayerLoc, layer);
-            glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+            RenderMesh(&ScreenQuad);
         }
 
         CheckGLError("Scattering Precomputation");
+
+        // Multiple Scattering
+        uint32 DeltaScatteringDensityTexture = Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false,
+                                                             GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+
+        glDisablei(GL_BLEND, 0);
+        glDisablei(GL_BLEND, 1);
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFunc(GL_ONE, GL_ONE);
+
+        uint32 NumScatteringBounces = 4;
+        for(uint32 bounce = 2; bounce <= NumScatteringBounces; ++bounce)
+        {
+            // 1. Compute Scattering density into DeltaScatteringDensityTexture
+            glUseProgram(ScatteringProgram);
+            SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 3);
+            FramebufferSetAttachmentCount(&RenderBuffer, 1);
+            FramebufferAttachBuffer(&RenderBuffer, 0, DeltaScatteringDensityTexture);
+            FramebufferAttachBuffer(&RenderBuffer, 1, 0);
+            FramebufferAttachBuffer(&RenderBuffer, 2, 0);
+            FramebufferAttachBuffer(&RenderBuffer, 3, 0);
+            CheckFramebufferError("Scattering Density Framebuffer");
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_3D, DeltaRayleighTexture);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_3D, DeltaMieTexture);
+            glActiveTexture(GL_TEXTURE3);
+            glBindTexture(GL_TEXTURE_3D, DeltaRayleighTexture);
+            glActiveTexture(GL_TEXTURE4);
+            glBindTexture(GL_TEXTURE_2D, DeltaIrradianceTexture);
+            SendInt(glGetUniformLocation(ScatteringProgram, "ScatteringBounce"), bounce);
+            for(int32 layer = 0; layer < kScatteringTextureSize.z; ++layer)
+            {
+                SendInt(LayerLoc, layer);
+                RenderMesh(&ScreenQuad);
+            }
+
+            // 2. Compute Indirect irradiance into DeltaIrradianceTexture, accumulate it into IrradianceTexture
+            glUseProgram(AtmospherePrecomputeProgram);
+            SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 4);
+            FramebufferSetAttachmentCount(&RenderBuffer, 2);
+            FramebufferAttachBuffer(&RenderBuffer, 0, DeltaIrradianceTexture);
+            FramebufferAttachBuffer(&RenderBuffer, 1, IrradianceTexture);
+            CheckFramebufferError("Indirect Irradiance Framebuffer");
+            BindTexture3D(DeltaRayleighTexture, 1);
+            BindTexture3D(DeltaMieTexture, 2);
+            BindTexture3D(DeltaRayleighTexture, 3);
+            SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ScatteringBounce"), bounce - 1);
+            // Accumulate Irradiance in Attachment 1
+            glEnablei(GL_BLEND, 1);
+            RenderMesh(&ScreenQuad);
+            glDisablei(GL_BLEND, 1);
+
+            // 3. Compute Multiple scattering into RayleighTexture
+            glUseProgram(ScatteringProgram);
+            SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 5);
+            FramebufferSetAttachmentCount(&RenderBuffer, 2);
+            FramebufferAttachBuffer(&RenderBuffer, 0, DeltaRayleighTexture);
+            FramebufferAttachBuffer(&RenderBuffer, 1, ScatteringTexture);
+            CheckFramebufferError("MS Framebuffer");
+            BindTexture2D(TransmittanceTexture, 0);
+            BindTexture3D(DeltaScatteringDensityTexture, 1);
+            glEnablei(GL_BLEND, 1);
+            for(int32 layer = 0; layer < kScatteringTextureSize.z; ++layer)
+            {
+                SendInt(LayerLoc, layer);
+                RenderMesh(&ScreenQuad);
+            }
+            glDisablei(GL_BLEND, 1);
+        }
 
 
         glBindVertexArray(0);
@@ -472,9 +560,13 @@ namespace Atmosphere
         glDeleteTextures(1, &DeltaIrradianceTexture);
         glDeleteTextures(1, &DeltaRayleighTexture);
         glDeleteTextures(1, &DeltaMieTexture);
+        glDeleteTextures(1, &DeltaScatteringDensityTexture);
         glDeleteProgram(ScatteringProgram);
         glDeleteProgram(AtmospherePrecomputeProgram);
         DestroyFramebuffer(&RenderBuffer);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnablei(GL_BLEND, 0);
+        glEnablei(GL_BLEND, 1);
 
 
         // Rendering shader

@@ -89,6 +89,8 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
 
             Config.CameraPosition = JSON_Get(root, "vCameraPosition", vec3f(1,1,1));
             Config.CameraTarget = JSON_Get(root, "vCameraTarget", vec3f(0,0,0));
+
+            Config.TimeScale = JSON_Get(root, "fTimescale", 30.0);
         }
         else
         {
@@ -592,7 +594,7 @@ int RadarMain(int argc, char **argv)
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
                 Loc = glGetUniformLocation(Program3D, "SunDirection");
-                SendVec3(Loc, State->LightDirection);
+                SendVec3(Loc, State->SunDirection);
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
                 uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
@@ -651,7 +653,7 @@ int RadarMain(int argc, char **argv)
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
                 Loc = glGetUniformLocation(Program3D, "SunDirection");
-                SendVec3(Loc, State->LightDirection);
+                SendVec3(Loc, State->SunDirection);
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
                 glBindVertexArray(Cube.VAO);
@@ -700,7 +702,7 @@ int RadarMain(int argc, char **argv)
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
                 Loc = glGetUniformLocation(Program3D, "SunDirection");
-                SendVec3(Loc, State->LightDirection);
+                SendVec3(Loc, State->SunDirection);
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
 
@@ -752,7 +754,7 @@ int RadarMain(int argc, char **argv)
                 uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
                 SendVec4(Loc, State->LightColor);
                 Loc = glGetUniformLocation(Program3D, "SunDirection");
-                SendVec3(Loc, State->LightDirection);
+                SendVec3(Loc, State->SunDirection);
                 Loc = glGetUniformLocation(Program3D, "CameraPos");
                 SendVec3(Loc, State->Camera.Position);
 

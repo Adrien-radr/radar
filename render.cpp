@@ -104,8 +104,9 @@ void ResourceFree(render_resources *RenderResources)
     }
 }
 
-void CheckGLError(const char *Mark)
+void CheckGLError(char const *Mark)
 {
+    D(
     uint32 Err = glGetError();
     if(Err != GL_NO_ERROR)
     {
@@ -139,6 +140,31 @@ void CheckGLError(const char *Mark)
         }
         LogError("[%s] GL Error %s", Mark, ErrName);
     }
+    )
+}
+
+void CheckFramebufferError(char const *Mark)
+{
+    D(
+    uint32 Err = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if(Err != GL_FRAMEBUFFER_COMPLETE)
+    {
+        char ErrName[64];
+        switch(Err)
+        {
+        case GL_FRAMEBUFFER_UNDEFINED :                     snprintf(ErrName, 64, "Undefined."); break;
+        case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT :         snprintf(ErrName, 64, "Incomplete Attachment."); break;
+        case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT : snprintf(ErrName, 64, "Incomplete - Missing Attachment."); break;
+        case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER :        snprintf(ErrName, 64, "Incomplete Draw buffer."); break;
+        case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER :        snprintf(ErrName, 64, "Incomplete Read buffer."); break;
+        case GL_FRAMEBUFFER_UNSUPPORTED :                   snprintf(ErrName, 64, "Unsupported."); break;
+        case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE :        snprintf(ErrName, 64, "Incomplete Multisample."); break;
+        case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS :      snprintf(ErrName, 64, "Incomplete Layer Targets."); break;
+        default :                                           snprintf(ErrName, 64, "Unknown Error %u", Err); break;
+        }
+        LogError("[%s] Framebuffer Error : %s", Mark, ErrName);
+    }
+    )
 }
 
 image *ResourceLoadImage(render_resources *RenderResources, path const Filename, bool IsFloat, bool FlipY, int32 ForceNumChannel)
@@ -290,6 +316,18 @@ uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32
                          GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 }
 
+void BindTexture2D(uint32 TextureID, uint32 TextureUnit)
+{
+    glActiveTexture(GL_TEXTURE0 + TextureUnit);
+    glBindTexture(GL_TEXTURE_2D, TextureID);
+}
+
+void BindTexture3D(uint32 TextureID, uint32 TextureUnit)
+{
+    glActiveTexture(GL_TEXTURE0 + TextureUnit);
+    glBindTexture(GL_TEXTURE_3D, TextureID);
+}
+
 uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
                               uint32 AnisotropicLevel, int32 ForceNumChannel)
 {
@@ -377,7 +415,7 @@ void DestroyFramebuffer(frame_buffer *FB)
 
 frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size, bool AddDepthBuffer)
 {
-    Assert(NumAttachments <= MAX_FBO_ATTACHMENTS);
+    Assert(NumAttachments < MAX_FBO_ATTACHMENTS);
 
     frame_buffer FB = {};
     FB.Size = Size;
@@ -401,18 +439,27 @@ frame_buffer MakeFramebuffer(uint32 NumAttachments, vec2i Size, bool AddDepthBuf
         }
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     return FB;
 }
 
-void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Mipmap)
+void FramebufferSetAttachmentCount(frame_buffer *FB, int Count)
+{
+    Assert(Count < MAX_FBO_ATTACHMENTS);
+    FB->NumAttachments = Count;
+    glDrawBuffers((GLsizei) Count, FBOAttachments);
+}
+
+void FramebufferAttachBuffer(frame_buffer *FB, uint32 Attachment, uint32 TextureID)
+{
+    Assert(Attachment < MAX_FBO_ATTACHMENTS);
+    glFramebufferTexture(GL_FRAMEBUFFER, FBOAttachments[Attachment], TextureID, 0);
+}
+
+void FramebufferAttachBuffer(frame_buffer *FB, uint32 Attachment, uint32 Channels, bool IsFloat, bool FloatHalfPrecision, bool Mipmap)
 {
     Assert(Attachment < MAX_FBO_ATTACHMENTS);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO->FBO);
-
-    uint32 *BufferID = &FBO->BufferIDs[Attachment];
+    uint32 *BufferID = &FB->BufferIDs[Attachment];
     glGenTextures(1, BufferID);
     glBindTexture(GL_TEXTURE_2D, *BufferID);
 
@@ -424,7 +471,7 @@ void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channe
     GLint BaseFormat, Format;
     FormatFromChannels(Channels, IsFloat, FloatHalfPrecision, &BaseFormat, &Format);
     GLenum Type = IsFloat ? GL_FLOAT : GL_UNSIGNED_BYTE;
-    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FBO->Size.x, FBO->Size.y, 0, Format, Type, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, BaseFormat, FB->Size.x, FB->Size.y, 0, Format, Type, NULL);
 
     if(Mipmap)
     {
@@ -432,13 +479,6 @@ void FramebufferAttachBuffer(frame_buffer *FBO, uint32 Attachment, uint32 Channe
     }
 
     glFramebufferTexture2D(GL_FRAMEBUFFER, (GLenum) ( GL_COLOR_ATTACHMENT0 + Attachment ), GL_TEXTURE_2D, *BufferID, 0 );
-
-    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    {
-        LogError("Framebuffer creation error : Attachment %u error.", Attachment);
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 // TODO - This method isn't perfect. Some letters have KERN advance between them when in sentences.
@@ -753,6 +793,11 @@ void DestroyMesh(mesh *Mesh)
     glDeleteBuffers(2, Mesh->VBO);
     glDeleteVertexArrays(1, &Mesh->VAO);
     Mesh->IndexCount = 0;
+}
+
+void RenderMesh(mesh *Mesh)
+{
+    glDrawElements(GL_TRIANGLES, Mesh->IndexCount, Mesh->IndexType, 0);
 }
 
 static void FillCharInterleaved(real32 *VertData, uint16 *IdxData, uint32 i, uint16 c, font *Font, int *X, int *Y, vec3i const &Pos, real32 Scale)

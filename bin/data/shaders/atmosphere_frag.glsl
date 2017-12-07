@@ -8,7 +8,7 @@
 #define IRRADIANCE_TEXTURE_WIDTH 64
 #define IRRADIANCE_TEXTURE_HEIGHT 16
 
-#define SCATTERING_TEXTURE_R_SIZE 32
+#define SCATTERING_TEXTURE_R_SIZE 64
 #define SCATTERING_TEXTURE_MU_SIZE 128
 #define SCATTERING_TEXTURE_MU_S_SIZE 32
 #define SCATTERING_TEXTURE_NU_SIZE 8
@@ -336,7 +336,8 @@ void main()
 {
     vec3 E = normalize(v_eyeRay);
     vec3 EarthCenter = vec3(0,-Atmosphere.BottomRadius, 0);
-    vec3 p = CameraPosition - EarthCenter;
+    vec3 P = CameraPosition;
+    vec3 p = P - EarthCenter;
     float PdotV = dot(p, E);
     float PdotP = dot(p, p);
     float EarthCenterRayDistance = PdotP - PdotV * PdotV;
@@ -347,17 +348,17 @@ void main()
     vec3 contrib = vec3(0);
     if(Depth > 0.0)
     {
-        vec3 Point = CameraPosition + E * Depth;
+        vec3 Point = P + E * Depth;
         vec3 N = normalize(Point - EarthCenter);
-        //Point += N * 1e-3; // To avoid depth fighting
+        Point += N * 1e-3f; // To avoid depth fighting
 
         vec3 SkyIrradiance;
         vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, N, L, SkyIrradiance);
-        vec3 GroundRadiance = Atmosphere.GroundAlbedo * (1.0/PI) * (SunIrradiance + SkyIrradiance);
+        vec3 GroundRadiance = Atmosphere.GroundAlbedo* (1.0/PI) * (SunIrradiance + SkyIrradiance);
 
         vec3 Transmittance;
         vec3 Inscattering = GetSkyRadianceToPoint(p, Point - EarthCenter, L, Transmittance);
-        contrib += 1e-3 * GroundRadiance * Transmittance + Inscattering;
+        contrib += Transmittance * GroundRadiance + Inscattering;
     }
     else
     {
