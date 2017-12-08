@@ -49,6 +49,7 @@ struct atmosphere_parameters
     float           MinMuS;
 };
 
+const vec3 kGroundAlbedo = vec3(0.0005, 0.001, 0.005);
 
 in vec2 v_texcoord;
 in vec3 v_eyeRay;
@@ -280,7 +281,7 @@ vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
     vec3 Rayleigh, Mie;
     Rayleigh = GetScattering(r, mu, mu_s, nu, IntersectsGround, Mie);
 
-    return Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu);
+    return max(1e-5,L.y) * (Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu));
 }
 
 vec3 GetSkyRadianceToPoint(vec3 Camera, vec3 P, vec3 L, out vec3 Transmittance)
@@ -354,7 +355,7 @@ void main()
 
         vec3 SkyIrradiance;
         vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, N, L, SkyIrradiance);
-        vec3 GroundRadiance = Atmosphere.GroundAlbedo* (1.0/PI) * (SunIrradiance + SkyIrradiance);
+        vec3 GroundRadiance = kGroundAlbedo * (1.0/PI) * (SunIrradiance + SkyIrradiance);
 
         vec3 Transmittance;
         vec3 Inscattering = GetSkyRadianceToPoint(p, Point - EarthCenter, L, Transmittance);

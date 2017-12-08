@@ -113,6 +113,16 @@ namespace Atmosphere
         -0.9689f, +1.8758f, +0.0415f,
         +0.0557f, -0.2040f, +1.0570f
     };
+
+    static const real32 kSolarIrradiance[48] = {
+        1.11776, 1.14259, 1.01249, 1.14716, 1.72765, 1.73054, 1.6887, 1.61253,
+        1.91198, 2.03474, 2.02042, 2.02212, 1.93377, 1.95809, 1.91686, 1.8298,
+        1.8685, 1.8931, 1.85149, 1.8504, 1.8341, 1.8345, 1.8147, 1.78158, 1.7533,
+        1.6965, 1.68194, 1.64654, 1.6048, 1.52143, 1.55622, 1.5113, 1.474, 1.4482,
+        1.41018, 1.36775, 1.34188, 1.31429, 1.28303, 1.26758, 1.2367, 1.2082,
+        1.18737, 1.14683, 1.12362, 1.1058, 1.07124, 1.04992
+    };
+
     static const real32 kOzoneCrossSection[48] = {
         1.18e-27f, 2.182e-28f, 2.818e-28f, 6.636e-28f, 1.527e-27f, 2.763e-27f, 5.52e-27f,
         8.451e-27f, 1.582e-26f, 2.316e-26f, 3.669e-26f, 4.924e-26f, 7.752e-26f, 9.016e-26f,
@@ -212,11 +222,10 @@ namespace Atmosphere
     static const real32 kMieSingleScatteringAlbedo = 0.9f;
     static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
-    static const real32 kConstantSolarIrradiance = 1.5f;
     static const real32 kGroundAlbedo = 0.000012f;
     static const real32 kSunAngularRadius = 0.00935f / 2.f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = 0.99;
+    static const real32 kMiePhaseG = 0.999;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 180.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
@@ -301,14 +310,14 @@ namespace Atmosphere
         for(int l = LAMBDA_MIN; l <= LAMBDA_MAX; l += 10)
         {
             int Idx = (l-LAMBDA_MIN)/10;
-            real32 Lambda = (real32)l / kLengthUnitInMeters; // micrometers
+            real32 Lambda = (real32)l * 1e-3f; // micrometers
             real32 Mie = kMieAngstromBeta / kMieScaleHeight * std::pow(Lambda, -kMieAngstromAlpha);
             Wavelengths[Idx] = l;
             RayleighScatteringWavelengths[Idx] = kRayleigh * std::pow(Lambda, -4);
             MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
             MieExtinctionWavelengths[Idx] = Mie;
             AbsorptionExtinctionWavelengths[Idx] = kMaxOzoneNumberDensity * kOzoneCrossSection[Idx];
-            SolarIrradianceWavelengths[Idx] = kConstantSolarIrradiance;
+            SolarIrradianceWavelengths[Idx] = kSolarIrradiance[Idx];
             GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
         }
 
@@ -327,61 +336,8 @@ namespace Atmosphere
         AtmosphereParameters.SunAngularRadius = kSunAngularRadius;
         AtmosphereParameters.MiePhaseG = kMiePhaseG;
         AtmosphereParameters.MinMuS = cosf(kMaxSunZenithAngle);
-    }
 
-    void Update()
-    {
-    }
-
-    void Render(game_state *State, game_context *Context)
-    {
-        mat4f ModelFromView = State->Camera.ViewMatrix.Inverse();
-
-        real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
-        real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
-        real32 TanFovY = tanf(FovRadians * 0.5f);
-        mat4f ViewFromClip
-        (
-            TanFovY * AspectRatio, 0.f, 0.f, 0.f,
-            0.f, TanFovY, 0.f, 0.f,
-            0.f, 0.f, 0.f, -1.f,
-            0.f, 0.f, 1.f, 1.f
-        );
-
-        glDepthFunc(GL_LEQUAL);
-
-        vec3f Camera;
-        real32 l = 1.0f / (kLengthUnitInMeters);
-        Camera.x = ModelFromView.M[3].x * l;
-        Camera.y = ModelFromView.M[3].y * l;
-        Camera.z = ModelFromView.M[3].z * l;
-    
-
-
-        glUseProgram(AtmosphereProgram);
-        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
-        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
-        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), Camera);
-        SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, IrradianceTexture);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_3D, ScatteringTexture);
-        glBindVertexArray(ScreenQuad.VAO);
-        RenderMesh(&ScreenQuad);
-        glUseProgram(0);
-
-
-        glDepthFunc(GL_LESS);
-    }
-
-    void ReloadShaders(game_memory *Memory, game_context *Context)
-    {
-        resource_helper *RH = &Memory->ResourceHelper;
-
-        path VSPath, FSPath;
+        path VSPath, FSPath, GSPath;
 
         // Precompute atmosphere textures
         frame_buffer RenderBuffer = {};
@@ -435,7 +391,6 @@ namespace Atmosphere
         RenderMesh(&ScreenQuad);
 
         // Single Scattering
-        path GSPath;
         MakeRelativePath(RH, GSPath, "data/shaders/atmosphere_precompute_geom.glsl");
         uint32 ScatteringProgram = BuildShader(Memory, VSPath, FSPath, GSPath);
         glUseProgram(ScatteringProgram);
@@ -567,7 +522,60 @@ namespace Atmosphere
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnablei(GL_BLEND, 0);
         glEnablei(GL_BLEND, 1);
+    }
 
+    void Update()
+    {
+    }
+
+    void Render(game_state *State, game_context *Context)
+    {
+        mat4f ModelFromView = State->Camera.ViewMatrix.Inverse();
+
+        real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
+        real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
+        real32 TanFovY = tanf(FovRadians * 0.5f);
+        mat4f ViewFromClip
+        (
+            TanFovY * AspectRatio, 0.f, 0.f, 0.f,
+            0.f, TanFovY, 0.f, 0.f,
+            0.f, 0.f, 0.f, -1.f,
+            0.f, 0.f, 1.f, 1.f
+        );
+
+        glDepthFunc(GL_LEQUAL);
+
+        vec3f Camera;
+        real32 l = 1.0f / (kLengthUnitInMeters);
+        Camera.x = ModelFromView.M[3].x * l;
+        Camera.y = ModelFromView.M[3].y * l;
+        Camera.z = ModelFromView.M[3].z * l;
+    
+
+
+        glUseProgram(AtmosphereProgram);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), Camera);
+        SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, IrradianceTexture);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_3D, ScatteringTexture);
+        glBindVertexArray(ScreenQuad.VAO);
+        RenderMesh(&ScreenQuad);
+        glUseProgram(0);
+
+
+        glDepthFunc(GL_LESS);
+    }
+
+    void ReloadShaders(game_memory *Memory, game_context *Context)
+    {
+        resource_helper *RH = &Memory->ResourceHelper;
+        path VSPath, FSPath;
 
         // Rendering shader
         MakeRelativePath(RH, VSPath, "data/shaders/atmosphere_vert.glsl");
