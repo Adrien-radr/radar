@@ -281,7 +281,9 @@ vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
     vec3 Rayleigh, Mie;
     Rayleigh = GetScattering(r, mu, mu_s, nu, IntersectsGround, Mie);
 
-    return max(1e-5,L.y) * (Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu));
+    float Flattening =  max(1e-5,L.y); // Sun
+    //float Flattening =  1.f; // Moon
+    return Flattening * (Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu));
 }
 
 vec3 GetSkyRadianceToPoint(vec3 Camera, vec3 P, vec3 L, out vec3 Transmittance)

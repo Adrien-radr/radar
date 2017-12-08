@@ -114,6 +114,9 @@ namespace Atmosphere
         +0.0557f, -0.2040f, +1.0570f
     };
 
+    // Values from "Reference Solar Spectral Irradiance: ASTM G-173", ETR column
+    // (see http://rredc.nrel.gov/solar/spectra/am1.5/ASTMG173/ASTMG173.html),
+    // Values are in W.m-2.nm-1
     static const real32 kSolarIrradiance[48] = {
         1.11776, 1.14259, 1.01249, 1.14716, 1.72765, 1.73054, 1.6887, 1.61253,
         1.91198, 2.03474, 2.02042, 2.02212, 1.93377, 1.95809, 1.91686, 1.8298,
@@ -121,6 +124,18 @@ namespace Atmosphere
         1.6965, 1.68194, 1.64654, 1.6048, 1.52143, 1.55622, 1.5113, 1.474, 1.4482,
         1.41018, 1.36775, 1.34188, 1.31429, 1.28303, 1.26758, 1.2367, 1.2082,
         1.18737, 1.14683, 1.12362, 1.1058, 1.07124, 1.04992
+    };
+
+    // Values from "Precise Measurement of Lunar Spectral Irradiance at Visible Wavelengths"
+    // (see https://www.researchgate.net/publication/272672351_Precise_Measurement_of_Lunar_Spectral_Irradiance_at_Visible_Wavelengths)
+    // Values are in microW.m-2.nm-1
+    static const real32 kLunarIrradiance[48] = {
+        0.1916, 0.4312, 0.6708, 0.9104, 1.15, 1.3896, 1.6292, 1.8688,
+        2.1084, 2.348, 2.3574, 2.3668, 2.3762, 2.3856, 2.395, 2.4426,
+        2.4902, 2.5378, 2.5854, 2.633, 2.6402, 2.6474, 2.6546, 2.6618, 2.669,
+        2.6548, 2.6406, 2.6264, 2.6122, 2.598, 2.5732, 2.5484, 2.5236,
+        2.4988, 2.474, 2.442, 2.41, 2.378, 2.346, 2.314, 2.2696,
+        2.2252, 2.1808, 2.1364, 2.092, 2.0476, 2.0032 // 0, 0, 1.870
     };
 
     static const real32 kOzoneCrossSection[48] = {
@@ -223,9 +238,10 @@ namespace Atmosphere
     static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
     static const real32 kGroundAlbedo = 0.000012f;
-    static const real32 kSunAngularRadius = 0.00935f / 2.f;
+    static const real32 kSunAngularRadius = 0.004675f;
+    static const real32 kMoonAngularRadius = 0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = 0.999;
+    static const real32 kMiePhaseG = 0.9;//999;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 180.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
@@ -317,7 +333,7 @@ namespace Atmosphere
             MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
             MieExtinctionWavelengths[Idx] = Mie;
             AbsorptionExtinctionWavelengths[Idx] = kMaxOzoneNumberDensity * kOzoneCrossSection[Idx];
-            SolarIrradianceWavelengths[Idx] = kSolarIrradiance[Idx];
+            SolarIrradianceWavelengths[Idx] = kSolarIrradiance[Idx];//kLunarIrradiance[Idx] * 1e-3f;
             GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
         }
 
