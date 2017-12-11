@@ -497,7 +497,6 @@ int RadarMain(int argc, char **argv)
             if(context::WindowResized(Context))
             {
                 // Resize FBO
-                printf("Remaking Floating Point Backbuffer\n");
                 DestroyFramebuffer(&FPBackbuffer);
                 FPBackbuffer = MakeFramebuffer(1, vec2i(Context->WindowWidth, Context->WindowHeight));
                 FramebufferAttachBuffer(&FPBackbuffer, 0, 4, true, true, true); // RGBA16F attachment

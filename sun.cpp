@@ -307,13 +307,13 @@ DLLEXPORT GAMEUPDATE(GameUpdate)
     if(KEY_DOWN(Input->KeyNumMultiply))
     {
        // State->WaterDirection += Input->dTime * 0.05;
-        State->SunSpeed *= 1.05;
+        State->SunSpeed += 0.0005;
     }
 
     if(KEY_DOWN(Input->KeyNumDivide))
     {
         //State->WaterDirection -= Input->dTime * 0.05;
-        State->SunSpeed *= 0.95;
+        State->SunSpeed -= 0.0005;
     }
 
     if(KEY_HIT(Input->KeyF3))

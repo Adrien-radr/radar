@@ -49,7 +49,7 @@ struct atmosphere_parameters
     float           MinMuS;
 };
 
-const vec3 kGroundAlbedo = vec3(0.0005, 0.001, 0.005);
+const vec3 kGroundAlbedo = vec3(0.05, 0.1, 0.5);
 
 in vec2 v_texcoord;
 in vec3 v_eyeRay;
@@ -202,7 +202,7 @@ vec3 GetTransmittanceToSun(float r, float mu_s)
     return vec3(GetTransmittanceToTopAtmosphereBoundary(r, mu_s)) *
             smoothstep(-SinThetaH * Atmosphere.SunAngularRadius,
                        SinThetaH * Atmosphere.SunAngularRadius,
-                       mu_s * CosThetaH);
+                       mu_s - CosThetaH);
 }
 
 vec3 GetIrradiance(float r, float mu_s)
@@ -281,7 +281,9 @@ vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
     vec3 Rayleigh, Mie;
     Rayleigh = GetScattering(r, mu, mu_s, nu, IntersectsGround, Mie);
 
-    float Flattening =  max(1e-5,L.y); // Sun
+    float maxangle = 0.f;
+    float currangle = max(1e-2,L.y);
+    float Flattening = 1.f;// currangle*currangle;//exp(-2.001*currangle);//max(5e-4,exp(-L.y)); // Sun
     //float Flattening =  1.f; // Moon
     return Flattening * (Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu));
 }
@@ -353,7 +355,7 @@ void main()
     {
         vec3 Point = P + E * Depth;
         vec3 N = normalize(Point - EarthCenter);
-        Point += N * 1e-3f; // To avoid depth fighting
+        //Point += N * 1e-3f; // To avoid depth fighting
 
         vec3 SkyIrradiance;
         vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, N, L, SkyIrradiance);

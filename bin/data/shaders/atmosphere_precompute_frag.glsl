@@ -141,7 +141,7 @@ void GetRMuFromTransmittanceTextureUV(vec2 uv, out float r, out float mu)
     float x_mu = GetUnitRangeFromTextureCoord(uv.x, TRANSMITTANCE_TEXTURE_WIDTH);
     float x_r = GetUnitRangeFromTextureCoord(uv.y, TRANSMITTANCE_TEXTURE_HEIGHT);
     float H = sqrt(Atmosphere.TopRadius * Atmosphere.TopRadius - Atmosphere.BottomRadius * Atmosphere.BottomRadius);
-    float rho = SafeSqrt(x_r * x_r - Atmosphere.BottomRadius * Atmosphere.BottomRadius);
+    float rho = H * x_r;
     r = sqrt(rho * rho + Atmosphere.BottomRadius * Atmosphere.BottomRadius);
     float d_min = Atmosphere.TopRadius - r;
     float d_max = rho + H;
@@ -259,12 +259,12 @@ float ComputeOpticalLengthToTopAtmosphereBoundary(in density_profile profile, fl
     int SAMPLE_COUNT = 500;
     float dx = DistanceToTopBoundary(r, mu) / float(SAMPLE_COUNT);
     float result = 0.0;
-    for(int i = 0; i < SAMPLE_COUNT; ++i)
+    for(int i = 0; i <= SAMPLE_COUNT; ++i)
     {
         float d_i = float(i) * dx;
         float r_i = sqrt(d_i * d_i + 2.0 * r * mu * d_i + r * r);
         float y_i = GetProfileDensity(profile, r_i - Atmosphere.BottomRadius);
-        float w_i = i == 0 || i == SAMPLE_COUNT ? 0.5 : 1.0;
+        float w_i = (i == 0 || i == SAMPLE_COUNT) ? 0.5 : 1.0;
         result += y_i * w_i * dx;
     }
     return result;
@@ -314,10 +314,10 @@ vec3 GetTransmittanceToSun(in sampler2D TransmittanceTexture, float r, float mu_
 {
     float SinThetaH = Atmosphere.BottomRadius / r;
     float CosThetaH = -sqrt(max(1.0 - SinThetaH * SinThetaH, 0.0));
-    return vec3(GetTransmittanceToTopAtmosphereBoundary(TransmittanceTexture, r, mu_s)) *
+    return GetTransmittanceToTopAtmosphereBoundary(TransmittanceTexture, r, mu_s) *
             smoothstep(-SinThetaH * Atmosphere.SunAngularRadius,
                        SinThetaH * Atmosphere.SunAngularRadius,
-                       mu_s * CosThetaH);
+                       mu_s - CosThetaH);
 }
 
 vec3 ComputeDirectIrradiance(in sampler2D TransmittanceTexture, float r, float mu_s)
@@ -353,7 +353,7 @@ void ComputeSingleScatteringIntegrand(in sampler2D TransmittanceTexture, float r
 
 void ComputeSingleScattering(in sampler2D TransmittanceTexture, float r, float mu, float mu_s, float nu, bool IntersectsGround, out vec3 Rayleigh, out vec3 Mie)
 {
-    int SAMPLE_COUNT = 500;
+    int SAMPLE_COUNT = 250;
     float dx = DistanceToNearestAtmosphereBoundary(r, mu, IntersectsGround) / float(SAMPLE_COUNT);
     vec3 RayleighSum = vec3(0);
     vec3 MieSum = vec3(0);
@@ -503,7 +503,7 @@ vec3 ComputeIndirectIrradiance(in sampler3D RayleighTexture, in sampler3D MieTex
         float CosTheta = cos(theta);
         for(int i = 0; i < 2 * SAMPLE_COUNT; ++i)
         {
-            float phi = (float(i) + 0.5) * dTheta;
+            float phi = (float(i) + 0.5) * dPhi;
             vec3 Omega = vec3(cos(phi) * SinTheta, sin(phi) * SinTheta, CosTheta);
             float dOmega = dTheta * dPhi * SinTheta;
 

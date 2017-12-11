@@ -140,7 +140,7 @@ void main()
     vec3 hdrColor = fxaa(HDRFB, Exposure, gl_FragCoord.xy, Resolution, v_rgbNW, v_rgbNE, v_rgbSW, v_rgbSE, v_rgbM);
 
     // Remove the auto exposure since its fucking things up, need a better more progressive way of doing i
-    float Exp = 1.0;
+    float Exp = 0.00003;
     //float Exp = Exposure;
 
     // Tone mapping and Gamma correction
