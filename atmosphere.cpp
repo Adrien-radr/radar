@@ -222,6 +222,7 @@ namespace Atmosphere
     uint32 TransmittanceTexture = 0;
     uint32 IrradianceTexture = 0;
     uint32 ScatteringTexture = 0;
+    uint32 MoonAlbedoTexture = 0;
 
     static const vec2i  kTransmittanceTextureSize = vec2i(256, 64);
     static const vec2i  kIrradianceTextureSize = vec2i(64, 16);
@@ -239,9 +240,9 @@ namespace Atmosphere
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
     static const real32 kGroundAlbedo = 0.1;//001012f;
     static const real32 kSunAngularRadius = 0.004675f;
-    static const real32 kMoonAngularRadius = 0.004509f;
+    static const real32 kMoonAngularRadius = 0.018;//0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = 0.9;
+    static const real32 kMiePhaseG = 0.99;//0.93; // 0.7 for Moon
     static const real32 kMaxSunZenithAngle = DEG2RAD * 120.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
@@ -333,7 +334,7 @@ namespace Atmosphere
             MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
             MieExtinctionWavelengths[Idx] = Mie;
             AbsorptionExtinctionWavelengths[Idx] = kMaxOzoneNumberDensity * kOzoneCrossSection[Idx];
-            SolarIrradianceWavelengths[Idx] = kSolarIrradiance[Idx];//kLunarIrradiance[Idx] * 1e-3f;
+            SolarIrradianceWavelengths[Idx] = /*kSolarIrradiance[Idx];// */kLunarIrradiance[Idx] * 1e-3f;
             GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
         }
 
@@ -349,7 +350,7 @@ namespace Atmosphere
         AtmosphereParameters.Absorption.Layers[1] = Ozone1Layer;
         AtmosphereParameters.GroundAlbedo = ScatteringSpectrumToSRGB(Wavelengths, GroundAlbedoWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.SolarIrradiance = ScatteringSpectrumToSRGB(Wavelengths, SolarIrradianceWavelengths, nWavelengths, kLengthUnitInMeters);
-        AtmosphereParameters.SunAngularRadius = kSunAngularRadius;
+        AtmosphereParameters.SunAngularRadius = kMoonAngularRadius;//kSunAngularRadius;
         AtmosphereParameters.MiePhaseG = kMiePhaseG;
         AtmosphereParameters.MinMuS = cosf(kMaxSunZenithAngle);
 
@@ -538,6 +539,9 @@ namespace Atmosphere
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnablei(GL_BLEND, 0);
         glEnablei(GL_BLEND, 1);
+
+        MoonAlbedoTexture = *ResourceLoad2DTexture(&Context->RenderResources, "data/moon/albedo.png", false, false, 4, 
+                GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_CLAMP_TO_EDGE);
     }
 
     void Update()
@@ -574,12 +578,10 @@ namespace Atmosphere
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
         SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), Camera);
         SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, IrradianceTexture);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_3D, ScatteringTexture);
+        BindTexture2D(TransmittanceTexture, 0);
+        BindTexture2D(IrradianceTexture, 1);
+        BindTexture3D(ScatteringTexture, 2);
+        BindTexture2D(MoonAlbedoTexture, 3);
         glBindVertexArray(ScreenQuad.VAO);
         RenderMesh(&ScreenQuad);
         glUseProgram(0);
@@ -605,6 +607,7 @@ namespace Atmosphere
         SendInt(glGetUniformLocation(AtmosphereProgram, "TransmittanceTexture"), 0);
         SendInt(glGetUniformLocation(AtmosphereProgram, "IrradianceTexture"), 1);
         SendInt(glGetUniformLocation(AtmosphereProgram, "ScatteringTexture"), 2);
+        SendInt(glGetUniformLocation(AtmosphereProgram, "MoonAlbedo"), 3);
 
         glUseProgram(0);
     }

@@ -310,10 +310,10 @@ uint32 Make3DTexture(uint32 Width, uint32 Height, uint32 Depth, uint32 Channels,
     return Texture;
 }
 
-uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel)
+static uint32 Make2DTexture(image *Image, bool IsFloat, bool FloatHalfPrecision, uint32 AnisotropicLevel, int MagFilter, int MinFilter, int WrapS, int WrapT)
 {
     return Make2DTexture(Image->Buffer, Image->Width, Image->Height, Image->Channels, IsFloat, FloatHalfPrecision, AnisotropicLevel,
-                         GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
+                         MagFilter, MinFilter, WrapS, WrapT);
 }
 
 void BindTexture2D(uint32 TextureID, uint32 TextureUnit)
@@ -329,7 +329,7 @@ void BindTexture3D(uint32 TextureID, uint32 TextureUnit)
 }
 
 uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
-                              uint32 AnisotropicLevel, int32 ForceNumChannel)
+                              uint32 AnisotropicLevel, int MagFilter, int MinFilter, int WrapS, int WrapT, int32 ForceNumChannel)
 {
     void *LoadedResource = ResourceCheckExist(RenderResources, RESOURCE_TEXTURE, Filename);
     if(LoadedResource)
@@ -340,7 +340,7 @@ uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const File
     game_memory *Memory = RenderResources->RH->Memory;
     uint32 *Tex = (uint32*)PushArenaStruct(&Memory->SessionArena, uint32);
     *Tex = Make2DTexture(ResourceLoadImage(RenderResources, Filename, IsFloat, ForceNumChannel),
-                         IsFloat, FloatHalfPrecision, AnisotropicLevel);
+                         IsFloat, FloatHalfPrecision, AnisotropicLevel, MagFilter, MinFilter, WrapS, WrapT);
 
     ResourceStore(RenderResources, RESOURCE_TEXTURE, Filename, Tex);
     return Tex;

@@ -134,7 +134,8 @@ image *ResourceLoadImage(render_resources *RenderResources, path const Filename,
                          int32 ForceNumChannel = 0);
 font *ResourceLoadFont(render_resources *RenderResources, path const Filename, uint32 PixelHeight, int Char0 = 32, int CharN = 127);
 uint32 *ResourceLoad2DTexture(render_resources *RenderResources, path const Filename, bool IsFloat, bool FloatHalfPrecision,
-                              uint32 AnisotropicLevel, int32 ForceNumChannel = 0);
+                              uint32 AnisotropicLevel, int MagFilter = GL_LINEAR, int MinFilter = GL_LINEAR_MIPMAP_LINEAR, 
+                              int WrapS = GL_CLAMP_TO_EDGE, int WrapT = GL_CLAMP_TO_EDGE, int32 ForceNumChannel = 0);
 
 void BindTexture2D(uint32 TextureID, uint32 TextureUnit);
 void BindTexture3D(uint32 TextureID, uint32 TextureUnit);

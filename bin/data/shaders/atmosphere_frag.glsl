@@ -60,6 +60,7 @@ uniform vec3 SunDirection;
 uniform sampler2D TransmittanceTexture;
 uniform sampler2D IrradianceTexture;
 uniform sampler3D ScatteringTexture;
+uniform sampler2D MoonAlbedo;
 
 out vec4 frag_color;
 
@@ -337,6 +338,11 @@ vec3 GetGroundIrradiance(vec3 P, vec3 N, vec3 L, out vec3 SkyIrradiance)
     return Atmosphere.SolarIrradiance * max(0.0, dot(N, L)) * GetTransmittanceToSun(r, mu_s);
 }
 
+float atan2(in float y, in float x)
+{
+    return x == 0.0 ? sign(y)*PI/2.0 : atan(y,x);
+}
+
 void main()
 {
     vec3 E = normalize(v_eyeRay);
@@ -355,7 +361,6 @@ void main()
     {
         vec3 Point = P + E * Depth;
         vec3 N = normalize(Point - EarthCenter);
-        //Point += N * 1e-3f; // To avoid depth fighting
 
         vec3 SkyIrradiance;
         vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, N, L, SkyIrradiance);
@@ -369,9 +374,28 @@ void main()
     {
         vec3 Transmittance;
         contrib += max(vec3(0), GetSkyRadiance(p, E, Transmittance));
-        if(dot(E, L) > cos(Atmosphere.SunAngularRadius))
+        float mu = cos(Atmosphere.SunAngularRadius);
+        if(dot(E, L) > mu)
         {
             contrib += Transmittance * GetSolarRadiance();
+
+            // Map the moon albedo on the moon representation
+            float moon_distance = 384400;
+            vec3 L_normed = L * moon_distance;
+            float moon_radius = moon_distance * sin(Atmosphere.SunAngularRadius);
+            float t_ca = dot(L_normed, E);
+            float d = sqrt(moon_distance*moon_distance - t_ca*t_ca);
+            float t_hc = sqrt(moon_radius*moon_radius - d*d);
+            float t_0 = t_ca - t_hc;
+            vec3 moon_center = L_normed;
+            vec3 moon_intersect = E * t_0;
+            vec3 M = -normalize(moon_intersect - moon_center);
+            vec2 spherical_uv;
+            spherical_uv.x = ((atan2(M.z,M.x) + PI)*0.5) / (PI);
+            spherical_uv.y = (M.y + 1.0) * 0.5;
+
+            vec3 moon_albedo = pow(texture(MoonAlbedo, spherical_uv).xyz, vec3(2.2));
+            contrib *= moon_albedo;
         }
     }
 
