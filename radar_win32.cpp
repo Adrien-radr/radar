@@ -39,7 +39,7 @@ FILETIME FindLastWriteTime(path Path)
     return LastWriteTime;
 }
 
-void DiskFileCopy(path const DstPath, path const SrcPath);
+void DiskFileCopy(path const DstPath, path const SrcPath)
 {
     CopyFileA(SrcPath, DstPath, FALSE);
 }

@@ -118,24 +118,24 @@ namespace Atmosphere
     // (see http://rredc.nrel.gov/solar/spectra/am1.5/ASTMG173/ASTMG173.html),
     // Values are in W.m-2.nm-1
     static const real32 kSolarIrradiance[48] = {
-        1.11776, 1.14259, 1.01249, 1.14716, 1.72765, 1.73054, 1.6887, 1.61253,
-        1.91198, 2.03474, 2.02042, 2.02212, 1.93377, 1.95809, 1.91686, 1.8298,
-        1.8685, 1.8931, 1.85149, 1.8504, 1.8341, 1.8345, 1.8147, 1.78158, 1.7533,
-        1.6965, 1.68194, 1.64654, 1.6048, 1.52143, 1.55622, 1.5113, 1.474, 1.4482,
-        1.41018, 1.36775, 1.34188, 1.31429, 1.28303, 1.26758, 1.2367, 1.2082,
-        1.18737, 1.14683, 1.12362, 1.1058, 1.07124, 1.04992
+        1.11776f, 1.14259f, 1.01249f, 1.14716f, 1.72765f, 1.73054f, 1.6887f, 1.61253f,
+        1.91198f, 2.03474f, 2.02042f, 2.02212f, 1.93377f, 1.95809f, 1.91686f, 1.8298f,
+        1.8685f, 1.8931f, 1.85149f, 1.8504f, 1.8341f, 1.8345f, 1.8147f, 1.78158f, 1.7533f,
+        1.6965f, 1.68194f, 1.64654f, 1.6048f, 1.52143f, 1.55622f, 1.5113f, 1.474f, 1.4482f,
+        1.41018f, 1.36775f, 1.34188f, 1.31429f, 1.28303f, 1.26758f, 1.2367f, 1.2082f,
+        1.18737f, 1.14683f, 1.12362f, 1.1058f, 1.07124f, 1.04992f
     };
 
     // Values from "Precise Measurement of Lunar Spectral Irradiance at Visible Wavelengths"
     // (see https://www.researchgate.net/publication/272672351_Precise_Measurement_of_Lunar_Spectral_Irradiance_at_Visible_Wavelengths)
     // Values are in microW.m-2.nm-1
     static const real32 kLunarIrradiance[48] = {
-        0.1916, 0.4312, 0.6708, 0.9104, 1.15, 1.3896, 1.6292, 1.8688,
-        2.1084, 2.348, 2.3574, 2.3668, 2.3762, 2.3856, 2.395, 2.4426,
-        2.4902, 2.5378, 2.5854, 2.633, 2.6402, 2.6474, 2.6546, 2.6618, 2.669,
-        2.6548, 2.6406, 2.6264, 2.6122, 2.598, 2.5732, 2.5484, 2.5236,
-        2.4988, 2.474, 2.442, 2.41, 2.378, 2.346, 2.314, 2.2696,
-        2.2252, 2.1808, 2.1364, 2.092, 2.0476, 2.0032 // 0, 0, 1.870
+        0.1916f, 0.4312f, 0.6708f, 0.9104f, 1.15f, 1.3896f, 1.6292f, 1.8688f,
+        2.1084f, 2.348f, 2.3574f, 2.3668f, 2.3762f, 2.3856f, 2.395f, 2.4426f,
+        2.4902f, 2.5378f, 2.5854f, 2.633f, 2.6402f, 2.6474f, 2.6546f, 2.6618f, 2.669f,
+        2.6548f, 2.6406f, 2.6264f, 2.6122f, 2.598f, 2.5732f, 2.5484f, 2.5236f,
+        2.4988f, 2.474f, 2.442f, 2.41f, 2.378f, 2.346f, 2.314f, 2.2696f,
+        2.2252f, 2.1808f, 2.1364f, 2.092f, 2.0476f, 2.0032f // 0, 0, 1.870
     };
 
     static const real32 kOzoneCrossSection[48] = {
@@ -216,6 +216,8 @@ namespace Atmosphere
 
     };
 
+#define USE_MOON 0
+
     atmosphere_parameters AtmosphereParameters;
     mesh ScreenQuad = {};
     uint32 AtmosphereProgram = 0;
@@ -242,7 +244,7 @@ namespace Atmosphere
     static const real32 kSunAngularRadius = 0.004675f;
     static const real32 kMoonAngularRadius = 0.018;//0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = 0.99;//0.93; // 0.7 for Moon
+    static const real32 kMiePhaseG = USE_MOON ? 0.93 : 0.85;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 120.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
@@ -334,7 +336,7 @@ namespace Atmosphere
             MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
             MieExtinctionWavelengths[Idx] = Mie;
             AbsorptionExtinctionWavelengths[Idx] = kMaxOzoneNumberDensity * kOzoneCrossSection[Idx];
-            SolarIrradianceWavelengths[Idx] = /*kSolarIrradiance[Idx];// */kLunarIrradiance[Idx] * 1e-3f;
+            SolarIrradianceWavelengths[Idx] = USE_MOON ? kLunarIrradiance[Idx] * 1e-3f : kSolarIrradiance[Idx];
             GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
         }
 
@@ -350,7 +352,7 @@ namespace Atmosphere
         AtmosphereParameters.Absorption.Layers[1] = Ozone1Layer;
         AtmosphereParameters.GroundAlbedo = ScatteringSpectrumToSRGB(Wavelengths, GroundAlbedoWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.SolarIrradiance = ScatteringSpectrumToSRGB(Wavelengths, SolarIrradianceWavelengths, nWavelengths, kLengthUnitInMeters);
-        AtmosphereParameters.SunAngularRadius = kMoonAngularRadius;//kSunAngularRadius;
+        AtmosphereParameters.SunAngularRadius = USE_MOON ? kMoonAngularRadius : kSunAngularRadius;
         AtmosphereParameters.MiePhaseG = kMiePhaseG;
         AtmosphereParameters.MinMuS = cosf(kMaxSunZenithAngle);
 

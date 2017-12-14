@@ -1,6 +1,4 @@
 {
-    "sLogFile" : "radar.log",
-
     "iWindowX" : 200,
     "iWindowY" : 200,
     "iWindowWidth" : 1280,

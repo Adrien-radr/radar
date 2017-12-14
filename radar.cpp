@@ -67,10 +67,6 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
         cJSON *root = cJSON_Parse((char*)Content);
         if(root)
         {
-            // TODO - Holy shit this is ugly. maybe do it C style instead of dirty templates
-            std::string tmp = JSON_Get(root, "sLogFile", std::string("radar.log"));
-            strncpy(Config.LogFilename, tmp.c_str(), MAX_PATH);
-
             Config.WindowX = JSON_Get(root, "iWindowX", 200);
             Config.WindowY = JSON_Get(root, "iWindowY", 200);
             Config.WindowWidth = JSON_Get(root, "iWindowWidth", 960);
@@ -340,6 +336,8 @@ int RadarMain(int argc, char **argv)
     game_system *System = (game_system*)Memory->PermanentMemPool;
     game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
 
+    rlog::Init(Memory);
+
     path ConfigPath;
     MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "config.json");
 
@@ -348,7 +346,6 @@ int RadarMain(int argc, char **argv)
         return 1;
     }
 
-    rlog::Init(Memory);
     System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
 
     MakeRelativePath(&Memory->ResourceHelper, DllSrcPath, DllName);
@@ -379,15 +376,16 @@ int RadarMain(int argc, char **argv)
         }
 #endif
 
-        uint32 const PBRModelsCount = 2;
-        model PBRModels[PBRModelsCount];
-        float rotation[PBRModelsCount] = { 0.f };
-        vec3f translation[PBRModelsCount] = { vec3f(-5.f, 0.f, 0.f) , vec3f(0,-1.98f,0) };
-        int translationDir[PBRModelsCount] = { 1 };
+        uint32 const PBRModelsCount = 1;
+        uint32 const PBRModelsCapacity = 2;
+        model PBRModels[PBRModelsCapacity];
+        float rotation[PBRModelsCapacity] = { 0.f };
+        vec3f translation[PBRModelsCapacity] = { vec3f(-5.f, 0.f, 0.f) , vec3f(0,-1.98f,0) };
+        int translationDir[PBRModelsCapacity] = { 1 };
         if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Context))
             return 1;
-        if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Context))
-            return 1;
+        //if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Context))
+            //return 1;
 
         // PBR Texture Test
         uint32 *Texture1 = ResourceLoad2DTexture(&Context->RenderResources, "data/crate1_diffuse.png",
