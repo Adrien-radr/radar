@@ -387,3 +387,8 @@ bool ResourceLoadGLTFModel(render_resources *RenderResources, model *Model, path
 
     return true;
 }
+
+void DestroyModel(model *Model)
+{
+    // TODO
+}

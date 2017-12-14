@@ -574,7 +574,6 @@ namespace Atmosphere
         Camera.z = ModelFromView.M[3].z * l;
     
 
-
         glUseProgram(AtmosphereProgram);
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
@@ -583,7 +582,7 @@ namespace Atmosphere
         BindTexture2D(TransmittanceTexture, 0);
         BindTexture2D(IrradianceTexture, 1);
         BindTexture3D(ScatteringTexture, 2);
-        BindTexture2D(MoonAlbedoTexture, 3);
+        BindTexture2D(USE_MOON ? MoonAlbedoTexture : *Context->RenderResources.DefaultDiffuseTexture, 3);
         glBindVertexArray(ScreenQuad.VAO);
         RenderMesh(&ScreenQuad);
         glUseProgram(0);
