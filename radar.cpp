@@ -17,6 +17,9 @@ int RadarMain(int argc, char **argv);
 #include "radar_unix.cpp"
 #endif
 
+// Temporary rendering tests, to declutter this file
+#include "tests.cpp"
+
 game_memory *InitMemory()
 {
     game_memory *Memory = (game_memory*)calloc(1, sizeof(game_memory));
@@ -57,9 +60,12 @@ void DestroyMemory(game_memory *Memory)
     }
 }
 
-bool ParseConfig(game_memory *Memory, char *ConfigPath)
+bool ParseConfig(game_memory *Memory, char const *Filename)
 {
     game_config &Config = Memory->Config;
+
+    path ConfigPath;
+    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, Filename);
 
     void *Content = ReadFileContents(&Memory->ScratchArena, ConfigPath, 0);
     if(Content)
@@ -116,9 +122,6 @@ bool ParseConfig(game_memory *Memory, char *ConfigPath)
     return true;
 }
 
-uint32 Program1, Program3D, ProgramSkybox;
-uint32 ProgramHDR;
-
 void ReloadShaders(game_memory *Memory, game_context *Context)
 {
     game_system *System = (game_system*)Memory->PermanentMemPool;
@@ -126,58 +129,18 @@ void ReloadShaders(game_memory *Memory, game_context *Context)
 
     context::RegisteredShaderClear(Context);
 
-    path VSPath;
-    path FSPath;
-    MakeRelativePath(RH, VSPath, "data/shaders/text_vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/text_frag.glsl");
-    Program1 = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(Program1);
-    SendInt(glGetUniformLocation(Program1, "DiffuseTexture"), 0);
-    CheckGLError("Text Shader");
-
-    context::RegisterShader2D(Context, Program1);
-
-    MakeRelativePath(RH, VSPath, "data/shaders/vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/frag.glsl");
-    Program3D = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(Program3D);
-    SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
-    SendInt(glGetUniformLocation(Program3D, "NormalMap"), 1);
-    SendInt(glGetUniformLocation(Program3D, "MetallicRoughness"), 2);
-    SendInt(glGetUniformLocation(Program3D, "Emissive"), 3);
-    SendInt(glGetUniformLocation(Program3D, "GGXLUT"), 4);
-    SendInt(glGetUniformLocation(Program3D, "Skybox"), 5);
-    CheckGLError("Mesh Shader");
-
-    context::RegisterShader3D(Context, Program3D);
-
-    MakeRelativePath(RH, VSPath, "data/shaders/skybox_vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/skybox_frag.glsl");
-    ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(ProgramSkybox);
-    SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
-    CheckGLError("Skybox Shader");
-
-    context::RegisterShader3D(Context, ProgramSkybox);
-
-    MakeRelativePath(RH, VSPath, "data/shaders/water_vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/water_frag.glsl");
-    System->WaterSystem->ProgramWater = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(System->WaterSystem->ProgramWater);
-    SendInt(glGetUniformLocation(System->WaterSystem->ProgramWater, "GGXLUT"), 0);
-    SendInt(glGetUniformLocation(System->WaterSystem->ProgramWater, "Skybox"), 1);
-    CheckGLError("Water Shader");
-
-    context::RegisterShader3D(Context, System->WaterSystem->ProgramWater);
+    path VSPath, FSPath;
 
     MakeRelativePath(RH, VSPath, "data/shaders/screenquad_vert.glsl");
     MakeRelativePath(RH, FSPath, "data/shaders/hdr_frag.glsl");
-    ProgramHDR = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(ProgramHDR);
-    SendInt(glGetUniformLocation(ProgramHDR, "HDRFB"), 0);
+    Context->ProgramPostProcess = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(Context->ProgramPostProcess);
+    SendInt(glGetUniformLocation(Context->ProgramPostProcess, "HDRFB"), 0);
     CheckGLError("HDR Shader");
 
+    Tests::ReloadShaders(Memory, Context);
     ui::ReloadShaders(Memory, Context);
+    Water::ReloadShaders(Memory, Context, System->WaterSystem);
     Atmosphere::ReloadShaders(Memory, Context);
 
     context::UpdateShaderProjection(Context);
@@ -327,8 +290,6 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 
 }
 
-#include "tests.cpp"
-
 int RadarMain(int argc, char **argv)
 {
     path DllSrcPath;
@@ -340,13 +301,8 @@ int RadarMain(int argc, char **argv)
 
     rlog::Init(Memory);
 
-    path ConfigPath;
-    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, "config.json");
-
-    if(!ParseConfig(Memory, ConfigPath))
-    {
+    if(!ParseConfig(Memory, "config.json"))
         return 1;
-    }
 
     System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
 
@@ -360,37 +316,23 @@ int RadarMain(int argc, char **argv)
     if(Context->IsValid && Memory->IsValid)
     {
         real64 CurrentTime, LastTime = glfwGetTime();
-        int GameRefreshHz = 60;
-        real64 TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
+        real64 TimeCounter = 0.0;
+        int const GameRefreshHz = 60;
+        real64 const TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
 
         ui::Init(Memory, Context);
 
         BindTexture2D(0, 0);
         CheckGLError("Start");
-/////////////////////////
-    // TEMP TESTS
-#if 0
-        ALuint AudioBuffer;
-        ALuint AudioSource;
-        if(TempPrepareSound(&AudioBuffer, &AudioSource))
-        {
-            alSourcePlay(AudioSource);
-        }
-#endif
 
         if(!Tests::Init(Context, Config))
             return 1;
-
-        // Cube Meshes Test
-        mesh SkyboxCube = MakeUnitCube(false);
 
         bool LastDisableMouse = false;
         int LastMouseX = 0, LastMouseY = 0;
 
         mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
         frame_buffer FPBackbuffer = {};
-
-        real64 TimeCounter = 0.0;
 
         // TMP TextureViewer UI
         static uint32 TW_ID = 0;
@@ -415,6 +357,7 @@ int RadarMain(int argc, char **argv)
             ClearArena(&Memory->ScratchArena);
 
             context::GetFrameInput(Context, &Input);
+
             if(context::WindowResized(Context))
             {
                 // Resize FBO
@@ -439,6 +382,7 @@ int RadarMain(int argc, char **argv)
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             ui::BeginFrame(Memory, &Input);
+
             Game.GameUpdate(Memory, &Input);
 
             if(!Memory->IsInitialized)
@@ -452,20 +396,6 @@ int RadarMain(int argc, char **argv)
             {
                 TimeCounter = 0.0;
             }
-
-#if 0 // NOTE - Sound play
-                tmp_sound_data *SoundData = System->SoundData;
-                if(SoundData->ReloadSoundBuffer)
-                {
-                    SoundData->ReloadSoundBuffer = false;
-                    alSourceStop(AudioSource);
-                    alSourcei(AudioSource, AL_BUFFER, 0);
-                    alBufferData(AudioBuffer, AL_FORMAT_MONO16, SoundData->SoundBuffer, SoundData->SoundBufferSize, 48000);
-                    alSourcei(AudioSource, AL_BUFFER, AudioBuffer);
-                    alSourcePlay(AudioSource);
-                    CheckALError();
-                }
-#endif
 
             if(LastDisableMouse != State->DisableMouse)
             {
@@ -491,69 +421,34 @@ int RadarMain(int argc, char **argv)
                 context::SetWireframeMode(Context); // toggle
             }
 
-
-            // Recompute Camera View matrix if needed
-            game_camera &Camera = State->Camera;
-            mat4f &ViewMatrix = Camera.ViewMatrix;
-            ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
-
-            // 1 . Render the scene on the HDR Floating point FBO
             glBindFramebuffer(GL_FRAMEBUFFER, FPBackbuffer.FBO);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            Tests::Render(Context, State, &Input, ViewMatrix);
+            Tests::Render(Context, State, &Input);
 
 #if 0
             //Water::Update(State, System->WaterSystem, &Input);
             Water::Render(State, System->WaterSystem, HDRGlossyEnvmap, GGXLUT);
 #endif
 
-#if 0
-            { // NOTE - Skybox Rendering Test, put somewhere else
-                glDisable(GL_CULL_FACE);
-                glDepthFunc(GL_LEQUAL);
-                CheckGLError("Skybox");
-
-                glUseProgram(ProgramSkybox);
-                {
-                    // NOTE - remove translation component from the ViewMatrix for the skybox
-                    mat4f SkyViewMatrix = ViewMatrix;
-                    SkyViewMatrix.SetTranslation(vec3f(0.f));
-                    uint32 Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
-                    SendMat4(Loc, SkyViewMatrix);
-                    CheckGLError("ViewMatrix Skybox");
-                }
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
-                glBindVertexArray(SkyboxCube.VAO);
-                glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, SkyboxCube.IndexType, 0);
-
-                glDepthFunc(GL_LESS);
-                glEnable(GL_CULL_FACE);
-            }
-#endif
-
             Atmosphere::Render(State, Context);
 
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            CheckGLError("FBO Bind");
 
             GLenum CurrWireframemode = context::SetWireframeMode(Context, GL_FILL);
 
-            // Draw the floatingpoint FBO to a screen quad
-            glUseProgram(ProgramHDR);
-            uint32 MipmapLogLoc = glGetUniformLocation(ProgramHDR, "MipmapQueryLevel");
-            uint32 ResolutionLoc = glGetUniformLocation(ProgramHDR, "Resolution");
+            glUseProgram(Context->ProgramPostProcess);
+            uint32 MipmapLogLoc = glGetUniformLocation(Context->ProgramPostProcess, "MipmapQueryLevel");
+            uint32 ResolutionLoc = glGetUniformLocation(Context->ProgramPostProcess, "Resolution");
             SendFloat(MipmapLogLoc, Context->WindowSizeLogLevel);
             SendVec2(ResolutionLoc, vec2f(Context->WindowWidth, Context->WindowHeight));
-            SendVec3(glGetUniformLocation(ProgramHDR, "CameraPosition"), vec3f(State->Camera.Position.y));
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, FPBackbuffer.BufferIDs[0]);
+            SendVec3(glGetUniformLocation(Context->ProgramPostProcess, "CameraPosition"), vec3f(State->Camera.Position.y));
+            BindTexture2D(FPBackbuffer.BufferIDs[0], 0);
             glGenerateMipmap(GL_TEXTURE_2D); // generate mipmap for the color buffer
             CheckGLError("TexBind");
 
             glBindVertexArray(ScreenQuad.VAO);
-            glDrawElements(GL_TRIANGLES, ScreenQuad.IndexCount, ScreenQuad.IndexType, 0);
+            RenderMesh(&ScreenQuad);
 
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
@@ -570,12 +465,7 @@ int RadarMain(int argc, char **argv)
             glfwSwapBuffers(Context->Window);
         }
 
-        // TODO - Destroy Console meshes
-        DestroyMesh(&SkyboxCube);
         DestroyFramebuffer(&FPBackbuffer);
-        glDeleteProgram(Program1);
-        glDeleteProgram(Program3D);
-        glDeleteProgram(ProgramSkybox);
         Tests::Destroy();
     }
 

@@ -195,6 +195,7 @@ void MovePlayer(game_state *State, game_input *Input)
     }
 
     Camera.Target = Camera.Position + Camera.Forward;
+    Camera.ViewMatrix = mat4f::LookAt(Camera.Position, Camera.Target, Camera.Up);
 
     vec3f Move;
     Move.x = (real32)Input->MousePosX;

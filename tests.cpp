@@ -1,11 +1,14 @@
 #define TEST_MODELS 1
 #define TEST_SPHEREARRAY 1
 #define TEST_PBRMATERIALS 1
+#define TEST_SKYBOX 0
 #define TEST_PLANE 0
+#define TEST_SOUND 0
 
 namespace Tests
 {
 // PBR Materials tests
+uint32 Program3D = 0;
 uint32 GGXLUT = 0;
 uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap, HDRGlossyEnvmap;
 mesh Sphere = {};
@@ -26,6 +29,15 @@ uint32 *PBR_Albedo[MaterialCount];
 uint32 *PBR_MetalRoughness[MaterialCount];
 uint32 *PBR_Normal[MaterialCount];
 
+// SOUND
+#include "AL/al.h"
+ALuint AudioBuffer;
+ALuint AudioSource;
+
+// SKYBOX 
+mesh SkyboxCube = {};
+uint32 ProgramSkybox = 0;
+
 void Destroy()
 {
     glDeleteTextures(1, &GGXLUT);
@@ -34,6 +46,39 @@ void Destroy()
     glDeleteTextures(1, &HDRIrradianceEnvmap);
     DestroyMesh(&Sphere);
     DestroyMesh(&Cube);
+    DestroyMesh(&SkyboxCube);
+    glDeleteProgram(ProgramSkybox);
+    glDeleteProgram(Program3D);
+}
+
+void ReloadShaders(game_memory *Memory, game_context *Context)
+{
+    resource_helper *RH = &Memory->ResourceHelper;
+
+    path VSPath, FSPath;
+
+    MakeRelativePath(RH, VSPath, "data/shaders/vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/frag.glsl");
+    Program3D = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(Program3D);
+    SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
+    SendInt(glGetUniformLocation(Program3D, "NormalMap"), 1);
+    SendInt(glGetUniformLocation(Program3D, "MetallicRoughness"), 2);
+    SendInt(glGetUniformLocation(Program3D, "Emissive"), 3);
+    SendInt(glGetUniformLocation(Program3D, "GGXLUT"), 4);
+    SendInt(glGetUniformLocation(Program3D, "Skybox"), 5);
+    CheckGLError("Mesh Shader");
+
+    context::RegisterShader3D(Context, Program3D);
+
+    MakeRelativePath(RH, VSPath, "data/shaders/skybox_vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/skybox_frag.glsl");
+    ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProgramSkybox);
+    SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+    CheckGLError("Skybox Shader");
+
+    context::RegisterShader3D(Context, ProgramSkybox);
 }
 
 bool Init(game_context *Context, game_config const &Config)
@@ -43,6 +88,7 @@ bool Init(game_context *Context, game_config const &Config)
                                 &HDRCubemapEnvmap, &HDRGlossyEnvmap, &HDRIrradianceEnvmap);
     Sphere = MakeUnitSphere(true, 3);
     Cube = MakeUnitCube();
+    SkyboxCube = MakeUnitCube(false);
 
 #if TEST_MODELS
     if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Context))
@@ -98,11 +144,20 @@ bool Init(game_context *Context, game_config const &Config)
     PBR_Normal[5] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/PlasticPattern/normal.png",
             false, false, Config.AnisotropicFiltering);
 #endif
+
+#if TEST_SOUND
+    if(TempPrepareSound(&AudioBuffer, &AudioSource))
+    {
+        alSourcePlay(AudioSource);
+    }
+#endif
     return true;
 }
 
-void Render(game_context *Context, game_state *State, game_input *Input, mat4f const &ViewMatrix)
+void Render(game_context *Context, game_state *State, game_input *Input)
 {
+    mat4f const &ViewMatrix = State->Camera.ViewMatrix;
+
 #if TEST_MODELS // NOTE - Model rendering test
     {
         glCullFace(GL_BACK);
@@ -135,8 +190,7 @@ void Render(game_context *Context, game_state *State, game_input *Input, mat4f c
                 SendFloat(MetallicLoc, Mat.MetallicMult);
                 SendFloat(RoughnessLoc, Mat.RoughnessMult);
                 glBindVertexArray(Model->Mesh[i].VAO);
-                glActiveTexture(GL_TEXTURE0);
-                glBindTexture(GL_TEXTURE_2D, Mat.AlbedoTexture);
+                BindTexture2D(Mat.AlbedoTexture, 0);
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, Mat.NormalTexture);
                 glActiveTexture(GL_TEXTURE2);
@@ -325,5 +379,45 @@ void Render(game_context *Context, game_state *State, game_input *Input, mat4f c
         RenderMesh(&Cube);
     }
 #endif
+#if TEST_SOUND // NOTE - Sound play
+    tmp_sound_data *SoundData = System->SoundData;
+    if(SoundData->ReloadSoundBuffer)
+    {
+        SoundData->ReloadSoundBuffer = false;
+        alSourceStop(AudioSource);
+        alSourcei(AudioSource, AL_BUFFER, 0);
+        alBufferData(AudioBuffer, AL_FORMAT_MONO16, SoundData->SoundBuffer, SoundData->SoundBufferSize, 48000);
+        alSourcei(AudioSource, AL_BUFFER, AudioBuffer);
+        alSourcePlay(AudioSource);
+        CheckALError();
+    }
+#endif
+
+#if TEST_SKYBOX // NOTE - Skybox Rendering Test, put somewhere else
+    { 
+        glDisable(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        CheckGLError("Skybox");
+
+        glUseProgram(ProgramSkybox);
+        {
+            // NOTE - remove translation component from the ViewMatrix for the skybox
+            mat4f SkyViewMatrix = ViewMatrix;
+            SkyViewMatrix.SetTranslation(vec3f(0.f));
+            uint32 Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
+            SendMat4(Loc, SkyViewMatrix);
+            CheckGLError("ViewMatrix Skybox");
+        }
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+        glBindVertexArray(SkyboxCube.VAO);
+        glDrawElements(GL_TRIANGLES, SkyboxCube.IndexCount, SkyboxCube.IndexType, 0);
+
+        glDepthFunc(GL_LESS);
+        glEnable(GL_CULL_FACE);
+    }
+#endif
+
+
 }
 }

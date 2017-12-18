@@ -330,6 +330,7 @@ namespace context {
 
     void Destroy(game_context *Context)
     {
+        glDeleteProgram(Context->ProgramPostProcess);
         sound::Destroy();
         ResourceFree(&Context->RenderResources);
 

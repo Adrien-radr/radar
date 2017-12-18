@@ -29,6 +29,9 @@ struct game_context
 
     real32 WindowSizeLogLevel;
 
+    // Shader program for post processing
+    uint32 ProgramPostProcess;
+
     uint32 Shaders3D[MAX_SHADERS];
     uint32 Shaders3DCount;
     uint32 Shaders2D[MAX_SHADERS];
