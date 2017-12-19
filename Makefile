@@ -13,8 +13,9 @@ GLEW_LIB=ext/glew
 CJSON_LIB=ext/cjson
 SFMT_LIB=ext/sfmt/
 
-INCLUDE_FLAGS=-I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(STB_INCLUDE) -I$(CJSON_INCLUDE)
+INCLUDE_FLAGS=-I$(SRD_DIR) -Iext/ -I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(STB_INCLUDE) -I$(CJSON_INCLUDE)
 
+SRC_DIR=src/
 SRCS= \
 	sampling.cpp \
 	render.cpp \
@@ -29,8 +30,8 @@ SRCS= \
 OBJ_DIR=obj/
 INCLUDES=radar.h
 
-LIB_SRCS=sun.cpp
-LIB_INCLUDES=sun.h
+LIB_SRCS=$(SRC_DIR)sun.cpp
+LIB_INCLUDES=$(SRC_DIR)sun.h
 
 ##################################################
 # NOTE - WINDOWS BUILD
@@ -53,7 +54,7 @@ CC=cl /nologo
 STATICLIB=lib /nologo
 LINK=/link /MACHINE:X64 -subsystem:console,5.02 /INCREMENTAL:NO /ignore:4204
 GENERAL_CFLAGS=-Gm- -EHa- -GR- -EHsc
-CFLAGS=-MT $(GENERAL_CFLAGS) /W1
+CFLAGS=-MT $(GENERAL_CFLAGS) /W1 -I$(SRC_DIR)
 DLL_CFLAGS=-MD -DLIBEXPORT $(GENERAL_CFLAGS)
 DEBUG_FLAGS=-DDEBUG -Zi -Od -W1 -wd4100 -wd4189 -wd4514
 RELEASE_FLAGS=-O2 -Oi
@@ -91,7 +92,7 @@ lib:
 	@$(CC) $(DLL_CFLAGS) $(VERSION_FLAGS) -I$(SFMT_INCLUDE) /LD $(LIB_SRCS) $(LINK) /OUT:$(LIB_TARGET)
 	@mv *.pdb bin/
 
-$(OBJ_DIR)%.obj: %.cpp
+$(OBJ_DIR)%.obj: $(SRC_DIR)%.cpp
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
 
 radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET) $(OBJS)
@@ -122,7 +123,6 @@ VERSION_FLAGS=$(DEBUG_FLAGS)
 
 LIB_FLAGS=-Lext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -lSFMT -lstb -lcJSON -lglfw3 -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -lm -ldl -lpthread
-INCLUDE_FLAGS=-Iext/ -I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE)
 
 TARGET=bin/radar
 LIB_TARGET=bin/sun.so
@@ -156,7 +156,7 @@ lib:
 	@echo "LIB $(LIB_TARGET)"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -I$(SFMT_INCLUDE) -o $(LIB_TARGET)
 
-$(OBJ_DIR)%.o: %.cpp
+$(OBJ_DIR)%.o: $(SRC_DIR)%.cpp
 	@echo "CC $@"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
 
@@ -184,4 +184,4 @@ clean_ext:
 	rm $(SFMT_TARGET)
 
 tags:
-	@ctags --c++-kinds=+p --fields=+iaS --extra=+q *.cpp *.h $(LIB_INCLUDES)
+	@ctags --c++-kinds=+p --fields=+iaS --extra=+q $(SRC_DIR)*.cpp $(SRC_DIR)*.h $(LIB_INCLUDES)

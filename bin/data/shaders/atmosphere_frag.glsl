@@ -379,6 +379,7 @@ void main()
         {
             contrib += Transmittance * GetSolarRadiance();
 
+            /*
             // Map the moon albedo on the moon representation
             float moon_distance = 384400;
             vec3 L_normed = L * moon_distance;
@@ -396,6 +397,7 @@ void main()
 
             vec3 moon_albedo = pow(texture(MoonAlbedo, spherical_uv).xyz, vec3(2.2));
             contrib *= moon_albedo;
+            */
         }
     }
 
