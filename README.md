@@ -17,7 +17,6 @@ A Physically based renderer in OpenGL/GLSL 4.
 
 ## TODO
 - Unifying ocean and atmosphere rendering for smooth water to sky transition
-- 
 
 ## Sources
 This repository contains an implementation of those papers, amongst other things :
@@ -25,10 +24,10 @@ This repository contains an implementation of those papers, amongst other things
 - [Precomputed Atmospheric Scattering](https://hal.inria.fr/inria-00288758/document) - Eric Bruneton, Fabrice Neyret (2008)
 
 ## Used libraries
--[GLEW](https://github.com/nigels-com/glew)
--[GLFW 3](http://www.glfw.org/)
--[CJSON](https://github.com/DaveGamble/cJSON)
--[OpenAL](https://github.com/kcat/openal-soft)
--[STB Image & Truetype](https://github.com/nothings/stb)
--[Tiny GLTF](https://github.com/syoyo/tinygltf)
--[SFMT](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/)
+- [GLEW](https://github.com/nigels-com/glew)
+- [GLFW 3](http://www.glfw.org/)
+- [CJSON](https://github.com/DaveGamble/cJSON)
+- [OpenAL](https://github.com/kcat/openal-soft)
+- [STB Image & Truetype](https://github.com/nothings/stb)
+- [Tiny GLTF](https://github.com/syoyo/tinygltf)
+- [SFMT](http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/)
