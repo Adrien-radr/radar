@@ -233,18 +233,18 @@ namespace Atmosphere
 
     static const real32 kLengthUnitInMeters = 1000.f;
     static const real32 kRayleighScaleHeight = 8000.f;
-    static const real32 kRayleigh = 1.24062e-6f;
+    static const real32 kRayleigh = 1.04062e-6f; // orig 1.24062e-6
     static const real32 kMieScaleHeight = 1200.f;
     static const real32 kMieAngstromAlpha = 0.f;
-    static const real32 kMieAngstromBeta = 5.328e-3f;
+    static const real32 kMieAngstromBeta = 2.028e-2f; // orig 5.328e-3
     static const real32 kMieSingleScatteringAlbedo = 0.9f;
-    static const real32 kDobsonUnit = 5.687e20f; // From wiki, in molecules.m^-2
+    static const real32 kDobsonUnit = 5.687e20f; // From wiki, in molecules.m^-2 // orig 5.687e20
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
-    static const real32 kGroundAlbedo = 0.1;//001012f;
+    static const real32 kGroundAlbedo = 0.05; // orig 0.1
     static const real32 kSunAngularRadius = 0.004675f;
     static const real32 kMoonAngularRadius = 0.018;//0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = USE_MOON ? 0.93 : 0.85;
+    static const real32 kMiePhaseG = USE_MOON ? 0.93 : 0.70;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 120.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
