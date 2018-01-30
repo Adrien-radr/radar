@@ -233,8 +233,8 @@ namespace Atmosphere
 
     static const real32 kLengthUnitInMeters = 1000.f;
     static const real32 kRayleighScaleHeight = 8000.f;
-    static const real32 kRayleigh = 1.04062e-6f; // orig 1.24062e-6
-    static const real32 kMieScaleHeight = 1200.f;
+    static const real32 kRayleigh = 1.24062e-6f; // orig 1.24062e-6
+    static const real32 kMieScaleHeight = 7200.f;
     static const real32 kMieAngstromAlpha = 0.f;
     static const real32 kMieAngstromBeta = 2.028e-2f; // orig 5.328e-3
     static const real32 kMieSingleScatteringAlbedo = 0.9f;

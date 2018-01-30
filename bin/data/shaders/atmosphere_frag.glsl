@@ -49,7 +49,7 @@ struct atmosphere_parameters
     float           MinMuS;
 };
 
-const vec3 kGroundAlbedo = vec3(0.15, 0.3, 0.8);
+const vec3 kGroundAlbedo = vec3(0.15, 0.3, 0.5);
 
 in vec2 v_texcoord;
 in vec3 v_eyeRay;
@@ -283,11 +283,7 @@ vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
     vec3 Rayleigh, Mie;
     Rayleigh = GetScattering(r, mu, mu_s, nu, IntersectsGround, Mie);
 
-    float maxangle = 0.f;
-    float currangle = max(1e-2,L.y);
-    float Flattening = 1.f;// currangle*currangle;//exp(-2.001*currangle);//max(5e-4,exp(-L.y)); // Sun
-    //float Flattening =  1.f; // Moon
-    return Flattening * (Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu));
+    return (Rayleigh * RayleighPhaseFunction(nu) + Mie * MiePhaseFunction(Atmosphere.MiePhaseG, nu));
 }
 
 vec3 GetSkyRadianceToPoint(vec3 Camera, vec3 P, vec3 L, out vec3 Transmittance)
@@ -451,7 +447,7 @@ void main()
 
         vec3 ShadingPoint = 1000*Point;
         vec3 FractN = GetFractalNormal(ShadingPoint, N);
-        //FractN = mix(FractN, N, 1.0 - exp(-Depth * 6.0));
+        FractN = mix(FractN, N, 1.0 - exp(-Depth * 3.0));
         FractN = normalize(FractN);
 
         vec3 SkyIrradiance;
@@ -460,14 +456,15 @@ void main()
 
         vec3 Transmittance;
         vec3 Inscattering = GetSkyRadianceToPoint(p, Point - EarthCenter, L, Transmittance);
-        contrib = GroundRadiance * Transmittance + Inscattering*10;
-        contrib = max(vec3(0), GetSkyRadiance(Point-EarthCenter+0.8,reflect(E,FractN),Transmittance)) * 
-                  WaterShading(ShadingPoint, Depth, FractN, E, L) * kGroundAlbedo ;// + GroundRadiance * Transmittance;
+        contrib = GroundRadiance * Transmittance + Inscattering*50;
+        contrib = Inscattering*1 +
+                    max(vec3(0), GetSkyRadiance(Point-EarthCenter+0.8,reflect(E,FractN),Transmittance)) * 
+                  WaterShading(ShadingPoint, Depth, FractN, E, L) * kGroundAlbedo  ;// + GroundRadiance * Transmittance;
     }
     else
     { // sky
         vec3 Transmittance;
-        contrib += max(vec3(0), GetSkyRadiance(p, E, Transmittance));
+        contrib += pow(max(vec3(0), GetSkyRadiance(p, E, Transmittance)), vec3(0.95));
         float mu = cos(Atmosphere.SunAngularRadius);
         if(dot(E, L) > mu)
         {
