@@ -430,22 +430,6 @@ void Init(game_memory *Memory, game_state *State, game_system *System, uint32 Be
     WaterSystem->IndexCount = IndexCount;
 }
 
-void ReloadShaders(game_memory *Memory, game_context *Context, water_system *WaterSystem)
-{
-    resource_helper *RH = &Memory->ResourceHelper;
-    path VSPath, FSPath;
-
-    MakeRelativePath(RH, VSPath, "data/shaders/water_vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/water_frag.glsl");
-    WaterSystem->ProgramWater = BuildShader(Memory, VSPath, FSPath);
-    glUseProgram(WaterSystem->ProgramWater);
-    SendInt(glGetUniformLocation(WaterSystem->ProgramWater, "GGXLUT"), 0);
-    SendInt(glGetUniformLocation(WaterSystem->ProgramWater, "Skybox"), 1);
-    CheckGLError("Water Shader");
-
-    context::RegisterShader3D(Context, WaterSystem->ProgramWater);
-}
-
 void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 GGXLUT)
 {
     glUseProgram(WaterSystem->ProgramWater);
@@ -504,4 +488,46 @@ void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 
     }
     glEnable(GL_CULL_FACE);
 }
+
+static mesh ScreenQuad = {};
+static uint32 ProjWaterProgram;
+
+void InitNew(game_memory *Memory, game_state *State, game_system *System)
+{
+    ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1,-1));
+}
+
+void RenderNew(game_state *State, water_system *WaterSystem)
+{
+    glUseProgram(ProjWaterProgram);
+    glBindVertexArray(ScreenQuad.VAO);
+    RenderMesh(&ScreenQuad);
+}
+
+void ReloadShaders(game_memory *Memory, game_context *Context, water_system *WaterSystem)
+{
+    resource_helper *RH = &Memory->ResourceHelper;
+    path VSPath, FSPath;
+
+    MakeRelativePath(RH, VSPath, "data/shaders/water_vert.glsl");
+    MakeRelativePath(RH, FSPath, "data/shaders/water_frag.glsl");
+    WaterSystem->ProgramWater = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(WaterSystem->ProgramWater);
+    SendInt(glGetUniformLocation(WaterSystem->ProgramWater, "GGXLUT"), 0);
+    SendInt(glGetUniformLocation(WaterSystem->ProgramWater, "Skybox"), 1);
+    CheckGLError("Water Shader");
+
+    context::RegisterShader3D(Context, WaterSystem->ProgramWater);
+
+    /*
+    MakeRelativePath(RH, VSPath, "data/shaders/waterproj_vert.glsl");
+    MakeRelativePath(RH, VSPath, "data/shaders/waterproj_frag.glsl");
+    ProjWaterProgram = BuildShader(Memory, VSPath, FSPath);
+    glUseProgram(ProjWaterProgram);
+    CheckGLError("Proj Water Shader");
+
+    context::RegisterShader3D(Context, ProjWaterProgram);
+    */
+}
+
 }

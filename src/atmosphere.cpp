@@ -579,6 +579,7 @@ namespace Atmosphere
         SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
         SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), Camera);
         SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "Time"), State->EngineTime);
         BindTexture2D(TransmittanceTexture, 0);
         BindTexture2D(IrradianceTexture, 1);
         BindTexture3D(ScatteringTexture, 2);

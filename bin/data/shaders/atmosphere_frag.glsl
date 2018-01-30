@@ -61,6 +61,7 @@ uniform sampler2D TransmittanceTexture;
 uniform sampler2D IrradianceTexture;
 uniform sampler3D ScatteringTexture;
 uniform sampler2D MoonAlbedo;
+uniform float Time;
 
 out vec4 frag_color;
 
@@ -343,6 +344,92 @@ float atan2(in float y, in float x)
     return x == 0.0 ? sign(y)*PI/2.0 : atan(y,x);
 }
 
+const vec2 FractDelta = vec2(0.005, 0.0);
+const mat2 OctaveMat = mat2(1.6, 1.2, -1.2, 1.6);
+const vec2 WindSpeed = vec2(0.43,  0.13);
+const vec2 WaveChopiness = vec2(0.11, 0.13);
+const vec2 WaveInvScale = vec2(0.05, 0.15);
+
+float Hash(in float n)
+{
+    return fract(sin(n) * 43758.5453123);
+}
+
+float Noise(in vec2 x)
+{
+    vec2 p = floor(x);
+    vec2 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float n = p.x + p.y * 57.0;
+    float res = mix(mix(Hash(n + 0.0), Hash(n + 1.0), f.x),
+                    mix(Hash(n +57.0), Hash(n +58.0), f.x), f.y);
+    return res;
+}
+
+float FractalNoise(in vec2 xy)
+{
+    float theta = PI/2.f;
+    float m = 1.25;
+    float w = 0.6;
+    float f = 0.0;
+    for(int i = 0; i < 6; ++i)
+    {
+        f += Noise(WaveInvScale.x * xy + Time * WindSpeed.x) * m * WaveChopiness.x;
+        if(i < 2)
+        {
+            //f += Perlin2D(WaveInvScale.y * xy.xy + Time * WindSpeed.y) * w * WaveChopiness.y;
+        }
+        else
+        {
+            //f += abs(Perlin2D(WaveInvScale.y * xy.xy + Time * WindSpeed.y) * w * WaveChopiness.y);
+        }
+        w *= 0.45;
+        m *= 0.35;
+        xy *= OctaveMat;
+    }
+    return f * (abs(sin(1.0-Time * 0.025)) * 0.25 + 0.75);
+}
+
+float Dist(in vec3 Pos, in vec3 N)
+{
+    return dot(Pos - vec3(0, -FractalNoise(Pos.xz), 0), N);
+}
+
+vec3 GetFractalNormal(in vec3 Pos, in vec3 N)
+{
+    vec3 n;
+    n.x = Dist(Pos + FractDelta.xyy, N) - Dist(Pos - FractDelta.xyy, N);
+    n.y = Dist(Pos + FractDelta.yxy, N) - Dist(Pos - FractDelta.yxy, N);
+    n.z = Dist(Pos + FractDelta.yyx, N) - Dist(Pos - FractDelta.yyx, N);
+    return normalize(n);
+}
+
+vec3 FresnelSchlickRoughness(float u, vec3 f0, float roughness)
+{
+    return f0 + (max(vec3(1-roughness), f0) - f0) * pow(1 - u, 5);
+}
+
+vec3 WaterShading(in vec3 P, in float depth, in vec3 N, in vec3 E, in vec3 L)
+{
+    vec3 shading;
+    vec3 V = -E;
+    vec3 H = normalize(V + L);
+    vec3 R = reflect(V, N);
+
+    float HdotV = max(0.0, dot(H, V));
+    float NdotL = max(0.0, dot(N, L));
+    float NdotV = max(0.0, min(1.0, 1e-1+dot(N, V)));
+
+    vec3 f0 = vec3(0.01);
+    float roughness = 0.1;
+
+    vec3 F = FresnelSchlickRoughness(NdotV, f0, roughness);
+    F = mix(F, vec3(1.0), 1.0-exp(-depth * 1.0));
+
+    shading += vec3(F);
+    return shading;
+}
+
 void main()
 {
     vec3 E = normalize(v_eyeRay);
@@ -358,20 +445,27 @@ void main()
 
     vec3 contrib = vec3(0);
     if(Depth > 0.0)
-    {
+    { // earth
         vec3 Point = P + E * Depth;
         vec3 N = normalize(Point - EarthCenter);
 
+        vec3 ShadingPoint = 1000*Point;
+        vec3 FractN = GetFractalNormal(ShadingPoint, N);
+        //FractN = mix(FractN, N, 1.0 - exp(-Depth * 6.0));
+        FractN = normalize(FractN);
+
         vec3 SkyIrradiance;
-        vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, N, L, SkyIrradiance);
+        vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, FractN, L, SkyIrradiance);
         vec3 GroundRadiance = kGroundAlbedo * (1.0/PI) * (SunIrradiance + SkyIrradiance);
 
         vec3 Transmittance;
         vec3 Inscattering = GetSkyRadianceToPoint(p, Point - EarthCenter, L, Transmittance);
-        contrib += Transmittance * GroundRadiance + Inscattering;
+        contrib = GroundRadiance * Transmittance + Inscattering*10;
+        contrib = max(vec3(0), GetSkyRadiance(Point-EarthCenter+0.8,reflect(E,FractN),Transmittance)) * 
+                  WaterShading(ShadingPoint, Depth, FractN, E, L) * kGroundAlbedo ;// + GroundRadiance * Transmittance;
     }
     else
-    {
+    { // sky
         vec3 Transmittance;
         contrib += max(vec3(0), GetSkyRadiance(p, E, Transmittance));
         float mu = cos(Atmosphere.SunAngularRadius);
