@@ -244,7 +244,7 @@ namespace Atmosphere
     static const real32 kSunAngularRadius = 0.004675f;
     static const real32 kMoonAngularRadius = 0.018;//0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = USE_MOON ? 0.93 : 0.70;
+    static const real32 kMiePhaseG = USE_MOON ? 0.93 : 0.80;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 120.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
@@ -580,6 +580,7 @@ namespace Atmosphere
         SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), Camera);
         SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Time"), State->EngineTime);
+        SendVec2(glGetUniformLocation(AtmosphereProgram, "Resolution"), vec2f(Context->WindowWidth, Context->WindowHeight));
         BindTexture2D(TransmittanceTexture, 0);
         BindTexture2D(IrradianceTexture, 1);
         BindTexture3D(ScatteringTexture, 2);

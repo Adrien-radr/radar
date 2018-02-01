@@ -49,10 +49,11 @@ struct atmosphere_parameters
     float           MinMuS;
 };
 
-const vec3 kGroundAlbedo = vec3(0.15, 0.3, 0.5);
+const vec3 kGroundAlbedo = vec3(0.075, 0.15, 0.25);
 
 in vec2 v_texcoord;
 in vec3 v_eyeRay;
+in vec3 v_sunUV;
 
 uniform atmosphere_parameters Atmosphere;
 uniform vec3 CameraPosition;
@@ -62,6 +63,7 @@ uniform sampler2D IrradianceTexture;
 uniform sampler3D ScatteringTexture;
 uniform sampler2D MoonAlbedo;
 uniform float Time;
+uniform vec2 Resolution;
 
 out vec4 frag_color;
 
@@ -426,6 +428,75 @@ vec3 WaterShading(in vec3 P, in float depth, in vec3 N, in vec3 E, in vec3 L)
     return shading;
 }
 
+float regShape(vec2 p, int N)
+{
+    float a = atan(p.x, p.y) + 0.2;
+    float b = 6.28319/float(N);
+    float f = smoothstep(0.5, 0.51, cos(floor(0.5 + a/b) * b - a) * length(p.xy));
+    return f;
+}
+
+vec3 circle(vec2 p, float size, float decay, vec3 color, vec3 color2, float dist, vec2 sp)
+{
+    float len = length(p + sp * (dist*4.0));
+    float l = len + size/2.0;
+    float l2 = len + size/3.0;
+    float c = max(0.01 - pow(length(p + sp*dist), size*1.0), 0.0) * 50.0;
+    //float ring = max(0.001 - pow(l - 0.5, 0.02) + sin(l*20.0), 0.0) * 3.0;
+    float dots = max(0.03/pow(length(p-sp*dist*0.5)*1.0, 1.0), 0.0) / 20.0;
+    float hex = max(0.02-pow(regShape(p*5.0 + sp*dist*1.0, 6), 1.0), 0.0) * 5.0;
+
+    color = 0.5 + 0.5 * sin(color);
+    color = cos(vec3(0.44, 0.24, 0.2) * 8.0 + dist * 4.0) * 0.5 + 0.5;
+
+    vec3 f = c * color;
+    //f += ring * color;
+    f += dots * color;
+    f += hex * color;
+
+    return f - 0.01;
+}
+
+float rnd(float w)
+{
+    return fract(sin(w) * 1000.0);
+}
+
+vec3 AddSunGlare(vec3 Color, vec3 SunColor, vec3 E, vec3 L)
+{
+    float AspectRatio = Resolution.x / Resolution.y;
+    vec2 uv = v_texcoord - vec2(0.5);
+    uv.x *= AspectRatio;
+
+    float sx = 0.5*(v_sunUV.x+1);
+    float sy = 0.5*(v_sunUV.y+1);
+    vec2 uvSun = vec2(sx, sy) - vec2(0.5);
+    uvSun.x *= AspectRatio;
+
+    float viewFalloff = max(0.0, dot(E, L));
+    float horizonFalloff = max(0.0,1.0-exp(-min(1.0, L.y+Atmosphere.SunAngularRadius)*300.0));
+    uvSun.y += (1.0 - horizonFalloff) * Atmosphere.SunAngularRadius* 1.1;
+
+    vec3 circColor2 = SunColor;
+    vec3 circColor = SunColor;//vec3(0.3, 0.1, 0.9);
+
+    vec3 Glare = vec3(0);
+
+    for(float i = 0; i < 5; ++i)
+    {
+        Glare += 0.0001 * circle(uv, pow(rnd(i*4000.0), 2.0) + 1.41, 0.0, circColor+i, circColor2+i, rnd(i*2.0)*3.0+0.2-0.5, uvSun);
+    }
+
+    float a = atan(uv.y-uvSun.y, uv.x-uvSun.x);
+    //Glare += 0.0001*max(0.001/pow(length(uv-uvSun)*1.0, 5.0),0.0) * abs(sin(a*16.0+cos(a*16.0)))/20.0;
+    Glare += max(0.000005/pow(length(uv-uvSun)*8.0, 2.0),0.0) * abs(sin(a*3.+cos(a*9.))) * abs(sin(a*9.));
+    Glare += max(0.000001/pow(length(uv-uvSun), 2.0),0.0);//*vec3(0.3,0.21,0.1);
+
+    Color += SunColor * Glare * viewFalloff * horizonFalloff; // camera direction and km coordinates
+
+    return Color;
+}
+
 void main()
 {
     vec3 E = normalize(v_eyeRay);
@@ -438,6 +509,10 @@ void main()
     float Depth = -PdotV - sqrt(Atmosphere.BottomRadius*Atmosphere.BottomRadius - EarthCenterRayDistance);
 
     vec3 L = normalize(SunDirection);
+    float EdotL = dot(E,L);
+
+    vec3 Transmittance;
+    vec3 SolarRadiance = GetSolarRadiance();
 
     vec3 contrib = vec3(0);
     if(Depth > 0.0)
@@ -454,7 +529,6 @@ void main()
         vec3 SunIrradiance = GetGroundIrradiance(Point - EarthCenter, FractN, L, SkyIrradiance);
         vec3 GroundRadiance = kGroundAlbedo * (1.0/PI) * (SunIrradiance + SkyIrradiance);
 
-        vec3 Transmittance;
         vec3 Inscattering = GetSkyRadianceToPoint(p, Point - EarthCenter, L, Transmittance);
         contrib = GroundRadiance * Transmittance + Inscattering*50;
         contrib = Inscattering*1 +
@@ -463,12 +537,12 @@ void main()
     }
     else
     { // sky
-        vec3 Transmittance;
         contrib += pow(max(vec3(0), GetSkyRadiance(p, E, Transmittance)), vec3(0.95));
         float mu = cos(Atmosphere.SunAngularRadius);
-        if(dot(E, L) > mu)
+
+        if(EdotL > mu)
         {
-            contrib += Transmittance * GetSolarRadiance();
+            contrib += Transmittance * SolarRadiance;
 
             /*
             // Map the moon albedo on the moon representation
@@ -491,6 +565,10 @@ void main()
             */
         }
     }
+
+    SolarRadiance *= Transmittance;
+
+    contrib = AddSunGlare(contrib, SolarRadiance, E, L);
 
     frag_color = vec4(contrib, 1); 
 }

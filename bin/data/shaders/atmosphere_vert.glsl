@@ -5,13 +5,17 @@ layout(location=1) in vec2 in_texcoord;
 
 uniform mat4 InverseModelMatrix;
 uniform mat4 InverseProjMatrix;
+uniform vec3 SunDirection;
 
 out vec2 v_texcoord;
 out vec3 v_eyeRay;
+out vec3 v_sunUV;
 
 void main()
 {
     v_texcoord = in_texcoord;
     v_eyeRay = ((InverseModelMatrix) * vec4(((InverseProjMatrix) * vec4(in_position.xy, 0.0, 1.0)).xyz,0.0)).xyz;
+    vec4 sunUV = inverse(InverseProjMatrix) * inverse(InverseModelMatrix) * vec4(SunDirection, 0.0);
+    v_sunUV = sunUV.xyz / sunUV.w;
     gl_Position = vec4(in_position, 1.0, 1.0);
 }

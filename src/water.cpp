@@ -489,21 +489,6 @@ void Render(game_state *State, water_system *WaterSystem, uint32 Envmap, uint32 
     glEnable(GL_CULL_FACE);
 }
 
-static mesh ScreenQuad = {};
-static uint32 ProjWaterProgram;
-
-void InitNew(game_memory *Memory, game_state *State, game_system *System)
-{
-    ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1,-1));
-}
-
-void RenderNew(game_state *State, water_system *WaterSystem)
-{
-    glUseProgram(ProjWaterProgram);
-    glBindVertexArray(ScreenQuad.VAO);
-    RenderMesh(&ScreenQuad);
-}
-
 void ReloadShaders(game_memory *Memory, game_context *Context, water_system *WaterSystem)
 {
     resource_helper *RH = &Memory->ResourceHelper;

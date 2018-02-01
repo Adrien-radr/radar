@@ -1,4 +1,5 @@
 #version 400
+#define PI 3.14159265359
 
 //#define ACCURATE_GAMMA
 
@@ -123,6 +124,7 @@ vec3 fxaa(sampler2D tex, float Exposure, vec2 fragCoord, vec2 resolution,
 
 void main()
 {
+    
     // NOTE - this uses the avg luminance from the current frame for automatic exposure.
     // In practice it is better to keep an histogram of it through frames to avoid flickering.
     vec3 Mean = textureLod(HDRFB, v_texcoord, MipmapQueryLevel).rgb;
@@ -146,6 +148,8 @@ void main()
     // Tone mapping and Gamma correction
     hdrColor = texture(HDRFB, v_texcoord).xyz;
     hdrColor = PostProcess(hdrColor, Exp);
+
+    //hdrColor = AddSunGlare(hdrColor);
 
     frag_color = vec4(hdrColor, 1.0);
 }
