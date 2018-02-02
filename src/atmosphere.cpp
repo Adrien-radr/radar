@@ -3,6 +3,8 @@
 #include "utils.h"
 #include "render.h"
 
+//#define PRECOMPUTE_STUFF
+
 namespace Atmosphere
 {
     // Values from "CIE (1931) 2-deg color matching functions", see
@@ -356,6 +358,7 @@ namespace Atmosphere
         AtmosphereParameters.MiePhaseG = kMiePhaseG;
         AtmosphereParameters.MinMuS = cosf(kMaxSunZenithAngle);
 
+#ifdef PRECOMPUTE_STUFF
         path VSPath, FSPath, GSPath;
 
         // Precompute atmosphere textures
@@ -544,6 +547,7 @@ namespace Atmosphere
 
         MoonAlbedoTexture = *ResourceLoad2DTexture(&Context->RenderResources, "data/moon/albedo.png", false, false, 4, 
                 GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_CLAMP_TO_EDGE);
+#endif
     }
 
     void Update()
@@ -581,9 +585,17 @@ namespace Atmosphere
         SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Time"), State->EngineTime);
         SendVec2(glGetUniformLocation(AtmosphereProgram, "Resolution"), vec2f(Context->WindowWidth, Context->WindowHeight));
+        CheckGLError("Atmo0");
+#ifdef PRECOMPUTE_STUFF
         BindTexture2D(TransmittanceTexture, 0);
         BindTexture2D(IrradianceTexture, 1);
         BindTexture3D(ScatteringTexture, 2);
+#else
+        BindTexture2D(*Context->RenderResources.DefaultDiffuseTexture, 0);
+        BindTexture2D(*Context->RenderResources.DefaultDiffuseTexture, 1);
+        //BindTexture3D(*Context->RenderResources.DefaultDiffuseTexture, 2);
+#endif
+        CheckGLError("Atmo1");
         BindTexture2D(USE_MOON ? MoonAlbedoTexture : *Context->RenderResources.DefaultDiffuseTexture, 3);
         glBindVertexArray(ScreenQuad.VAO);
         RenderMesh(&ScreenQuad);
@@ -591,17 +603,19 @@ namespace Atmosphere
 
 
         glDepthFunc(GL_LESS);
+        CheckGLError("Atmo");
     }
 
     void ReloadShaders(game_memory *Memory, game_context *Context)
     {
         resource_helper *RH = &Memory->ResourceHelper;
-        path VSPath, FSPath;
+        path VSPath, FSPath, GSPath;
 
         // Rendering shader
         MakeRelativePath(RH, VSPath, "data/shaders/atmosphere_vert.glsl");
+        MakeRelativePath(RH, GSPath, "data/shaders/atmosphere_geom.glsl");
         MakeRelativePath(RH, FSPath, "data/shaders/atmosphere_frag.glsl");
-        AtmosphereProgram = BuildShader(Memory, VSPath, FSPath);
+        AtmosphereProgram = BuildShader(Memory, VSPath, FSPath, GSPath);
         glUseProgram(AtmosphereProgram);
         CheckGLError("Atmosphere Shader");
 

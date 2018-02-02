@@ -544,6 +544,11 @@ vec3 WaterShading(in vec3 P, in float depth, in vec3 N, in vec3 E, in vec3 L, in
 
 void main()
 {
+    vec3 contrib = vec3(0);
+    contrib = vec3(1,0,0) * 10000;
+    if(gl_PrimitiveID == 1)
+        contrib = vec3(gl_FragCoord.z) * 10000;
+#if 0
     vec3 E = normalize(v_eyeRay);
     vec3 EarthCenter = vec3(0,-Atmosphere.BottomRadius, 0);
     vec3 P = v_CameraPosition;
@@ -562,7 +567,6 @@ void main()
     float r = length(P);
     float mu = PdotV / r;
 
-    vec3 contrib = vec3(0);
     if(Depth > 0)
     { // earth
         vec3 Point = P + E * Depth;
@@ -618,6 +622,7 @@ void main()
     SolarRadiance *= Transmittance / length(Transmittance);
 
     contrib = AddSunGlare(contrib, SolarRadiance, E, L);
+    #endif
 
     frag_color = vec4(contrib, 1); 
 }
