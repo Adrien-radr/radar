@@ -49,14 +49,14 @@ struct atmosphere_parameters
     float           MinMuS;
 };
 
-const vec3 kGroundAlbedo = vec3(0.075, 0.15, 0.25);
+const vec3 kGroundAlbedo = vec3(0.125, 0.15, 0.2);
 
 in vec2 v_texcoord;
 in vec3 v_eyeRay;
 in vec3 v_sunUV;
+in vec3 v_CameraPosition;
 
 uniform atmosphere_parameters Atmosphere;
-uniform vec3 CameraPosition;
 uniform vec3 SunDirection;
 uniform sampler2D TransmittanceTexture;
 uniform sampler2D IrradianceTexture;
@@ -279,7 +279,7 @@ vec3 GetSkyRadiance(vec3 P, vec3 E, out vec3 Transmittance)
 
     float r_d = ClampRadius(sqrt(d * d + 2.0 * r * mu * d + r * r));
     float mu_d = ClampCosine((r * mu * d) / r_d);
-    bool IntersectsGround = RayIntersectsGround(r, mu);
+    bool IntersectsGround = false;//RayIntersectsGround(r, mu);
 
     Transmittance = IntersectsGround ? vec3(0.0) : GetTransmittanceToTopAtmosphereBoundary(r, mu);
     vec3 Rayleigh, Mie;
@@ -305,7 +305,7 @@ vec3 GetSkyRadianceToPoint(vec3 Camera, vec3 P, vec3 L, out vec3 Transmittance)
     float mu_s = dot(Camera, L) / r;
     float nu = dot(ViewRay, L);
     float d = length(P - Camera);
-    bool IntersectsGround = RayIntersectsGround(r, mu);
+    bool IntersectsGround = true;//RayIntersectsGround(r, mu);
 
     Transmittance = GetTransmittance(r, mu, d, IntersectsGround);
     vec3 Rayleigh, Mie;
@@ -342,11 +342,11 @@ float atan2(in float y, in float x)
     return x == 0.0 ? sign(y)*PI/2.0 : atan(y,x);
 }
 
-const vec2 FractDelta = vec2(0.005, 0.0);
-const mat2 OctaveMat = mat2(1.6, 1.2, -1.2, 1.6);
-const vec2 WindSpeed = vec2(0.43,  0.13);
-const vec2 WaveChopiness = vec2(0.11, 0.13);
-const vec2 WaveInvScale = vec2(0.05, 0.15);
+const vec2 FractDelta = vec2(1.01, 0.0);
+const mat2 OctaveMat = mat2(1.4, 1.2, -1.2, 1.4);
+const vec2 WindSpeed = vec2(0.33,  0.13);
+const vec2 WaveChopiness = vec2(0.21, 0.13);
+const vec2 WaveInvScale = vec2(0.05, 0.005);
 
 float Hash(in float n)
 {
@@ -402,30 +402,39 @@ vec3 GetFractalNormal(in vec3 Pos, in vec3 N)
     return normalize(n);
 }
 
+float DistributionGGX(float NdotH, float roughness)
+{
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH2 = NdotH * NdotH;
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+    return nom / denom;
+}
+
+float GeometrySchlickGGX(float NdotV, float roughness)
+{
+    float r = (roughness + 1.0);
+    float k = (r*r) / 8.0;
+
+    float nom   = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return nom / denom;
+}
+
+float GeometrySmith(float NdotV, float NdotL, float roughness)
+{
+    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
 vec3 FresnelSchlickRoughness(float u, vec3 f0, float roughness)
 {
     return f0 + (max(vec3(1-roughness), f0) - f0) * pow(1 - u, 5);
-}
-
-vec3 WaterShading(in vec3 P, in float depth, in vec3 N, in vec3 E, in vec3 L)
-{
-    vec3 shading;
-    vec3 V = -E;
-    vec3 H = normalize(V + L);
-    vec3 R = reflect(V, N);
-
-    float HdotV = max(0.0, dot(H, V));
-    float NdotL = max(0.0, dot(N, L));
-    float NdotV = max(0.0, min(1.0, 1e-1+dot(N, V)));
-
-    vec3 f0 = vec3(0.01);
-    float roughness = 0.1;
-
-    vec3 F = FresnelSchlickRoughness(NdotV, f0, roughness);
-    F = mix(F, vec3(1.0), 1.0-exp(-depth * 1.0));
-
-    shading += vec3(F);
-    return shading;
 }
 
 float regShape(vec2 p, int N)
@@ -436,7 +445,7 @@ float regShape(vec2 p, int N)
     return f;
 }
 
-vec3 circle(vec2 p, float size, float decay, vec3 color, vec3 color2, float dist, vec2 sp)
+vec3 circle(vec2 p, float size, float decay, vec3 color, float dist, vec2 sp)
 {
     float len = length(p + sp * (dist*4.0));
     float l = len + size/2.0;
@@ -474,34 +483,70 @@ vec3 AddSunGlare(vec3 Color, vec3 SunColor, vec3 E, vec3 L)
     uvSun.x *= AspectRatio;
 
     float viewFalloff = max(0.0, dot(E, L));
-    float horizonFalloff = max(0.0,1.0-exp(-min(1.0, L.y+Atmosphere.SunAngularRadius)*300.0));
-    uvSun.y += (1.0 - horizonFalloff) * Atmosphere.SunAngularRadius* 1.1;
-
-    vec3 circColor2 = SunColor;
-    vec3 circColor = SunColor;//vec3(0.3, 0.1, 0.9);
+    float horizonFalloff = max(0.0, 1.0 - exp(-1000.0*min(1.0, L.y + 1.1*Atmosphere.SunAngularRadius)));
+    uvSun.y += (1.0 - horizonFalloff) * Atmosphere.SunAngularRadius * 1.1;
 
     vec3 Glare = vec3(0);
 
     for(float i = 0; i < 5; ++i)
     {
-        Glare += 0.0001 * circle(uv, pow(rnd(i*4000.0), 2.0) + 1.41, 0.0, circColor+i, circColor2+i, rnd(i*2.0)*3.0+0.2-0.5, uvSun);
+        Glare += 0.0001 * circle(uv, pow(rnd(i*4000.0), 2.0) + 1.41, 0.0, SunColor, rnd(i*2.0)*3.0+0.2-0.5, uvSun);
     }
 
     float a = atan(uv.y-uvSun.y, uv.x-uvSun.x);
-    //Glare += 0.0001*max(0.001/pow(length(uv-uvSun)*1.0, 5.0),0.0) * abs(sin(a*16.0+cos(a*16.0)))/20.0;
+    // Sun fake shafts
     Glare += max(0.000005/pow(length(uv-uvSun)*8.0, 2.0),0.0) * abs(sin(a*3.+cos(a*9.))) * abs(sin(a*9.));
+    // Sun glow
     Glare += max(0.000001/pow(length(uv-uvSun), 2.0),0.0);//*vec3(0.3,0.21,0.1);
 
-    Color += SunColor * Glare * viewFalloff * horizonFalloff; // camera direction and km coordinates
+    // Sun color, camera falloff and horizon falloff
+    Color += Glare * SunColor * viewFalloff * horizonFalloff;
 
     return Color;
+}
+
+vec3 WaterShading(in vec3 P, in float depth, in vec3 N, in vec3 E, in vec3 L, in vec3 SkyRadiance, in vec3 SunRadiance, in vec3 WaterColor)
+{
+    vec3 shading;
+    vec3 V = -E;
+    vec3 H = normalize(V + L);
+    vec3 R = reflect(V, N);
+
+    float HdotV = max(0.0, dot(H, V));
+    float NdotL = max(0.0, dot(N, L));
+    float NdotV = max(0.0, min(1.0, dot(N, V)));
+    float NdotH = max(0.0, dot(N, H));
+
+    vec3 f0 = vec3(0.22);
+    float roughness = 0.22;
+
+    vec3 F = FresnelSchlickRoughness(NdotV, f0, roughness);
+    //F = mix(F, vec3(1.0), 1.0-exp(-depth * 1.0)); // depth 
+    float G = GeometrySmith(NdotV, NdotL, roughness);
+    float D = DistributionGGX(NdotH, roughness);
+
+    vec3 ks = F;
+    vec3 kd = vec3(1.0) - ks;
+
+    vec3 nom = F * D * G;
+    float denom = (4.0 * NdotV * NdotL + 1e-5);
+
+    vec3 Specular = nom / denom;
+    vec3 Diffuse = kd * WaterColor / PI;
+    shading = (Specular + Diffuse) * (max(0.0, L.y));
+
+    ks = FresnelSchlickRoughness(NdotV, f0, 0.6);
+    vec3 Ambient = ks * SkyRadiance;
+
+
+    return shading * SkyRadiance + Ambient;
 }
 
 void main()
 {
     vec3 E = normalize(v_eyeRay);
     vec3 EarthCenter = vec3(0,-Atmosphere.BottomRadius, 0);
-    vec3 P = CameraPosition;
+    vec3 P = v_CameraPosition;
     vec3 p = P - EarthCenter;
     float PdotV = dot(p, E);
     float PdotP = dot(p, p);
@@ -514,15 +559,18 @@ void main()
     vec3 Transmittance;
     vec3 SolarRadiance = GetSolarRadiance();
 
+    float r = length(P);
+    float mu = PdotV / r;
+
     vec3 contrib = vec3(0);
-    if(Depth > 0.0)
+    if(Depth > 0)
     { // earth
         vec3 Point = P + E * Depth;
         vec3 N = normalize(Point - EarthCenter);
 
-        vec3 ShadingPoint = 1000*Point;
+        vec3 ShadingPoint = 1000*Point; // ajusted for km scale
         vec3 FractN = GetFractalNormal(ShadingPoint, N);
-        FractN = mix(FractN, N, 1.0 - exp(-Depth * 3.0));
+        FractN = mix(FractN, N, 1.0 - exp(-Depth * 1.0));
         FractN = normalize(FractN);
 
         vec3 SkyIrradiance;
@@ -530,14 +578,14 @@ void main()
         vec3 GroundRadiance = kGroundAlbedo * (1.0/PI) * (SunIrradiance + SkyIrradiance);
 
         vec3 Inscattering = GetSkyRadianceToPoint(p, Point - EarthCenter, L, Transmittance);
-        contrib = GroundRadiance * Transmittance + Inscattering*50;
-        contrib = Inscattering*1 +
-                    max(vec3(0), GetSkyRadiance(Point-EarthCenter+0.8,reflect(E,FractN),Transmittance)) * 
-                  WaterShading(ShadingPoint, Depth, FractN, E, L) * kGroundAlbedo  ;// + GroundRadiance * Transmittance;
+        //contrib = GroundRadiance * Transmittance + Inscattering*50;
+        vec3 ReflectedSkyRadiance = max(vec3(0), GetSkyRadiance(Point-EarthCenter,reflect(E,FractN),Transmittance));
+        contrib = Inscattering * 2.0 + 
+                  WaterShading(ShadingPoint, Depth, FractN, E, L, ReflectedSkyRadiance, ReflectedSkyRadiance, kGroundAlbedo);
     }
     else
     { // sky
-        contrib += pow(max(vec3(0), GetSkyRadiance(p, E, Transmittance)), vec3(0.95));
+        contrib += pow(max(vec3(0), GetSkyRadiance(p, E, Transmittance)), vec3(1.00));
         float mu = cos(Atmosphere.SunAngularRadius);
 
         if(EdotL > mu)
@@ -566,7 +614,8 @@ void main()
         }
     }
 
-    SolarRadiance *= Transmittance;
+    // Get the sun radiance modulated by the transmittance color
+    SolarRadiance *= Transmittance / length(Transmittance);
 
     contrib = AddSunGlare(contrib, SolarRadiance, E, L);
 

@@ -552,32 +552,32 @@ namespace Atmosphere
 
     void Render(game_state *State, game_context *Context)
     {
-        mat4f ModelFromView = State->Camera.ViewMatrix.Inverse();
+        mat4f ViewMatrix = State->Camera.ViewMatrix;
 
         real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
         real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
         real32 TanFovY = tanf(FovRadians * 0.5f);
-        mat4f ViewFromClip
+        mat4f ProjMatrix
         (
-            TanFovY * AspectRatio, 0.f, 0.f, 0.f,
-            0.f, TanFovY, 0.f, 0.f,
-            0.f, 0.f, 0.f, -1.f,
-            0.f, 0.f, 1.f, 1.f
+            1.f/(TanFovY * AspectRatio), 0.f, 0.f, 0.f,
+            0.f, 1.f/TanFovY, 0.f, 0.f,
+            0.f, 0.f, 1.f, 1.f,
+            0.f, 0.f, -1.f, 0.f
         );
 
         glDepthFunc(GL_LEQUAL);
 
-        vec3f Camera;
-        real32 l = 1.0f / (kLengthUnitInMeters);
-        Camera.x = ModelFromView.M[3].x * l;
-        Camera.y = ModelFromView.M[3].y * l;
-        Camera.z = ModelFromView.M[3].z * l;
+        //vec3f Camera;
+        real32 CameraScale = 1.0f / (kLengthUnitInMeters);
+        //Camera.x = ModelFromView.M[3].x * l;
+        //Camera.y = ModelFromView.M[3].y * l;
+        //Camera.z = ModelFromView.M[3].z * l;
     
 
         glUseProgram(AtmosphereProgram);
-        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseModelMatrix"), ModelFromView);
-        SendMat4(glGetUniformLocation(AtmosphereProgram, "InverseProjMatrix"), ViewFromClip);
-        SendVec3(glGetUniformLocation(AtmosphereProgram, "CameraPosition"), Camera);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "ViewMatrix"), ViewMatrix);
+        SendMat4(glGetUniformLocation(AtmosphereProgram, "ProjMatrix"), ProjMatrix);
+        SendFloat(glGetUniformLocation(AtmosphereProgram, "CameraScale"), CameraScale);
         SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
         SendFloat(glGetUniformLocation(AtmosphereProgram, "Time"), State->EngineTime);
         SendVec2(glGetUniformLocation(AtmosphereProgram, "Resolution"), vec2f(Context->WindowWidth, Context->WindowHeight));
