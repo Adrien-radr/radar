@@ -1,6 +1,6 @@
 .PHONY: tags lib radar clean post_build
 
-all: tags radar lib post_build
+all: tags pre_build radar post_build
 
 # LIBRARY Defines
 GLFW_INCLUDE=ext/glfw/include
@@ -12,21 +12,19 @@ STB_INCLUDE=ext/
 GLEW_LIB=ext/glew
 CJSON_LIB=ext/cjson
 SFMT_LIB=ext/sfmt/
-
-INCLUDE_FLAGS=-I$(SRD_DIR) -Iext/ -I$(SFMT_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(OPENAL_INCLUDE) -I$(STB_INCLUDE) -I$(CJSON_INCLUDE)
+RF_INCLUDE=ext/rf/include
+RF_LIB=ext/rf/lib
 
 SRC_DIR=src/
+
+INCLUDE_FLAGS=-I$(SRC_DIR) -Iext/ -I$(SFMT_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) -I$(RF_INCLUDE)
+
 SRCS= \
-	sampling.cpp \
-	render.cpp \
-	utils.cpp \
-	log.cpp \
-	context.cpp \
 	sound.cpp \
-	ui.cpp \
-	water.cpp \
-	atmosphere.cpp \
+	sampling.cpp \
 	radar.cpp
+	#water.cpp \
+	#atmosphere.cpp \
 OBJ_DIR=obj/
 INCLUDES=radar.h
 
@@ -121,7 +119,7 @@ DEBUG_FLAGS=-g -DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
-LIB_FLAGS=-Lext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -lSFMT -lstb -lcJSON -lglfw3 -lglew -lopenal \
+LIB_FLAGS=-Lext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -L$(RF_LIB) -lrf -lSFMT -lstb -lcJSON -lglfw3 -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -lm -ldl -lpthread
 
 TARGET=bin/radar
@@ -160,7 +158,7 @@ $(OBJ_DIR)%.o: $(SRC_DIR)%.cpp
 	@echo "CC $@"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
 
-radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET) $(OBJS)
+radar: $(SFMT_TARGET) $(CJSON_TARGET) $(OBJS)
 	@echo "CC $(TARGET)"
 	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(OBJS) $(INCLUDE_FLAGS) $(LIB_FLAGS) -o $(TARGET)
 
@@ -169,6 +167,10 @@ endif
 
 ##################################################
 ##################################################
+
+pre_build:
+	@mkdir -p bin
+	@mkdir -p obj
 
 post_build:
 	@rm -f *.lib *.exp
@@ -184,4 +186,4 @@ clean_ext:
 	rm $(SFMT_TARGET)
 
 tags:
-	@ctags --c++-kinds=+p --fields=+iaS --extra=+q $(SRC_DIR)*.cpp $(SRC_DIR)*.h $(LIB_INCLUDES)
+	@ctags --c++-kinds=+p --fields=+iaS --extra=+q $(SRC_DIR)*.cpp $(SRC_DIR)*.h $(LIB_INCLUDES) $(RF_INCLUDE)/rf/*.h

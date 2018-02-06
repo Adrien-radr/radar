@@ -2,27 +2,30 @@
 #include <string>
 #include <algorithm>
 
-#include "utils.h"
-#include "context.h"
-#include "ui.h"
-#include "water.h"
-#include "atmosphere.h"
-#include "sun.h"
+#include "rf/utils.h"
+#include "rf/context.h"
+#include "rf/ui.h"
+
+#include "definitions.h"
+
+//#include "water.h"
+//#include "atmosphere.h"
+//#include "sun.h"
 
 // PLATFORM
 int RadarMain(int argc, char **argv);
-#if RADAR_WIN32
+#if RF_WIN32
 #include "radar_win32.cpp"
-#elif RADAR_UNIX
+#elif RF_UNIX
 #include "radar_unix.cpp"
 #endif
 
 // Temporary rendering tests, to declutter this file
-#include "tests.cpp"
+//#include "tests.cpp"
 
-game_memory *InitMemory()
+memory *InitMemory()
 {
-    game_memory *Memory = (game_memory*)calloc(1, sizeof(game_memory));
+    memory *Memory = (memory*)calloc(1, sizeof(memory));
 
     Memory->PermanentMemPoolSize = Megabytes(32);
     Memory->SessionMemPoolSize = Megabytes(512);
@@ -32,19 +35,16 @@ game_memory *InitMemory()
     Memory->SessionMemPool = calloc(1, Memory->SessionMemPoolSize);
     Memory->ScratchMemPool = calloc(1, Memory->ScratchMemPoolSize);
 
-    InitArena(&Memory->SessionArena, Memory->SessionMemPoolSize, Memory->SessionMemPool);
-    InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
-
-    Memory->ResourceHelper.Memory = Memory;
-    GetExecutablePath(Memory->ResourceHelper.ExecutablePath);
+    rf::InitArena(&Memory->PermanentArena, Memory->PermanentMemPoolSize, Memory->PermanentMemPool);
+    rf::InitArena(&Memory->SessionArena, Memory->SessionMemPoolSize, Memory->SessionMemPool);
+    rf::InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
 
     Memory->IsValid = Memory->PermanentMemPool && Memory->SessionMemPool && Memory->ScratchMemPool;
     Memory->IsInitialized = false;
 
     return Memory;
 }
-
-void DestroyMemory(game_memory *Memory)
+void DestroyMemory(memory *Memory)
 {
     if(Memory->IsValid)
     {
@@ -60,94 +60,96 @@ void DestroyMemory(game_memory *Memory)
     }
 }
 
-bool ParseConfig(game_memory *Memory, char const *Filename)
+bool ParseConfig(config *ConfigOut, char const *Filename)
 {
-    game_config &Config = Memory->Config;
+    path ExePath;
+    rf::GetExecutablePath(ExePath);
 
     path ConfigPath;
-    MakeRelativePath(&Memory->ResourceHelper, ConfigPath, Filename);
+    rf::ConcatStrings(ConfigPath, ExePath, Filename);
 
-    void *Content = ReadFileContents(&Memory->ScratchArena, ConfigPath, 0);
+    void *Content = rf::ReadFileContentsNoContext(ConfigPath, 0);
     if(Content)
     {
         cJSON *root = cJSON_Parse((char*)Content);
         if(root)
         {
-            Config.WindowX = JSON_Get(root, "iWindowX", 200);
-            Config.WindowY = JSON_Get(root, "iWindowY", 200);
-            Config.WindowWidth = JSON_Get(root, "iWindowWidth", 960);
-            Config.WindowHeight = JSON_Get(root, "iWindowHeight", 540);
-            Config.MSAA = JSON_Get(root, "iMSAA", 0);
-            Config.FullScreen = JSON_Get(root, "bFullScreen", 0) != 0;
-            Config.VSync = JSON_Get(root, "bVSync", 0) != 0;
-            Config.FOV = (real32)JSON_Get(root, "fFOV", 75.0);
-            Config.NearPlane = (real32)JSON_Get(root, "fNearPlane", 0.1);
-            Config.FarPlane = (real32)JSON_Get(root, "fFarPlane", 10000.0);
-            Config.AnisotropicFiltering = JSON_Get(root, "iAnisotropicFiltering", 1);
+            ConfigOut->WindowX = rf::JSON_Get(root, "iWindowX", 200);
+            ConfigOut->WindowY = rf::JSON_Get(root, "iWindowY", 200);
+            ConfigOut->WindowWidth = rf::JSON_Get(root, "iWindowWidth", 960);
+            ConfigOut->WindowHeight = rf::JSON_Get(root, "iWindowHeight", 540);
+            ConfigOut->MSAA = rf::JSON_Get(root, "iMSAA", 0);
+            ConfigOut->FullScreen = rf::JSON_Get(root, "bFullScreen", 0) != 0;
+            ConfigOut->VSync = rf::JSON_Get(root, "bVSync", 0) != 0;
+            ConfigOut->FOV = (real32)rf::JSON_Get(root, "fFOV", 75.0);
+            ConfigOut->NearPlane = (real32)rf::JSON_Get(root, "fNearPlane", 0.1);
+            ConfigOut->FarPlane = (real32)rf::JSON_Get(root, "fFarPlane", 10000.0);
+            ConfigOut->AnisotropicFiltering = rf::JSON_Get(root, "iAnisotropicFiltering", 1);
 
-            Config.CameraSpeedBase = (real32)JSON_Get(root, "fCameraSpeedBase", 20.0);
-            Config.CameraSpeedMult = (real32)JSON_Get(root, "fCameraSpeedMult", 2.0);
-            Config.CameraSpeedAngular = (real32)JSON_Get(root, "fCameraSpeedAngular", 0.3);
+            ConfigOut->CameraSpeedBase = (real32)rf::JSON_Get(root, "fCameraSpeedBase", 20.0);
+            ConfigOut->CameraSpeedMult = (real32)rf::JSON_Get(root, "fCameraSpeedMult", 2.0);
+            ConfigOut->CameraSpeedAngular = (real32)rf::JSON_Get(root, "fCameraSpeedAngular", 0.3);
 
-            Config.CameraPosition = JSON_Get(root, "vCameraPosition", vec3f(1,1,1));
-            Config.CameraTarget = JSON_Get(root, "vCameraTarget", vec3f(0,0,0));
+            ConfigOut->CameraPosition = rf::JSON_Get(root, "vCameraPosition", vec3f(1,1,1));
+            ConfigOut->CameraTarget = rf::JSON_Get(root, "vCameraTarget", vec3f(0,0,0));
 
-            Config.TimeScale = JSON_Get(root, "fTimescale", 30.0);
+            ConfigOut->TimeScale = rf::JSON_Get(root, "fTimescale", 30.0);
         }
         else
         {
             printf("Error parsing Config File as JSON.\n");
             return false;
         }
+        free(Content);
     }
     else
     {
         printf("Generating default config...\n");
         path DefaultConfigPath;
-        MakeRelativePath(&Memory->ResourceHelper, DefaultConfigPath, "default_config.json");
+        rf::ConcatStrings(DefaultConfigPath, ExePath, "default_config.json");
 
         // If the default config doesnt exist, just crash, someone has been stupid
-        if(!DiskFileExists(DefaultConfigPath))
+        if(!rf::DiskFileExists(DefaultConfigPath))
         {
             printf("Fatal Error : Default Config file bin/default_config.json doesn't exist.\n");
             exit(1);
         }
 
         path PersonalConfigPath;
-        MakeRelativePath(&Memory->ResourceHelper, PersonalConfigPath, "config.json");
-        DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
+        rf::ConcatStrings(PersonalConfigPath, ExePath, "config.json");
+        rf::DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
 
-        return ParseConfig(Memory, DefaultConfigPath);
+        return ParseConfig(ConfigOut, DefaultConfigPath);
     }
     return true;
 }
 
-void ReloadShaders(game_memory *Memory, game_context *Context)
+void ReloadShaders(rf::context *Context)
 {
-    game_system *System = (game_system*)Memory->PermanentMemPool;
-    resource_helper *RH = &Memory->ResourceHelper;
-
-    context::RegisteredShaderClear(Context);
+    rf::ctx::RegisteredShaderClear(Context);
+    path const &ExePath = rf::ctx::GetExePath(Context);
 
     path VSPath, FSPath;
 
-    MakeRelativePath(RH, VSPath, "data/shaders/screenquad_vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/hdr_frag.glsl");
-    Context->ProgramPostProcess = BuildShader(Memory, VSPath, FSPath);
+    // TODO - TODO - PostProcessprogram shouldnt live in Context, this is application dependent
+    rf::ConcatStrings(VSPath, ExePath, "data/shaders/screenquad_vert.glsl");
+    rf::ConcatStrings(FSPath, ExePath, "data/shaders/hdr_frag.glsl");
+    Context->ProgramPostProcess = BuildShader(Context, VSPath, FSPath);
     glUseProgram(Context->ProgramPostProcess);
-    SendInt(glGetUniformLocation(Context->ProgramPostProcess, "HDRFB"), 0);
-    CheckGLError("HDR Shader");
+    rf::SendInt(glGetUniformLocation(Context->ProgramPostProcess, "HDRFB"), 0);
+    rf::CheckGLError("HDR Shader");
 
-    Tests::ReloadShaders(Memory, Context);
-    ui::ReloadShaders(Memory, Context);
-    Water::ReloadShaders(Memory, Context, System->WaterSystem);
-    Atmosphere::ReloadShaders(Memory, Context);
+    //Tests::ReloadShaders(Memory, Context);
+    rf::ui::ReloadShaders(Context);
+    //Water::ReloadShaders(Memory, Context, System->WaterSystem);
+    //Atmosphere::ReloadShaders(Memory, Context);
 
-    context::UpdateShaderProjection(Context);
+    rf::ctx::UpdateShaderProjection(Context);
 
     glUseProgram(0);
 }
 
+#if 0
 void InitializeFromGame(game_memory *Memory, game_context *Context)
 {
     // Initialize Water from game Info
@@ -170,11 +172,13 @@ void InitializeFromGame(game_memory *Memory, game_context *Context)
     Memory->IsGameInitialized = true;
     Memory->IsInitialized = true;
 }
+#endif
 
-void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
+void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
 {
-    game_system *System = (game_system*)Memory->PermanentMemPool;
+    //game_system *System = (game_system*)Memory->PermanentMemPool;
 
+#if 0
     console_log *Log = System->ConsoleLog;
     font *FontInfo = ui::GetFont(ui::FONT_DEFAULT);
     int32 LineGap = FontInfo->LineGap;
@@ -216,9 +220,11 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
             }
         ui::EndPanel();
     }
+#endif
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     // NOTE - Frame Info Panel
+#if 0
     ui::frame_stack *UIStack = System->UIStack;
     int UIStackHeight = LineGap * UIStack->TextLineCount;
     static uint32 UIStackPanel = 0;
@@ -231,10 +237,13 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
             ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, 1.f, Context->WindowWidth);
         }
     ui::EndPanel();
+#endif
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     // NOTE - System Panel
     static bool SystemShow = false;
+
+    vec2i UIStackPanelSize(360, 0);
 
     static uint32 SystemButtonPanel = 0;
     static char SystemButtonStr[16];
@@ -242,12 +251,12 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
     static vec2i SystemButtonSize(25);
     static uint32 SystemButtonID = 0;
     snprintf(SystemButtonStr, 16, "%s", ICON_FA_COG);
-    ui::BeginPanel(&SystemButtonPanel, "", &SystemButtonPos, &SystemButtonSize, ui::COLOR_PANELBG, ui::DECORATION_INVISIBLE);
-        if(ui::MakeButton(&SystemButtonID, SystemButtonStr, ui::FONT_AWESOME, vec2i(0), SystemButtonSize, 0.4f, ui::DECORATION_BORDER))
+    rf::ui::BeginPanel(&SystemButtonPanel, "", &SystemButtonPos, &SystemButtonSize, rf::ui::COLOR_PANELBG, rf::ui::DECORATION_INVISIBLE);
+        if(rf::ui::MakeButton(&SystemButtonID, SystemButtonStr, rf::ui::FONT_AWESOME, vec2i(0), SystemButtonSize, 0.4f, rf::ui::DECORATION_BORDER))
         {
             SystemShow = !SystemShow;
         }
-    ui::EndPanel();
+        rf::ui::EndPanel();
 
     static uint32 SystemPanelID = 0;
     static vec2i SystemPanelSize(210, 500);
@@ -255,147 +264,181 @@ void MakeUI(game_memory *Memory, game_context *Context, game_input *Input)
 
     if(SystemShow)
     {
-        ui::BeginPanel(&SystemPanelID, "System Info", &SystemPanelPos, &SystemPanelSize, ui::COLOR_PANELBG);
+        rf::ui::BeginPanel(&SystemPanelID, "System Info", &SystemPanelPos, &SystemPanelSize, rf::ui::COLOR_PANELBG);
             // Session Pool occupancy
             int CurrHeight = 0;
             real32 ToMiB = 1.f / (1024*1024);
             char OccupancyStr[32];
             static real32 SessionOccupancy = Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity;
             snprintf(OccupancyStr, 32, "session stack %.1f / %.1f MiB", Memory->SessionArena.Size*ToMiB, Memory->SessionArena.Capacity*ToMiB);
-            ui::MakeText(NULL, OccupancyStr, ui::FONT_DEFAULT, vec2i(0, CurrHeight), ui::COLOR_PANELFG);
+            rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
-            ui::MakeProgressbar(&SessionOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
+            rf::ui::MakeProgressbar(&SessionOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
             CurrHeight += 16;
 
             static real32 ScratchOccupancy = Memory->ScratchArena.Size/(real64)Memory->ScratchArena.Capacity;
             snprintf(OccupancyStr, 32, "scratch stack %.1f / %.1f MiB", Memory->ScratchArena.Size*ToMiB, Memory->ScratchArena.Capacity*ToMiB);
-            ui::MakeText(NULL, OccupancyStr, ui::FONT_DEFAULT, vec2i(0, CurrHeight), ui::COLOR_PANELFG);
+            rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
-            ui::MakeProgressbar(&ScratchOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
+            rf::ui::MakeProgressbar(&ScratchOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
             CurrHeight += 16;
 
             static uint32 TmpBut = 0;
-            ui::MakeButton(&TmpBut, "a", ui::FONT_DEFAULT, vec2i(0, CurrHeight), vec2i(20));
+            rf::ui::MakeButton(&TmpBut, "a", rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), vec2i(20));
             CurrHeight += 26;
 
             static uint32 TmpBut2 = 0;
-            ui::MakeButton(&TmpBut2, "Hello", ui::FONT_DEFAULT, vec2i(0, CurrHeight), vec2i(60,20));
+            rf::ui::MakeButton(&TmpBut2, "Hello", rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), vec2i(60,20));
             CurrHeight += 26;
 
             char Str[16];
             snprintf(Str, 16, "%s%s%s", ICON_FA_SEARCH, ICON_FA_GLASS, ICON_FA_SHARE);
-            ui::MakeText(NULL, Str, ui::FONT_AWESOME, vec2i(0, 180), ui::COLOR_BORDERBG);
-        ui::EndPanel();
+            rf::ui::MakeText(NULL, Str, rf::ui::FONT_AWESOME, vec2i(0, 180), rf::ui::COLOR_BORDERBG);
+        rf::ui::EndPanel();
     }
 
 }
 
+rf::context_descriptor MakeContextDescriptor(memory *Memory, config *Config, path const ExecutableName)
+{
+    rf::context_descriptor CtxDesc;
+    CtxDesc.SessionArena = &Memory->SessionArena;
+    CtxDesc.ScratchArena = &Memory->ScratchArena;
+    // cpy WinX, WinY, WinW, WinH, VSync, FOV, NearPlane, FarPlane from Config to the Descriptor
+    CtxDesc.WindowX = Config->WindowX;
+    CtxDesc.WindowY = Config->WindowY;
+    CtxDesc.WindowWidth = Config->WindowWidth;
+    CtxDesc.WindowHeight = Config->WindowHeight;
+    CtxDesc.VSync = Config->VSync;
+    CtxDesc.FOV = Config->FOV;
+    CtxDesc.NearPlane = Config->NearPlane;
+    CtxDesc.FarPlane = Config->FarPlane;
+    memcpy(CtxDesc.ExecutableName, ExecutableName, sizeof(path));
+
+    return CtxDesc;
+}
+
 int RadarMain(int argc, char **argv)
 {
+    // Init Engine memory
+    memory *Memory = InitMemory();
+    
+    // Parse Engine config file (or get the default config if inexistent)
+    config Config;
+    if(!ParseConfig(&Config, "config.json"))
+        return 1;
+
+    // Create the RF context 
+    path ExecutableName;
+    snprintf(ExecutableName, MAX_PATH, "Radar Engine %d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
+    rf::context_descriptor CtxDesc = MakeContextDescriptor(Memory, &Config, ExecutableName);
+    rf::context *Context = rf::ctx::Init(&CtxDesc);
+    LogInfo("%s", ExecutableName);
+
+    if(!Context->IsValid || !Memory->IsValid)
+        return 1;
+
+    real64 CurrentTime, LastTime = glfwGetTime();
+    real64 TimeCounter = 0.0;
+    int const GameRefreshHz = 60;
+    real64 const TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
+
+    rf::BindTexture2D(0, 0);
+    rf::CheckGLError("Engine Start");
+
+    //if(!Tests::Init(Context, Config))
+        //return 1;
+    bool LastDisableMouse = false;
+    int LastMouseX = 0, LastMouseY = 0;
+
+    rf::mesh ScreenQuad = rf::Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+    rf::frame_buffer FPBackbuffer = {};
+
+    // TMP TextureViewer UI
+    static uint32 TW_ID = 0;
+    static real32 TW_ImgScale = 1.0f;
+    static vec2f TW_ImgOffset(0.f, 0.f);
+    static vec2i TW_Size(310, 330);
+    static vec3i TW_Position(Context->WindowWidth - 10 - TW_Size.x, Context->WindowHeight - 10 - TW_Size.y, 0);
+
+    game_state *State = PushArenaStruct(&Memory->PermanentArena, game_state);
+
+    while(Context->IsRunning)
+    {
+        rf::input Input = {};
+
+        CurrentTime = glfwGetTime();
+        Input.dTime = CurrentTime - LastTime;
+
+        LastTime = CurrentTime;
+        State->EngineTime += Input.dTime;
+        TimeCounter += Input.dTime;
+
+        // NOTE - Each frame, clear the Scratch Arena Data
+        // TODO - Is this too often ? Maybe let it stay several frames
+        rf::ClearArena(&Memory->ScratchArena);
+
+        rf::ctx::GetFrameInput(Context, &Input);
+
+        if(rf::ctx::WindowResized(Context))
+        {
+            // Resize FBO
+            DestroyFramebuffer(&FPBackbuffer);
+            FPBackbuffer = rf::MakeFramebuffer(1, vec2i(Context->WindowWidth, Context->WindowHeight));
+            rf::FramebufferAttachBuffer(&FPBackbuffer, 0, 4, true, true, true); // RGBA16F attachment
+            rf::CheckGLError("FramebufferAttach");
+        }
+
+        Input.MouseDX = Input.MousePosX - LastMouseX;
+        Input.MouseDY = Input.MousePosY - LastMouseY;
+        LastMouseX = Input.MousePosX;
+        LastMouseY = Input.MousePosY;
+
+        //Game.GameUpdate(Memory, &Input);
+
+        if(!Memory->IsInitialized)
+        {
+            //InitializeFromGame(Memory, Context);
+            ReloadShaders(Context);			// First Shader loading after the game is initialize
+            Memory->IsInitialized = true;
+        }
+
+        // Local timed stuff
+        if(TimeCounter > 0.1)
+        {
+            TimeCounter = 0.0;
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        rf::ui::BeginFrame(&Input);
+
+        MakeUI(Memory, Context, &Input);
+        rf::ui::Draw();
+
+        glfwSwapBuffers(Context->Window);
+    }
+
+
+    rf::DestroyFramebuffer(&FPBackbuffer);
+
+    rf::ctx::Destroy(Context);
+    DestroyMemory(Memory);
+    return 0;
+}
+#if 0
     path DllSrcPath;
     path DllDstPath;
 
-    game_memory *Memory = InitMemory();
-    game_system *System = (game_system*)Memory->PermanentMemPool;
-    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
-
-    rlog::Init(Memory);
-
-    if(!ParseConfig(Memory, "config.json"))
-        return 1;
-
-    System->SoundData = (tmp_sound_data*)PushArenaStruct(&Memory->SessionArena, tmp_sound_data);
-
-    MakeRelativePath(&Memory->ResourceHelper, DllSrcPath, DllName);
-    MakeRelativePath(&Memory->ResourceHelper, DllDstPath, DllDynamicCopyName);
-
-    game_context *Context = context::Init(Memory);
-    game_code Game = LoadGameCode(DllSrcPath, DllDstPath);
-    game_config const &Config = Memory->Config;
-
-    if(Context->IsValid && Memory->IsValid)
+    if(CheckNewDllVersion(&Game, DllSrcPath))
     {
-        real64 CurrentTime, LastTime = glfwGetTime();
-        real64 TimeCounter = 0.0;
-        int const GameRefreshHz = 60;
-        real64 const TargetSecondsPerFrame = 1.0 / (real64)GameRefreshHz;
+        UnloadGameCode(&Game, NULL);
+        Game = LoadGameCode(DllSrcPath, DllDstPath);
+    }
 
-        ui::Init(Memory, Context);
 
-        BindTexture2D(0, 0);
-        CheckGLError("Start");
-
-        if(!Tests::Init(Context, Config))
-            return 1;
-
-        bool LastDisableMouse = false;
-        int LastMouseX = 0, LastMouseY = 0;
-
-        mesh ScreenQuad = Make2DQuad(vec2i(-1,1), vec2i(1, -1));
-        frame_buffer FPBackbuffer = {};
-
-        // TMP TextureViewer UI
-        static uint32 TW_ID = 0;
-        static real32 TW_ImgScale = 1.0f;
-        static vec2f TW_ImgOffset(0.f, 0.f);
-        static vec2i TW_Size(310, 330);
-        static vec3i TW_Position(Context->WindowWidth - 10 - TW_Size.x, Context->WindowHeight - 10 - TW_Size.y, 0);
-
-        while(Context->IsRunning)
-        {
-            game_input Input = {};
-
-            CurrentTime = glfwGetTime();
-            Input.dTime = CurrentTime - LastTime;
-
-            LastTime = CurrentTime;
-            State->EngineTime += Input.dTime;
-            TimeCounter += Input.dTime;
-
-            // NOTE - Each frame, clear the Scratch Arena Data
-            // TODO - Is this too often ? Maybe let it stay several frames
-            ClearArena(&Memory->ScratchArena);
-
-            context::GetFrameInput(Context, &Input);
-
-            if(context::WindowResized(Context))
-            {
-                // Resize FBO
-                DestroyFramebuffer(&FPBackbuffer);
-                FPBackbuffer = MakeFramebuffer(1, vec2i(Context->WindowWidth, Context->WindowHeight));
-                FramebufferAttachBuffer(&FPBackbuffer, 0, 4, true, true, true); // RGBA16F attachment
-                CheckGLError("FramebufferAttach");
-            }
-
-            Input.MouseDX = Input.MousePosX - LastMouseX;
-            Input.MouseDY = Input.MousePosY - LastMouseY;
-            LastMouseX = Input.MousePosX;
-            LastMouseY = Input.MousePosY;
-
-            if(CheckNewDllVersion(&Game, DllSrcPath))
-            {
-                UnloadGameCode(&Game, NULL);
-                Game = LoadGameCode(DllSrcPath, DllDstPath);
-            }
-
-            glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            ui::BeginFrame(Memory, &Input);
-
-            Game.GameUpdate(Memory, &Input);
-
-            if(!Memory->IsInitialized)
-            {
-                InitializeFromGame(Memory, Context);
-                ReloadShaders(Memory, Context);			// First Shader loading after the game is initialize
-            }
-
-            // Local timed stuff
-            if(TimeCounter > 0.1)
-            {
-                TimeCounter = 0.0;
-            }
 
             if(LastDisableMouse != State->DisableMouse)
             {
@@ -457,22 +500,18 @@ int RadarMain(int argc, char **argv)
             ui::EndPanel();
 #endif
 
-            MakeUI(Memory, Context, &Input);
-            ui::Draw();
+            // ui here
 
             context::SetWireframeMode(Context, CurrWireframemode);
 
-            glfwSwapBuffers(Context->Window);
+            // swap here
         }
 
-        DestroyFramebuffer(&FPBackbuffer);
         Tests::Destroy();
     }
 
-    context::Destroy(Context);
     UnloadGameCode(&Game, DllDstPath);
-    rlog::Destroy();
-    DestroyMemory(Memory);
 
     return 0;
 }
+#endif

@@ -1,29 +1,20 @@
-#ifndef DEFINITIONS_H
-#define DEFINITIONS_H
+#ifndef RADAR_DEFINITIONS_H
+#define RADAR_DEFINITIONS_H
 
-/////////////////////////////////////////////////////////////////////////
-// NOTE - This Header must contain what the Radar Platform exposes to the
-// Game DLL. Anything that isn't useful for the Game should be elsewhere.
-/////////////////////////////////////////////////////////////////////////
+#include "rf/rf_common.h"
 
-#include "radar_common.h"
+#define RADAR_MAJOR 0
+#define RADAR_MINOR 0
+#define RADAR_PATCH 1
 
 // TODO - This is temporarily here, this constant should be part of a physics system
 real32 static const g_G = 9.807f;
-
-#define POOL_OFFSET(Pool, Structure) ((uint8*)(Pool) + sizeof(Structure))
-
-// TODO - See if 256 is enough for more one liner ui strings
-#define CONSOLE_CAPACITY 128
-#define CONSOLE_STRINGLEN 256
-#define UI_STRINGLEN 256
-#define UI_MAXSTACKOBJECT 256
 
 // NOTE - Systems fwd declarations
 struct water_system;    //water.h
 struct tmp_sound_data;  //sound.h
 
-struct game_config
+struct config
 {
     int32   WindowX;
     int32   WindowY;
@@ -46,54 +37,11 @@ struct game_config
     real32  TimeScale; // Ratio for the length of a day. 1.0 is real time. 30.0 is 1 day = 48 minutes
 };
 
-struct memory_arena
-{
-    uint8   *BasePtr;   // Start of Arena, in bytes
-    uint64  Size;       // Used amount of memory
-    uint64  Capacity;   // Total size of arena
-};
-
-inline void InitArena(memory_arena *Arena, uint64 Capacity, void *BasePtr)
-{
-    Arena->BasePtr = (uint8*)BasePtr;
-    Arena->Capacity = Capacity;
-    Arena->Size = 0;
-}
-
-inline void ClearArena(memory_arena *Arena)
-{
-    // TODO - Do we need to wipe this to 0 each time ? Profile it to see if its
-    // a problem. It seems like best practice
-    memset(Arena->BasePtr, 0, sizeof(uint8) * Arena->Capacity);
-    Arena->Size = 0;
-}
-
-#define PushArenaStruct(Arena, Struct) _PushArenaData((Arena), sizeof(Struct))
-#define PushArenaData(Arena, Size) _PushArenaData((Arena), (Size))
-inline void *_PushArenaData(memory_arena *Arena, uint64 Size)
-{
-    Assert(Arena->Size + Size <= Arena->Capacity);
-    void *MemoryPtr = Arena->BasePtr + Arena->Size;
-    Arena->Size += Size;
-    //printf("Current ArenaSize is %llu [max %llu]\n", Arena->Size, Arena->Capacity);
-
-    return (void*)MemoryPtr;
-}
-
-struct game_memory;
-
-struct resource_helper
-{
-    path ExecutablePath;
-    game_memory *Memory; // Link back to the memory where resources are stored eventually
-};
-
 // NOTE - This memory is allocated at startup
 // Each pool is then mapped according to the needed layout
-struct game_memory
+struct memory
 {
-    resource_helper ResourceHelper;
-    game_config Config;
+    config Config;
 
     // NOTE - For Game State.
     // This is used for a player's game state and should contain everything
@@ -102,6 +50,7 @@ struct game_memory
     // Use cases : hit points, present entities, game timers, etc...
     void *PermanentMemPool;
     uint64 PermanentMemPoolSize;
+    rf::memory_arena PermanentArena;
 
     // NOTE - For Session Memory
     // Contains everything that is constructed for a whole game session, but,
@@ -110,7 +59,7 @@ struct game_memory
     // Use cases : game systems like the ocean, GL resources, Audio buffers, etc)
     void *SessionMemPool;
     uint64 SessionMemPoolSize;
-    memory_arena SessionArena;
+    rf::memory_arena SessionArena;
 
     // NOTE - For Ephemeral data
     // This can be scratched at any frame, using it for something that will
@@ -119,14 +68,14 @@ struct game_memory
     // in managed GL VBOs or AL audio buffers.
     void *ScratchMemPool;
     uint64 ScratchMemPoolSize;
-    memory_arena ScratchArena;
+    rf::memory_arena ScratchArena;
 
     bool IsValid;
     bool IsInitialized;
     bool IsGameInitialized;
 };
 
-struct game_camera
+struct camera
 {
     vec3f  Position;
     vec3f  Target;
@@ -147,138 +96,10 @@ struct game_camera
     mat4f  ViewMatrix;
 };
 
-typedef uint8 key_state;
-#define KEY_HIT(KeyState) ((KeyState >> 0x1) & 1)
-#define KEY_UP(KeyState) ((KeyState >> 0x2) & 1)
-#define KEY_DOWN(KeyState) ((KeyState >> 0x3) & 1)
-
-typedef uint8 mouse_state;
-#define MOUSE_HIT(MouseState) KEY_HIT(MouseState)
-#define MOUSE_UP(MouseState) KEY_UP(MouseState)
-#define MOUSE_DOWN(MouseState) KEY_DOWN(MouseState)
-
-// NOTE - Struct passed to the Game
-// Contains all frame input each frame needed by game
-struct game_input
-{
-    real64 dTime;
-    real64 dTimeFixed;
-
-    int32  MousePosX;
-    int32  MousePosY;
-    int32  MouseDX;
-    int32  MouseDY;
-    int32  MouseDZ; // wheel
-
-    key_state KeyW;
-    key_state KeyA;
-    key_state KeyS;
-    key_state KeyD;
-    key_state KeyR;
-    key_state KeyF;
-    key_state KeyLShift;
-    key_state KeyLCtrl;
-    key_state KeyLAlt;
-    key_state KeySpace;
-    key_state KeyF1;
-    key_state KeyF2;
-    key_state KeyF3;
-    key_state KeyF11;
-    key_state KeyNumPlus;
-    key_state KeyNumMinus;
-    key_state KeyNumMultiply;
-    key_state KeyNumDivide;
-    key_state KeyTilde;
-    key_state KeyLeft;
-    key_state KeyRight;
-    key_state KeyUp;
-    key_state KeyDown;
-
-    mouse_state MouseLeft;
-    mouse_state MouseRight;
-};
-
-namespace ui
-{
-    enum theme_color
-    {
-        COLOR_RED,
-        COLOR_GREEN,
-        COLOR_BLUE,
-        COLOR_BLACK,
-        COLOR_WHITE,
-
-        COLOR_DEBUGFG,
-        COLOR_PANELFG,
-        COLOR_PANELBG,
-        COLOR_TITLEBARBG,
-        COLOR_BORDERBG,
-        COLOR_CONSOLEFG,
-        COLOR_CONSOLEBG,
-        COLOR_SLIDERBG,
-        COLOR_SLIDERFG,
-        COLOR_BUTTONBG,
-        COLOR_BUTTONPRESSEDBG,
-        COLOR_PROGRESSBARBG,
-        COLOR_PROGRESSBARFG,
-    };
-
-    enum decoration_flag
-    {
-        DECORATION_NONE = 0x0,
-        DECORATION_TITLEBAR = 1 << 1,
-        DECORATION_RESIZE = 1 << 2,
-        DECORATION_RGBTEXTURE = 1 << 3,
-        DECORATION_MARGIN = 1 << 4,
-        DECORATION_BORDER = 1 << 5,
-        DECORATION_INVISIBLE = 1 << 6,
-        DECORATION_FOCUS = 1 << 7,
-    };
-
-    enum theme_font
-    {
-        FONT_DEFAULT,
-        FONT_CONSOLE,
-        FONT_AWESOME
-    };
-
-    struct text_line
-    {
-        char        String[UI_STRINGLEN];
-        vec2i       Position;
-        theme_font  Font;
-        theme_color Color;
-    };
-
-    struct frame_stack
-    {
-        text_line *TextLines[UI_MAXSTACKOBJECT];
-        uint32 TextLineCount;
-    };
-}
-
-typedef char console_log_string[CONSOLE_STRINGLEN];
-struct console_log
-{
-    console_log_string MsgStack[CONSOLE_CAPACITY];
-    uint32 WriteIdx;
-    uint32 ReadIdx;
-    uint32 StringCount;
-};
-
-struct game_system
-{
-    console_log *ConsoleLog;
-    tmp_sound_data *SoundData;
-    water_system *WaterSystem;
-    ui::frame_stack *UIStack;
-    void *DLLStorage;
-};
-
 struct game_state
 {
     real64 EngineTime;
-    game_camera Camera;
+    camera Camera;
     bool DisableMouse;
     vec3f PlayerPosition;
     vec4f LightColor;
@@ -290,13 +111,6 @@ struct game_state
 
     vec3f  SunDirection;
     real32 SunSpeed;
-};
-
-struct tmp_sound_data
-{
-    bool ReloadSoundBuffer;
-    uint32 SoundBufferSize;
-    uint16 SoundBuffer[Megabytes(1)];
 };
 
 struct water_beaufort_state

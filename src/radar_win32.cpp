@@ -1,6 +1,7 @@
 static path DllName = "sun.dll";
 static path DllDynamicCopyName = "sun_temp.dll";
 
+#if 0
 struct game_code
 {
     HMODULE GameDLL;
@@ -10,19 +11,6 @@ struct game_code
     // DLL Dynamic Entry Points
     game_update_function *GameUpdate;
 };
-
-// NOTE : expect a MAX_PATH string as Path
-void GetExecutablePath(path Path)
-{
-    HMODULE ExecHandle = GetModuleHandleW(NULL);
-    GetModuleFileNameA(ExecHandle, Path, MAX_PATH);
-
-    char *LastPos = strrchr(Path, '\\');
-    unsigned int NumChar = (unsigned int)(LastPos - Path) + 1;
-
-    // Null-terminate the string at that position before returning
-    Path[NumChar] = 0;
-}
 
 FILETIME FindLastWriteTime(path Path)
 {
@@ -37,11 +25,6 @@ FILETIME FindLastWriteTime(path Path)
     }
 
     return LastWriteTime;
-}
-
-void DiskFileCopy(path const DstPath, path const SrcPath)
-{
-    CopyFileA(SrcPath, DstPath, FALSE);
 }
 
 game_code LoadGameCode(path DllSrcPath, path DllDstPath)
@@ -90,12 +73,7 @@ bool CheckNewDllVersion(game_code *Game, path DllPath)
 
     return false;
 }
-
-void PlatformSleep(DWORD MillisecondsToSleep)
-{
-    Sleep(MillisecondsToSleep);
-}
-
+#endif
 
 // NOTE - We just call the platform-agnostic main function here
 int main()

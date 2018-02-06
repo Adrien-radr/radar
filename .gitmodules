@@ -6,3 +6,6 @@
 	path = ext/openal-soft
 	url = https://github.com/kcat/openal-soft
     ignore = dirty
+[submodule "ext/rf"]
+	path = ext/rf
+	url = https://github.com/Adrien-radr/rf

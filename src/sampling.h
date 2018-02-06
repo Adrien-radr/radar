@@ -1,7 +1,7 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
-#include "radar_common.h"
+#include "rf/rf_common.h"
 
 real32 Halton2(uint32 Index);
 real32 Halton3(const uint32 Index);
