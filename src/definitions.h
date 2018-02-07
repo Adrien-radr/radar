@@ -34,15 +34,14 @@ struct config
     vec3f   CameraPosition;
     vec3f   CameraTarget;
 
-    real32  TimeScale; // Ratio for the length of a day. 1.0 is real time. 30.0 is 1 day = 48 minutes
+    real32  TimeScale; // Ratio for the length of a day. 1.0 is real time. 
+                       // 30.0 is 1 day = 48 minutes
 };
 
 // NOTE - This memory is allocated at startup
 // Each pool is then mapped according to the needed layout
 struct memory
 {
-    config Config;
-
     // NOTE - For Game State.
     // This is used for a player's game state and should contain everything
     // that is supposed to be saved/load from disk when exiting/entering a
@@ -71,8 +70,6 @@ struct memory
     rf::memory_arena ScratchArena;
 
     bool IsValid;
-    bool IsInitialized;
-    bool IsGameInitialized;
 };
 
 struct camera
@@ -96,67 +93,4 @@ struct camera
     mat4f  ViewMatrix;
 };
 
-struct game_state
-{
-    real64 EngineTime;
-    camera Camera;
-    bool DisableMouse;
-    vec3f PlayerPosition;
-    vec4f LightColor;
-
-    real64 WaterCounter;
-    real32 WaterStateInterp;
-    real32 WaterDirection;
-    int    WaterState;
-
-    vec3f  SunDirection;
-    real32 SunSpeed;
-};
-
-struct water_beaufort_state
-{
-    int Width;
-    vec2f Direction;
-    real32 Amplitude;
-
-    void *OrigPositions;
-    void *HTilde0;
-    void *HTilde0mk;
-};
-
-struct water_system
-{
-    int static const BeaufortStateCount = 4;
-    int static const WaterN = 64;
-
-    size_t VertexDataSize;
-    size_t VertexCount;
-    real32 *VertexData;
-    size_t IndexDataSize;
-    uint32 IndexCount;
-    uint32 *IndexData;
-
-    water_beaufort_state States[BeaufortStateCount];
-
-    // NOTE - Accessor Pointers, index VertexData
-    void *Positions;
-    void *Normals;
-
-    complex *hTilde;
-    complex *hTildeSlopeX;
-    complex *hTildeSlopeZ;
-    complex *hTildeDX;
-    complex *hTildeDZ;
-
-    // NOTE - FFT system
-    int Switch;
-    int Log2N;
-    complex *FFTC[2];
-    complex **FFTW;
-    uint32 *Reversed;
-
-    uint32 VAO;
-    uint32 VBO[2]; // 0 : idata, 1 : vdata
-    uint32 ProgramWater;
-};
 #endif

@@ -10,7 +10,7 @@
 
 //#include "water.h"
 //#include "atmosphere.h"
-//#include "sun.h"
+#include "Game/sun.h"
 
 // PLATFORM
 int RadarMain(int argc, char **argv);
@@ -21,7 +21,7 @@ int RadarMain(int argc, char **argv);
 #endif
 
 // Temporary rendering tests, to declutter this file
-//#include "tests.cpp"
+#include "tests.cpp"
 
 memory *InitMemory()
 {
@@ -40,7 +40,6 @@ memory *InitMemory()
     rf::InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
 
     Memory->IsValid = Memory->PermanentMemPool && Memory->SessionMemPool && Memory->ScratchMemPool;
-    Memory->IsInitialized = false;
 
     return Memory;
 }
@@ -55,8 +54,6 @@ void DestroyMemory(memory *Memory)
         Memory->SessionMemPoolSize = 0;
         Memory->ScratchMemPoolSize = 0;
         Memory->IsValid = false;
-        Memory->IsInitialized = false;
-        Memory->IsGameInitialized = false;
     }
 }
 
@@ -139,7 +136,7 @@ void ReloadShaders(rf::context *Context)
     rf::SendInt(glGetUniformLocation(Context->ProgramPostProcess, "HDRFB"), 0);
     rf::CheckGLError("HDR Shader");
 
-    //Tests::ReloadShaders(Memory, Context);
+    Tests::ReloadShaders(Context);
     rf::ui::ReloadShaders(Context);
     //Water::ReloadShaders(Memory, Context, System->WaterSystem);
     //Atmosphere::ReloadShaders(Memory, Context);
@@ -223,23 +220,6 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
 #endif
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // NOTE - Frame Info Panel
-#if 0
-    ui::frame_stack *UIStack = System->UIStack;
-    int UIStackHeight = LineGap * UIStack->TextLineCount;
-    static uint32 UIStackPanel = 0;
-    static vec3i  UIStackPanelPos(0,0,0);
-    static vec2i  UIStackPanelSize(360, UIStackHeight + 30);
-    ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, ui::COLOR_PANELBG, ui::DECORATION_NONE);
-        for(uint32 i = 0; i < UIStack->TextLineCount; ++i)
-        {
-            ui::text_line *Line = UIStack->TextLines[i];
-            ui::MakeText((void*)Line, Line->String, ui::FONT_DEFAULT, Line->Position, Line->Color, 1.f, Context->WindowWidth);
-        }
-    ui::EndPanel();
-#endif
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////
     // NOTE - System Panel
     static bool SystemShow = false;
 
@@ -247,8 +227,8 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
 
     static uint32 SystemButtonPanel = 0;
     static char SystemButtonStr[16];
-    static vec3i SystemButtonPos(UIStackPanelSize.x, 0, 0);
     static vec2i SystemButtonSize(25);
+    static vec3i SystemButtonPos(Context->WindowWidth-SystemButtonSize.x, 0, 0);
     static uint32 SystemButtonID = 0;
     snprintf(SystemButtonStr, 16, "%s", ICON_FA_COG);
     rf::ui::BeginPanel(&SystemButtonPanel, "", &SystemButtonPos, &SystemButtonSize, rf::ui::COLOR_PANELBG, rf::ui::DECORATION_INVISIBLE);
@@ -256,7 +236,7 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
         {
             SystemShow = !SystemShow;
         }
-        rf::ui::EndPanel();
+    rf::ui::EndPanel();
 
     static uint32 SystemPanelID = 0;
     static vec2i SystemPanelSize(210, 500);
@@ -346,9 +326,9 @@ int RadarMain(int argc, char **argv)
     rf::BindTexture2D(0, 0);
     rf::CheckGLError("Engine Start");
 
-    //if(!Tests::Init(Context, Config))
-        //return 1;
-    bool LastDisableMouse = false;
+    if(!Tests::Init(Context, &Config))
+        return 1;
+
     int LastMouseX = 0, LastMouseY = 0;
 
     rf::mesh ScreenQuad = rf::Make2DQuad(vec2i(-1,1), vec2i(1, -1));
@@ -361,7 +341,16 @@ int RadarMain(int argc, char **argv)
     static vec2i TW_Size(310, 330);
     static vec3i TW_Position(Context->WindowWidth - 10 - TW_Size.x, Context->WindowHeight - 10 - TW_Size.y, 0);
 
-    game_state *State = PushArenaStruct(&Memory->PermanentArena, game_state);
+
+    game::state *State = PushArenaStruct(&Memory->PermanentArena, game::state);
+    if(!game::Init(State, &Config))
+    {
+        LogError("Error initializing Game State.");
+        return 1;
+    }
+
+    // First time shader loading at the end of the initialization phase
+    ReloadShaders(Context);
 
     while(Context->IsRunning)
     {
@@ -394,14 +383,12 @@ int RadarMain(int argc, char **argv)
         LastMouseX = Input.MousePosX;
         LastMouseY = Input.MousePosY;
 
-        //Game.GameUpdate(Memory, &Input);
+        glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        if(!Memory->IsInitialized)
-        {
-            //InitializeFromGame(Memory, Context);
-            ReloadShaders(Context);			// First Shader loading after the game is initialize
-            Memory->IsInitialized = true;
-        }
+        rf::ui::BeginFrame(&Input);
+
+        game::Update(State, &Input, Context);
 
         // Local timed stuff
         if(TimeCounter > 0.1)
@@ -409,65 +396,64 @@ int RadarMain(int argc, char **argv)
             TimeCounter = 0.0;
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClearColor(Context->ClearColor.x, Context->ClearColor.y, Context->ClearColor.z, Context->ClearColor.w);
+        // Shader hot reload key (Shift-F11)
+        if(KEY_DOWN(Input.Keys[KEY_LEFT_SHIFT]) && KEY_UP(Input.Keys[KEY_F11]))
+        {
+            ReloadShaders(Context);
+        }
+
+        // Wireframe toggle key (Shift-F10)
+        if(KEY_DOWN(Input.Keys[KEY_LEFT_SHIFT]) && KEY_UP(Input.Keys[KEY_F10]))
+        {
+            rf::ctx::SetWireframeMode(Context);
+        }
+
+
+        glBindFramebuffer(GL_FRAMEBUFFER, FPBackbuffer.FBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        rf::ui::BeginFrame(&Input);
+        Tests::Render(State, &Input, Context);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // Toggle wireframe off to draw the UI and the PostProcess pass
+        GLenum CurrWireframemode = rf::ctx::SetWireframeMode(Context, GL_FILL);
+
+        glUseProgram(Context->ProgramPostProcess);
+        uint32 MipmapLogLoc = glGetUniformLocation(Context->ProgramPostProcess, "MipmapQueryLevel");
+        uint32 ResolutionLoc = glGetUniformLocation(Context->ProgramPostProcess, "Resolution");
+        rf::SendFloat(MipmapLogLoc, Context->WindowSizeLogLevel);
+        rf::SendVec2(ResolutionLoc, vec2f(Context->WindowWidth, Context->WindowHeight));
+        rf::SendVec3(glGetUniformLocation(Context->ProgramPostProcess, "CameraPosition"), vec3f(State->Camera.Position.y));
+        rf::BindTexture2D(FPBackbuffer.BufferIDs[0], 0);
+        glGenerateMipmap(GL_TEXTURE_2D); // generate mipmap for the color buffer
+        rf::CheckGLError("TexBind");
+
+        glBindVertexArray(ScreenQuad.VAO);
+        rf::RenderMesh(&ScreenQuad);
 
         MakeUI(Memory, Context, &Input);
         rf::ui::Draw();
 
+        rf::ctx::SetWireframeMode(Context, CurrWireframemode);
+
         glfwSwapBuffers(Context->Window);
     }
 
-
     rf::DestroyFramebuffer(&FPBackbuffer);
+    Tests::Destroy();
 
+    game::Destroy(State);
     rf::ctx::Destroy(Context);
     DestroyMemory(Memory);
     return 0;
 }
 #if 0
-    path DllSrcPath;
-    path DllDstPath;
-
-    if(CheckNewDllVersion(&Game, DllSrcPath))
-    {
-        UnloadGameCode(&Game, NULL);
-        Game = LoadGameCode(DllSrcPath, DllDstPath);
-    }
 
 
 
-            if(LastDisableMouse != State->DisableMouse)
-            {
-                if(State->DisableMouse)
-                {
-                    glfwSetInputMode(Context->Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                }
-                else
-                {
-                    glfwSetInputMode(Context->Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-                }
 
-                LastDisableMouse = State->DisableMouse;
-            }
-
-            if(KEY_DOWN(Input.KeyLShift) && KEY_UP(Input.KeyF11))
-            {
-                ReloadShaders(Memory, Context);
-            }
-
-            if(KEY_UP(Input.KeyF1))
-            {
-                context::SetWireframeMode(Context); // toggle
-            }
-
-            glBindFramebuffer(GL_FRAMEBUFFER, FPBackbuffer.FBO);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            Tests::Render(Context, State, &Input);
+// fp fb
 
 #if 0
             //Water::Update(State, System->WaterSystem, &Input);
@@ -476,22 +462,8 @@ int RadarMain(int argc, char **argv)
 
             Atmosphere::Render(State, Context);
 
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            // fp fb end
 
-            GLenum CurrWireframemode = context::SetWireframeMode(Context, GL_FILL);
-
-            glUseProgram(Context->ProgramPostProcess);
-            uint32 MipmapLogLoc = glGetUniformLocation(Context->ProgramPostProcess, "MipmapQueryLevel");
-            uint32 ResolutionLoc = glGetUniformLocation(Context->ProgramPostProcess, "Resolution");
-            SendFloat(MipmapLogLoc, Context->WindowSizeLogLevel);
-            SendVec2(ResolutionLoc, vec2f(Context->WindowWidth, Context->WindowHeight));
-            SendVec3(glGetUniformLocation(Context->ProgramPostProcess, "CameraPosition"), vec3f(State->Camera.Position.y));
-            BindTexture2D(FPBackbuffer.BufferIDs[0], 0);
-            glGenerateMipmap(GL_TEXTURE_2D); // generate mipmap for the color buffer
-            CheckGLError("TexBind");
-
-            glBindVertexArray(ScreenQuad.VAO);
-            RenderMesh(&ScreenQuad);
 
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
@@ -499,19 +471,8 @@ int RadarMain(int argc, char **argv)
             ui::MakeImage(&TW_ImgScale, Atmosphere::IrradianceTexture/*FPBackbuffer.BufferIDs[0]*/, &TW_ImgOffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
-
-            // ui here
-
-            context::SetWireframeMode(Context, CurrWireframemode);
-
-            // swap here
         }
 
-        Tests::Destroy();
     }
-
-    UnloadGameCode(&Game, DllDstPath);
-
-    return 0;
 }
 #endif

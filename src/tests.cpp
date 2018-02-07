@@ -1,5 +1,5 @@
-#define TEST_MODELS 1
-#define TEST_SPHEREARRAY 1
+#define TEST_MODELS 0
+#define TEST_SPHEREARRAY 0
 #define TEST_PBRMATERIALS 1
 #define TEST_SKYBOX 0
 #define TEST_PLANE 0
@@ -11,13 +11,13 @@ namespace Tests
 uint32 Program3D = 0;
 uint32 GGXLUT = 0;
 uint32 HDRCubemapEnvmap, HDRIrradianceEnvmap, HDRGlossyEnvmap;
-mesh Sphere = {};
-mesh Cube = {};
+rf::mesh Sphere = {};
+rf::mesh Cube = {};
 
 // PBR GLTF Models tests
 uint32 const PBRModelsCount = 1;
 uint32 const PBRModelsCapacity = 2;
-model PBRModels[PBRModelsCapacity];
+rf::model PBRModels[PBRModelsCapacity];
 float rotation[PBRModelsCapacity] = { 0.f };
 vec3f translation[PBRModelsCapacity] = { vec3f(-5.f, 0.f, 0.f) , vec3f(0,-1.98f,0) };
 int translationDir[PBRModelsCapacity] = { 1 };
@@ -30,12 +30,12 @@ uint32 *PBR_MetalRoughness[MaterialCount];
 uint32 *PBR_Normal[MaterialCount];
 
 // SOUND
-#include "AL/al.h"
-ALuint AudioBuffer;
-ALuint AudioSource;
+//#include "AL/al.h"
+//ALuint AudioBuffer;
+//ALuint AudioSource;
 
 // SKYBOX 
-mesh SkyboxCube = {};
+rf::mesh SkyboxCube = {};
 uint32 ProgramSkybox = 0;
 
 void Destroy()
@@ -44,105 +44,104 @@ void Destroy()
     glDeleteTextures(1, &HDRCubemapEnvmap);
     glDeleteTextures(1, &HDRGlossyEnvmap);
     glDeleteTextures(1, &HDRIrradianceEnvmap);
-    DestroyMesh(&Sphere);
-    DestroyMesh(&Cube);
-    DestroyMesh(&SkyboxCube);
+    rf::DestroyMesh(&Sphere);
+    rf::DestroyMesh(&Cube);
+    rf::DestroyMesh(&SkyboxCube);
     glDeleteProgram(ProgramSkybox);
     glDeleteProgram(Program3D);
 }
 
-void ReloadShaders(game_memory *Memory, game_context *Context)
+void ReloadShaders(rf::context *Context)
 {
-    resource_helper *RH = &Memory->ResourceHelper;
-
+    path const &ExePath = rf::ctx::GetExePath(Context);
     path VSPath, FSPath;
 
-    MakeRelativePath(RH, VSPath, "data/shaders/vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/frag.glsl");
-    Program3D = BuildShader(Memory, VSPath, FSPath);
+    rf::ConcatStrings(VSPath, ExePath, "data/shaders/vert.glsl");
+    rf::ConcatStrings(FSPath, ExePath, "data/shaders/frag.glsl");
+    Program3D = rf::BuildShader(Context, VSPath, FSPath);
     glUseProgram(Program3D);
-    SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
-    SendInt(glGetUniformLocation(Program3D, "NormalMap"), 1);
-    SendInt(glGetUniformLocation(Program3D, "MetallicRoughness"), 2);
-    SendInt(glGetUniformLocation(Program3D, "Emissive"), 3);
-    SendInt(glGetUniformLocation(Program3D, "GGXLUT"), 4);
-    SendInt(glGetUniformLocation(Program3D, "Skybox"), 5);
-    CheckGLError("Mesh Shader");
+    rf::SendInt(glGetUniformLocation(Program3D, "Albedo"), 0);
+    rf::SendInt(glGetUniformLocation(Program3D, "NormalMap"), 1);
+    rf::SendInt(glGetUniformLocation(Program3D, "MetallicRoughness"), 2);
+    rf::SendInt(glGetUniformLocation(Program3D, "Emissive"), 3);
+    rf::SendInt(glGetUniformLocation(Program3D, "GGXLUT"), 4);
+    rf::SendInt(glGetUniformLocation(Program3D, "Skybox"), 5);
+    rf::CheckGLError("Mesh Shader");
 
-    context::RegisterShader3D(Context, Program3D);
+    rf::ctx::RegisterShader3D(Context, Program3D);
 
-    MakeRelativePath(RH, VSPath, "data/shaders/skybox_vert.glsl");
-    MakeRelativePath(RH, FSPath, "data/shaders/skybox_frag.glsl");
-    ProgramSkybox = BuildShader(Memory, VSPath, FSPath);
+    rf::ConcatStrings(VSPath, ExePath, "data/shaders/skybox_vert.glsl");
+    rf::ConcatStrings(FSPath, ExePath, "data/shaders/skybox_frag.glsl");
+    ProgramSkybox = rf::BuildShader(Context, VSPath, FSPath);
     glUseProgram(ProgramSkybox);
-    SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
-    CheckGLError("Skybox Shader");
+    rf::SendInt(glGetUniformLocation(ProgramSkybox, "Skybox"), 0);
+    rf::CheckGLError("Skybox Shader");
 
-    context::RegisterShader3D(Context, ProgramSkybox);
+    rf::ctx::RegisterShader3D(Context, ProgramSkybox);
 }
 
-bool Init(game_context *Context, game_config const &Config)
+bool Init(rf::context *Context, config const *Config)
 {
-    GGXLUT = PrecomputeGGXLUT(&Context->RenderResources, 512);
-    ComputeIrradianceCubemap(&Context->RenderResources, "data/envmap_monument.hdr", 
+    GGXLUT = rf::PrecomputeGGXLUT(Context, 512);
+    rf::ComputeIrradianceCubemap(Context, "data/envmap_monument.hdr", 
                                 &HDRCubemapEnvmap, &HDRGlossyEnvmap, &HDRIrradianceEnvmap);
-    Sphere = MakeUnitSphere(true, 3);
-    Cube = MakeUnitCube();
-    SkyboxCube = MakeUnitCube(false);
+    Sphere = rf::MakeUnitSphere(true, 3);
+    Cube = rf::MakeUnitCube();
+    SkyboxCube = rf::MakeUnitCube(false);
 
 #if TEST_MODELS
-    if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Context))
+    if(!rf::ResourceLoadGLTFModel(Context, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Config->AnisotropicFiltering))
         return false;
-    //if(!ResourceLoadGLTFModel(&Context->RenderResources, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Context))
+    //if(!rf::ResourceLoadGLTFModel(Context, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Config->AnisotropicFiltering))
     //return 1;
 #endif
 
 #if TEST_PBRMATERIALS
-    // PBR Texture Test
-    Texture1 = ResourceLoad2DTexture(&Context->RenderResources, "data/crate1_diffuse.png",
-            false, false, Config.AnisotropicFiltering);
+    // PBR Texture Tes
+    Texture1 = rf::ResourceLoad2DTexture(Context, "data/crate1_diffuse.png",
+            false, false, Config->AnisotropicFiltering);
 
-    PBR_Albedo[0] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/StreakedMetal/albedo.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_MetalRoughness[0] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/StreakedMetal/metalroughness.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_Normal[0] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/StreakedMetal/normal.png",
-            false, false, Config.AnisotropicFiltering);
+    PBR_Albedo[0] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/StreakedMetal/albedo.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_MetalRoughness[0] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/StreakedMetal/metalroughness.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_Normal[0] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/StreakedMetal/normal.png",
+            false, false, Config->AnisotropicFiltering);
 
-    PBR_Albedo[1] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedGold/albedo.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_MetalRoughness[1] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedGold/metalroughness.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_Normal[1] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedGold/normal.png",
-            false, false, Config.AnisotropicFiltering);
+    PBR_Albedo[1] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedGold/albedo.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_MetalRoughness[1] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedGold/metalroughness.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_Normal[1] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedGold/normal.png",
+            false, false, Config->AnisotropicFiltering);
 
-    PBR_Albedo[2] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/RustedIron/albedo.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_MetalRoughness[2] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/RustedIron/metalroughness.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_Normal[2] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/RustedIron/normal.png",
-            false, false, Config.AnisotropicFiltering);
+    PBR_Albedo[2] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/RustedIron/albedo.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_MetalRoughness[2] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/RustedIron/metalroughness.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_Normal[2] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/RustedIron/normal.png",
+            false, false, Config->AnisotropicFiltering);
 
-    PBR_Albedo[3] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedPlastic/albedo_blue.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_MetalRoughness[3] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedPlastic/metalroughness.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_Normal[3] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/ScuffedPlastic/normal.png",
-            false, false, Config.AnisotropicFiltering);
+    PBR_Albedo[3] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedPlastic/albedo_blue.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_MetalRoughness[3] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedPlastic/metalroughness.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_Normal[3] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedPlastic/normal.png",
+            false, false, Config->AnisotropicFiltering);
 
-    PBR_Albedo[4] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/SynthRubber/albedo.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_MetalRoughness[4] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/SynthRubber/metalroughness.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_Normal[4] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/SynthRubber/normal.png",
-            false, false, Config.AnisotropicFiltering);
+    PBR_Albedo[4] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/SynthRubber/albedo.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_MetalRoughness[4] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/SynthRubber/metalroughness.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_Normal[4] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/SynthRubber/normal.png",
+            false, false, Config->AnisotropicFiltering);
 
-    PBR_Albedo[5] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/PlasticPattern/albedo.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_MetalRoughness[5] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/PlasticPattern/metalroughness.png",
-            false, false, Config.AnisotropicFiltering);
-    PBR_Normal[5] = ResourceLoad2DTexture(&Context->RenderResources, "data/PBRTextures/PlasticPattern/normal.png",
-            false, false, Config.AnisotropicFiltering);
+    PBR_Albedo[5] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/PlasticPattern/albedo.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_MetalRoughness[5] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/PlasticPattern/metalroughness.png",
+            false, false, Config->AnisotropicFiltering);
+    PBR_Normal[5] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/PlasticPattern/normal.png",
+            false, false, Config->AnisotropicFiltering);
 #endif
 
 #if TEST_SOUND
@@ -154,7 +153,7 @@ bool Init(game_context *Context, game_config const &Config)
     return true;
 }
 
-void Render(game_context *Context, game_state *State, game_input *Input)
+void Render(game::state *State, rf::input *Input, rf::context *Context)
 {
     mat4f const &ViewMatrix = State->Camera.ViewMatrix;
 
@@ -164,49 +163,44 @@ void Render(game_context *Context, game_state *State, game_input *Input)
         glUseProgram(Program3D);
         {
             uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
-            SendMat4(Loc, ViewMatrix);
-            CheckGLError("ViewMatrix");
+            rf::SendMat4(Loc, ViewMatrix);
+            rf::CheckGLError("ViewMatrix");
         }
 
         uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
-        SendVec4(Loc, State->LightColor);
+        rf::SendVec4(Loc, State->LightColor);
         Loc = glGetUniformLocation(Program3D, "SunDirection");
-        SendVec3(Loc, State->SunDirection);
+        rf::SendVec3(Loc, State->SunDirection);
         Loc = glGetUniformLocation(Program3D, "CameraPos");
-        SendVec3(Loc, State->Camera.Position);
+        rf::SendVec3(Loc, State->Camera.Position);
         uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
         uint32 EmissiveLoc = glGetUniformLocation(Program3D, "EmissiveMult");
         uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
         uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
         for(uint32  m = 0; m < PBRModelsCount; ++m)
         {
-            model *Model = &PBRModels[m];
+            rf::model *Model = &PBRModels[m];
             for(uint32 i = 0; i < Model->Mesh.size(); ++i)
             {
-                material const &Mat = Model->Material[Model->MaterialIdx[i]];
+                rf::material const &Mat = Model->Material[Model->MaterialIdx[i]];
 
-                SendVec3(AlbedoLoc, Mat.AlbedoMult);
-                SendVec3(EmissiveLoc, Mat.EmissiveMult);
-                SendFloat(MetallicLoc, Mat.MetallicMult);
-                SendFloat(RoughnessLoc, Mat.RoughnessMult);
-                glBindVertexArray(Model->Mesh[i].VAO);
-                BindTexture2D(Mat.AlbedoTexture, 0);
-                glActiveTexture(GL_TEXTURE1);
-                glBindTexture(GL_TEXTURE_2D, Mat.NormalTexture);
-                glActiveTexture(GL_TEXTURE2);
-                glBindTexture(GL_TEXTURE_2D, Mat.RoughnessMetallicTexture);
-                glActiveTexture(GL_TEXTURE3);
-                glBindTexture(GL_TEXTURE_2D, Mat.EmissiveTexture);
-                glActiveTexture(GL_TEXTURE4);
-                glBindTexture(GL_TEXTURE_2D, GGXLUT);
-                glActiveTexture(GL_TEXTURE5);
-                glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+                rf::SendVec3(AlbedoLoc, Mat.AlbedoMult);
+                rf::SendVec3(EmissiveLoc, Mat.EmissiveMult);
+                rf::SendFloat(MetallicLoc, Mat.MetallicMult);
+                rf::SendFloat(RoughnessLoc, Mat.RoughnessMult);
+                rf::BindTexture2D(Mat.AlbedoTexture, 0);
+                rf::BindTexture2D(Mat.NormalTexture, 1);
+                rf::BindTexture2D(Mat.RoughnessMetallicTexture, 2);
+                rf::BindTexture2D(Mat.EmissiveTexture, 3);
+                rf::BindTexture2D(GGXLUT, 4);
+                rf::BindCubemap(HDRGlossyEnvmap, 5);
                 mat4f ModelMatrix;
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
                 ModelMatrix.FromTRS(translation[m]+vec3f(0,3,-3), vec3f(0,rotation[m],0), vec3f(1));
                 ModelMatrix = ModelMatrix * Model->Mesh[i].ModelMatrix;
-                SendMat4(Loc, ModelMatrix);
-                glDrawElements(GL_TRIANGLES, Model->Mesh[i].IndexCount, Model->Mesh[i].IndexType, 0);
+                rf::SendMat4(Loc, ModelMatrix);
+                glBindVertexArray(Model->Mesh[i].VAO);
+                rf::RenderMesh(&Model->Mesh[i]);
             }
         }
         rotation[0] += M_PI * Input->dTimeFixed * 0.02f;
@@ -222,48 +216,42 @@ void Render(game_context *Context, game_state *State, game_input *Input)
         glUseProgram(Program3D);
         {
             uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
-            SendMat4(Loc, ViewMatrix);
-            CheckGLError("ViewMatrix");
+            rf::SendMat4(Loc, ViewMatrix);
+            rf::CheckGLError("ViewMatrix");
         }
         uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
-        SendVec4(Loc, State->LightColor);
+        rf::SendVec4(Loc, State->LightColor);
         Loc = glGetUniformLocation(Program3D, "SunDirection");
-        SendVec3(Loc, State->SunDirection);
+        rf::SendVec3(Loc, State->SunDirection);
         Loc = glGetUniformLocation(Program3D, "CameraPos");
-        SendVec3(Loc, State->Camera.Position);
+        rf::SendVec3(Loc, State->Camera.Position);
 
         glBindVertexArray(Sphere.VAO);
         mat4f ModelMatrix;
         Loc = glGetUniformLocation(Program3D, "ModelMatrix");
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultNormalTexture);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultEmissiveTexture);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, GGXLUT);
-        glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+        rf::BindTexture2D(*Context->RenderResources.DefaultDiffuseTexture, 0);
+        rf::BindTexture2D(*Context->RenderResources.DefaultNormalTexture, 1);
+        rf::BindTexture2D(*Context->RenderResources.DefaultDiffuseTexture, 2);
+        rf::BindTexture2D(*Context->RenderResources.DefaultEmissiveTexture, 3);
+        rf::BindTexture2D(GGXLUT, 4);
+        rf::BindCubemap(HDRGlossyEnvmap, 5);
 
         uint32 AlbedoLoc = glGetUniformLocation(Program3D, "AlbedoMult");
         uint32 EmissiveLoc = glGetUniformLocation(Program3D, "EmissiveMult");
         uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
         uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-        SendVec3(AlbedoLoc, vec3f(0.7, 0.7, 0.7));
-        SendVec3(EmissiveLoc, vec3f(1));
+        rf::SendVec3(AlbedoLoc, vec3f(0.7, 0.7, 0.7));
+        rf::SendVec3(EmissiveLoc, vec3f(1));
         for(int j = 0; j < PBRCount; ++j)
         {
-            SendFloat(MetallicLoc, (j)/(real32)PBRCount);
+            rf::SendFloat(MetallicLoc, (j)/(real32)PBRCount);
             for(int i = 0; i < 9; ++i)
             {
-                SendFloat(RoughnessLoc, Clamp((i)/9.0, 0.05f, 1.f));
+                rf::SendFloat(RoughnessLoc, Clamp((i)/9.0, 0.05f, 1.f));
                 ModelMatrix.FromTRS(vec3f(-3*(j), 3.0, 3*(i+1)), vec3f(0.f), vec3f(1.f));
-                SendMat4(Loc, ModelMatrix);
-                glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
+                rf::SendMat4(Loc, ModelMatrix);
+                rf::RenderMesh(&Sphere);
             }
         }
         glActiveTexture(GL_TEXTURE0);
@@ -275,14 +263,14 @@ void Render(game_context *Context, game_state *State, game_input *Input)
         glUseProgram(Program3D);
         {
             uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
-            SendMat4(Loc, ViewMatrix);
+            rf::SendMat4(Loc, ViewMatrix);
         }
         uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
-        SendVec4(Loc, State->LightColor);
+        rf::SendVec4(Loc, State->LightColor);
         Loc = glGetUniformLocation(Program3D, "SunDirection");
-        SendVec3(Loc, State->SunDirection);
+        rf::SendVec3(Loc, State->SunDirection);
         Loc = glGetUniformLocation(Program3D, "CameraPos");
-        SendVec3(Loc, State->Camera.Position);
+        rf::SendVec3(Loc, State->Camera.Position);
 
         glBindVertexArray(Sphere.VAO);
         mat4f ModelMatrix;
@@ -293,38 +281,32 @@ void Render(game_context *Context, game_state *State, game_input *Input)
         uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
         uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
 
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, GGXLUT);
-        glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
-        SendVec3(AlbedoLoc, vec3f(1));
-        SendVec3(EmissiveLoc, vec3f(1));
-        SendFloat(MetallicLoc, 1.0);
+        rf::BindTexture2D(GGXLUT, 4);
+        rf::BindCubemap(HDRGlossyEnvmap, 5);
+        rf::SendVec3(AlbedoLoc, vec3f(1));
+        rf::SendVec3(EmissiveLoc, vec3f(1));
+        rf::SendFloat(MetallicLoc, 1.0);
 
         auto DrawSpheres = [&](int idx, uint32 albedo, uint32 mr, uint32 nrm)
         {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, albedo);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, nrm);
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_2D, mr);
-            glActiveTexture(GL_TEXTURE3);
-            glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultEmissiveTexture);
+            rf::BindTexture2D(albedo, 0);
+            rf::BindTexture2D(nrm, 1);
+            rf::BindTexture2D(mr, 2);
+            rf::BindTexture2D(*Context->RenderResources.DefaultEmissiveTexture, 3);
             for(int i = 0; i < 9; ++ i)
             {
-                SendFloat(RoughnessLoc, 1.0 + 0.5 * i);
+                rf::SendFloat(RoughnessLoc, 1.0 + 0.5 * i);
                 ModelMatrix.FromTRS(vec3f(-(PBRCount+idx) * 3.0, 3.0, 3.0*(i+1)), vec3f(0.f), vec3f(1.f));
-                SendMat4(Loc, ModelMatrix);
-                glDrawElements(GL_TRIANGLES, Sphere.IndexCount, Sphere.IndexType, 0);
+                rf::SendMat4(Loc, ModelMatrix);
+                rf::RenderMesh(&Sphere);
             }
         };
-        for(int i = 0; i < MaterialCount; ++i)
+        for(uint32 i = 0; i < MaterialCount; ++i)
         {
             DrawSpheres(i, *PBR_Albedo[i], *PBR_MetalRoughness[i], *PBR_Normal[i]);
         }
 
-        CheckGLError("PBR draw");
+        rf::CheckGLError("PBR draw");
 
         glActiveTexture(GL_TEXTURE0);
     }
@@ -336,16 +318,16 @@ void Render(game_context *Context, game_state *State, game_input *Input)
         {
 
             uint32 Loc = glGetUniformLocation(Program3D, "ViewMatrix");
-            SendMat4(Loc, ViewMatrix);
+            rf::SendMat4(Loc, ViewMatrix);
             CheckGLError("ViewMatrix");
         }
 
         uint32 Loc = glGetUniformLocation(Program3D, "LightColor");
-        SendVec4(Loc, State->LightColor);
+        rf::SendVec4(Loc, State->LightColor);
         Loc = glGetUniformLocation(Program3D, "SunDirection");
-        SendVec3(Loc, State->SunDirection);
+        rf::SendVec3(Loc, State->SunDirection);
         Loc = glGetUniformLocation(Program3D, "CameraPos");
-        SendVec3(Loc, State->Camera.Position);
+        rf::SendVec3(Loc, State->Camera.Position);
         glBindVertexArray(Cube.VAO);
         mat4f ModelMatrix;// = mat4f::Translation(State->PlayerPosition);
         Loc = glGetUniformLocation(Program3D, "ModelMatrix");
@@ -354,29 +336,23 @@ void Render(game_context *Context, game_state *State, game_input *Input)
         uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
         uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
 
-        SendVec3(AlbedoLoc, vec3f(1));
-        SendVec3(EmissiveLoc, vec3f(1));
-        SendFloat(MetallicLoc, 0.1f);
-        SendFloat(RoughnessLoc, 0.9f);
+        rf::SendVec3(AlbedoLoc, vec3f(1));
+        rf::SendVec3(EmissiveLoc, vec3f(1));
+        rf::SendFloat(MetallicLoc, 0.1f);
+        rf::SendFloat(RoughnessLoc, 0.9f);
         glBindVertexArray(Cube.VAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultDiffuseTexture);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultNormalTexture);
-        glActiveTexture(GL_TEXTURE3);
-        glBindTexture(GL_TEXTURE_2D, *Context->RenderResources.DefaultEmissiveTexture);
-        glActiveTexture(GL_TEXTURE4);
-        glBindTexture(GL_TEXTURE_2D, GGXLUT);
-        glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);
+        rf::BindTexture2D(*Context->RenderResources.DefaultDiffuseTexture, 0);
+        rf::BindTexture2D(*Context->RenderResources.DefaultNormalTexture, 1);
+        rf::BindTexture2D(*Context->RenderResources.DefaultDiffuseTexture, 2);
+        rf::BindTexture2D(*Context->RenderResources.DefaultEmissiveTexture, 3);
+        rf::BindTexture2D(GGXLUT, 0);
+        rf::BindCubemap(HDRGlossyEnvmap, 0);
 
         float planesize = 20;
         ModelMatrix.FromTRS(vec3f(-planesize/2.f-2,1,planesize/2.f+2), vec3f(0), vec3f(planesize,0.2f,planesize));
-        SendMat4(Loc, ModelMatrix);
-        CheckGLError("ModelMatrix");
-        RenderMesh(&Cube);
+        rf::SendMat4(Loc, ModelMatrix);
+        rf::CheckGLError("ModelMatrix");
+        rf::RenderMesh(&Cube);
     }
 #endif
 #if TEST_SOUND // NOTE - Sound play
@@ -397,7 +373,7 @@ void Render(game_context *Context, game_state *State, game_input *Input)
     { 
         glDisable(GL_CULL_FACE);
         glDepthFunc(GL_LEQUAL);
-        CheckGLError("Skybox");
+        rf::CheckGLError("Skybox");
 
         glUseProgram(ProgramSkybox);
         {
@@ -405,8 +381,8 @@ void Render(game_context *Context, game_state *State, game_input *Input)
             mat4f SkyViewMatrix = ViewMatrix;
             SkyViewMatrix.SetTranslation(vec3f(0.f));
             uint32 Loc = glGetUniformLocation(ProgramSkybox, "ViewMatrix");
-            SendMat4(Loc, SkyViewMatrix);
-            CheckGLError("ViewMatrix Skybox");
+            rf::SendMat4(Loc, SkyViewMatrix);
+            rf::CheckGLError("ViewMatrix Skybox");
         }
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, HDRGlossyEnvmap);

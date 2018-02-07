@@ -22,14 +22,12 @@ INCLUDE_FLAGS=-I$(SRC_DIR) -Iext/ -I$(SFMT_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSO
 SRCS= \
 	sound.cpp \
 	sampling.cpp \
-	radar.cpp
-	#water.cpp \
-	#atmosphere.cpp \
+	radar.cpp \
+	Game/sun.cpp
+	#water.cpp 
+	#atmosphere.cpp 
 OBJ_DIR=obj/
 INCLUDES=radar.h
-
-LIB_SRCS=$(SRC_DIR)sun.cpp
-LIB_INCLUDES=$(SRC_DIR)sun.h
 
 ##################################################
 # NOTE - WINDOWS BUILD
@@ -61,7 +59,6 @@ VERSION_FLAGS=$(DEBUG_FLAGS)
 LIB_FLAGS=/LIBPATH:ext /LIBPATH:$(OPENAL_LIB) /LIBPATH:$(GLEW_LIB) /LIBPATH:$(GLFW_LIB) /LIBPATH:$(CJSON_LIB) stb.lib cjson.lib OpenAL32.lib libglfw3.lib glew.lib opengl32.lib user32.lib shell32.lib gdi32.lib
 
 TARGET=bin/radar.exe
-LIB_TARGET=bin/sun.dll
 PDB_TARGET=bin/radar.pdb
 
 
@@ -86,11 +83,10 @@ $(STB_TARGET):
 	@$(STATICLIB) $(STB_OBJECT) -OUT:$(STB_TARGET)
 	@rm $(STB_OBJECT)
 
-lib:
-	@$(CC) $(DLL_CFLAGS) $(VERSION_FLAGS) -I$(SFMT_INCLUDE) /LD $(LIB_SRCS) $(LINK) /OUT:$(LIB_TARGET)
-	@mv *.pdb bin/
-
 $(OBJ_DIR)%.obj: $(SRC_DIR)%.cpp
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
+
+$(OBJ_DIR)Game/%.obj: $(SRC_DIR)Game/%.cpp
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
 
 radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET) $(OBJS)
@@ -123,7 +119,6 @@ LIB_FLAGS=-Lext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -lm -ldl -lpthread
 
 TARGET=bin/radar
-LIB_TARGET=bin/sun.so
 
 $(GLEW_TARGET): 
 	@echo "AR $(GLEW_TARGET)"
@@ -150,11 +145,11 @@ $(STB_TARGET):
 	@ar rcs $(STB_TARGET) $(STB_OBJECT)
 	@rm $(STB_OBJECT)
 
-lib:
-	@echo "LIB $(LIB_TARGET)"
-	@$(CC) $(CFLAGS) $(VERSION_FLAGS) -shared -fPIC $(LIB_SRCS) -I$(SFMT_INCLUDE) -o $(LIB_TARGET)
-
 $(OBJ_DIR)%.o: $(SRC_DIR)%.cpp
+	@echo "CC $@"
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
+
+$(OBJ_DIR)Game/%.o: $(SRC_DIR)Game/%.cpp
 	@echo "CC $@"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
 
@@ -170,7 +165,7 @@ endif
 
 pre_build:
 	@mkdir -p bin
-	@mkdir -p obj
+	@mkdir -p obj/Game
 
 post_build:
 	@rm -f *.lib *.exp
