@@ -2,22 +2,24 @@
 
 all: tags pre_build radar post_build
 
+RF_DIR=ext/rf/
+
 # LIBRARY Defines
-GLFW_INCLUDE=ext/glfw/include
+GLFW_INCLUDE=$(RF_DIR)ext/glfw/include
+GLEW_INCLUDE=$(RF_DIR)ext/glew/include
+CJSON_INCLUDE=$(RF_DIR)ext/cjson
+STB_INCLUDE=$(RF_DIR)ext
+SFMT_INCLUDE=ext/sfmt
 OPENAL_INCLUDE=ext/openal-soft/include
-GLEW_INCLUDE=ext/glew/include
-SFMT_INCLUDE=ext/sfmt/
-CJSON_INCLUDE=ext/cjson
-STB_INCLUDE=ext/
-GLEW_LIB=ext/glew
-CJSON_LIB=ext/cjson
-SFMT_LIB=ext/sfmt/
-RF_INCLUDE=ext/rf/include
-RF_LIB=ext/rf/lib
+GLEW_LIB=$(RF_DIR)ext/glew
+CJSON_LIB=$(RF_DIR)ext/cjson
+SFMT_LIB=ext/sfmt
+RF_INCLUDE=$(RF_DIR)include
+RF_LIB=$(RF_DIR)lib
 
 SRC_DIR=src/
 
-INCLUDE_FLAGS=-I$(SRC_DIR) -Iext/ -I$(SFMT_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) -I$(RF_INCLUDE)
+INCLUDE_FLAGS=-I$(SRC_DIR) -Iext/ -I$(SFMT_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSON_INCLUDE) -I$(GLEW_INCLUDE) -I$(GLFW_INCLUDE) -I$(RF_INCLUDE)
 
 SRCS= \
 	sound.cpp \
@@ -33,16 +35,10 @@ INCLUDES=radar.h
 # NOTE - WINDOWS BUILD
 ##################################################
 ifeq ($(OS),Windows_NT) # MSVC
-GLEW_OBJECT=ext/glew/glew.obj
-GLEW_TARGET=ext/glew/glew.lib
-CJSON_OBJECT=ext/cjson/cjson.obj
-CJSON_TARGET=ext/cjson/cJSON.lib
+GLFW_LIB=$(RF_DIR)ext/glfw/build/x64/Release
 SFMT_OBJECT=ext/sfmt/SFMT.obj
 SFMT_TARGET=ext/sfmt/SFMT.lib
-STB_TARGET=ext/stb.lib
-STB_OBJECT=ext/stb.obj
 OPENAL_LIB=ext/openal-soft/build/Release
-GLFW_LIB=ext/glfw/build/x64/Release
 
 OBJS=$(patsubst %.cpp,$(OBJ_DIR)%.obj,$(SRCS))
 
@@ -56,32 +52,15 @@ DEBUG_FLAGS=-DDEBUG -Zi -Od -W1 -wd4100 -wd4189 -wd4514
 RELEASE_FLAGS=-O2 -Oi
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
-LIB_FLAGS=/LIBPATH:ext /LIBPATH:$(OPENAL_LIB) /LIBPATH:$(GLEW_LIB) /LIBPATH:$(GLFW_LIB) /LIBPATH:$(CJSON_LIB) stb.lib cjson.lib OpenAL32.lib libglfw3.lib glew.lib opengl32.lib user32.lib shell32.lib gdi32.lib
+LIB_FLAGS=/LIBPATH:ext /LIBPATH:$(RF_DIR)/ext /LIBPATH:$(OPENAL_LIB) /LIBPATH:$(GLEW_LIB) /LIBPATH:$(GLFW_LIB) /LIBPATH:$(CJSON_LIB) /LIBPATH:$(RF_LIB) rf.lib stb.lib cjson.lib OpenAL32.lib libglfw3.lib glew.lib opengl32.lib user32.lib shell32.lib gdi32.lib
 
 TARGET=bin/radar.exe
 PDB_TARGET=bin/radar.pdb
-
-
-$(GLEW_TARGET): 
-	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -DGLEW_STATIC -I$(GLEW_INCLUDE) -c ext/glew/src/glew.c -Fo$(GLEW_OBJECT)
-	@$(STATICLIB) $(GLEW_OBJECT) -OUT:$(GLEW_TARGET)
-	@rm $(GLEW_OBJECT)
-
-
-$(CJSON_TARGET):
-	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -I$(CJSON_INCLUDE) -c ext/cjson/cjson.c -Fo$(CJSON_OBJECT)
-	@$(STATICLIB) $(CJSON_OBJECT) -OUT:$(CJSON_TARGET)
-	@rm $(CJSON_OBJECT)
 
 $(SFMT_TARGET):
 	@$(CC) -O2 -Oi -DHAVE_SSE2=1 -DSFMT_MEXP=19937 -c ext/sfmt/SFMT.c -Fo$(SFMT_OBJECT)
 	@$(STATICLIB) $(SFMT_OBJECT) -OUT:$(SFMT_TARGET)
 	@rm $(SFMT_OBJECT)
-
-$(STB_TARGET):
-	@$(CC) -O2 -Oi -c ext/stb.cpp -Fo$(STB_OBJECT)
-	@$(STATICLIB) $(STB_OBJECT) -OUT:$(STB_TARGET)
-	@rm $(STB_OBJECT)
 
 $(OBJ_DIR)%.obj: $(SRC_DIR)%.cpp
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
@@ -89,7 +68,7 @@ $(OBJ_DIR)%.obj: $(SRC_DIR)%.cpp
 $(OBJ_DIR)Game/%.obj: $(SRC_DIR)Game/%.cpp
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
 
-radar: $(STB_TARGET) $(SFMT_TARGET) $(GLEW_TARGET) $(CJSON_TARGET) $(OBJS)
+radar: $(SFMT_TARGET) $(OBJS)
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC $(OBJS) $(LINK) $(LIB_FLAGS) /OUT:$(TARGET) /PDB:$(PDB_TARGET)
 
 ##################################################
@@ -173,11 +152,8 @@ post_build:
 clean:
 	rm $(OBJS)
 	rm $(TARGET)
-	rm $(LIB_TARGET)
 
 clean_ext:
-	rm $(CJSON_TARGET)
-	rm $(GLEW_TARGET)
 	rm $(SFMT_TARGET)
 
 tags:
