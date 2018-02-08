@@ -3,7 +3,9 @@
 
 #include "definitions.h"
 
-struct context;
+namespace game {
+    struct state;
+}
 
 namespace water {
     struct beaufort_state
@@ -29,7 +31,7 @@ namespace water {
         uint32 IndexCount;
         uint32 *IndexData;
 
-        water_beaufort_state States[BeaufortStateCount];
+        beaufort_state States[BeaufortStateCount];
 
         // NOTE - Accessor Pointers, index VertexData
         void *Positions;
@@ -53,9 +55,9 @@ namespace water {
         uint32 ProgramWater;
     };
 
-    void Init(memory *Memory, state *State, system *System, uint32 BeaufortState);
-    void Update(state *State, water_system *WaterSystem, input *Input);
-    void ReloadShaders(memory *Memory, context *Context, water_system *WaterSystem);
-    void Render(state *State, water_system *WaterSystem, uint32 Envmap, uint32 GGXLUT);
+    void Init(game::state *State, rf::context *Context, uint32 BeaufortState);
+    void Update(game::state *State, rf::input *Input);
+    void ReloadShaders(rf::context *Context);
+    void Render(game::state *State, uint32 Envmap, uint32 GGXLUT);
 }
 #endif

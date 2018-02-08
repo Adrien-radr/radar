@@ -8,8 +8,8 @@
 
 #include "definitions.h"
 
-//#include "water.h"
-//#include "atmosphere.h"
+#include "Systems/water.h"
+#include "Systems/atmosphere.h"
 #include "Game/sun.h"
 #include "tests.h"
 
@@ -136,38 +136,13 @@ void ReloadShaders(rf::context *Context)
 
     Tests::ReloadShaders(Context);
     rf::ui::ReloadShaders(Context);
-    //Water::ReloadShaders(Memory, Context, System->WaterSystem);
-    //Atmosphere::ReloadShaders(Memory, Context);
+    water::ReloadShaders(Context);
+    atmosphere::ReloadShaders(Context);
 
     rf::ctx::UpdateShaderProjection(Context);
 
     glUseProgram(0);
 }
-
-#if 0
-void InitializeFromGame(game_memory *Memory, game_context *Context)
-{
-    // Initialize Water from game Info
-    game_system *System = (game_system*)Memory->PermanentMemPool;
-    game_state *State = (game_state*)POOL_OFFSET(Memory->PermanentMemPool, game_system);
-
-    Water::Init(Memory, State, System, State->WaterState);
-    Atmosphere::Init(Memory, Context, State, System);
-
-    water_system *WaterSystem = System->WaterSystem;
-    WaterSystem->VAO = MakeVertexArrayObject();
-    WaterSystem->VBO[0] = AddIBO(GL_STATIC_DRAW, WaterSystem->IndexCount * sizeof(uint32), WaterSystem->IndexData);
-    WaterSystem->VBO[1] = AddEmptyVBO(WaterSystem->VertexDataSize, GL_STATIC_DRAW);
-    size_t VertSize = WaterSystem->VertexCount * sizeof(real32);
-    FillVBO(0, 3, GL_FLOAT, 0, VertSize, WaterSystem->VertexData);
-    FillVBO(1, 3, GL_FLOAT, VertSize, VertSize, WaterSystem->VertexData + WaterSystem->VertexCount);
-    FillVBO(2, 3, GL_FLOAT, 2*VertSize, VertSize, WaterSystem->VertexData + 2 * WaterSystem->VertexCount);
-    glBindVertexArray(0);
-
-    Memory->IsGameInitialized = true;
-    Memory->IsInitialized = true;
-}
-#endif
 
 void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
 {
@@ -337,7 +312,7 @@ int RadarMain(int argc, char **argv)
 
     int LastMouseX = 0, LastMouseY = 0;
 
-    rf::mesh ScreenQuad = rf::Make2DQuad(vec2i(-1,1), vec2i(1, -1));
+    rf::mesh ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1));
     rf::frame_buffer FPBackbuffer = {};
 
     // TMP TextureViewer UI
@@ -347,13 +322,18 @@ int RadarMain(int argc, char **argv)
     static vec2i TW_Size(310, 330);
     static vec3i TW_Position(Context->WindowWidth - 10 - TW_Size.x, Context->WindowHeight - 10 - TW_Size.y, 0);
 
-
+    // Game State initialization
     game::state *State = PushArenaStruct(&Memory->PermanentArena, game::state);
     if(!game::Init(State, &Config))
     {
         LogError("Error initializing Game State.");
         return 1;
     }
+
+    // Subsystems initialization
+    atmosphere::Init(State, Context);
+    water::Init(State, Context, State->WaterState);
+
 
     // First time shader loading at the end of the initialization phase
     ReloadShaders(Context);
@@ -420,6 +400,12 @@ int RadarMain(int argc, char **argv)
 
         Tests::Render(State, &Input, Context);
 
+        atmosphere::Render(State, Context);
+#if 1
+        water::Update(State, &Input);
+        water::Render(State, 0, 0);
+#endif
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Toggle wireframe off to draw the UI and the PostProcess pass
@@ -455,30 +441,10 @@ int RadarMain(int argc, char **argv)
     return 0;
 }
 #if 0
-
-
-
-
-// fp fb
-
-#if 0
-            //Water::Update(State, System->WaterSystem, &Input);
-            Water::Render(State, System->WaterSystem, HDRGlossyEnvmap, GGXLUT);
-#endif
-
-            Atmosphere::Render(State, Context);
-
-            // fp fb end
-
-
 #if 1
             font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
             ui::BeginPanel(&TW_ID, "Texture Viewer", &TW_Position, &TW_Size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
             ui::MakeImage(&TW_ImgScale, Atmosphere::IrradianceTexture/*FPBackbuffer.BufferIDs[0]*/, &TW_ImgOffset, vec2i(300, 300), false);
             ui::EndPanel();
 #endif
-        }
-
-    }
-}
 #endif

@@ -6,10 +6,11 @@
 /// NOTE - Atmospheric scattering engine, inspired by Eric Bruneton's Precomputed Atmospheric Scattering
 /// https://ebruneton.github.io/precomputed_atmospheric_scattering/
 
-struct game_context;
+namespace game {
+    struct state;
+}
 
-namespace Atmosphere
-{
+namespace atmosphere {
     static int    const LAMBDA_MIN = 360;
     static int    const LAMBDA_MAX = 830;
     static real32 const LAMBDA_R = 680.0;
@@ -22,10 +23,10 @@ namespace Atmosphere
     // Conversion factor between watts and lumens
     static real32 const MAX_LUMINOUS_EFFICACY = 683.f;
 
-    void Init(game_memory *Memory, game_context *Context, game_state *State, game_system *System);
+    void Init(game::state *State, rf::context *Context);
     void Update();
-    void Render(game_state *State, game_context *Context);
-    void ReloadShaders(game_memory *Memory, game_context *Context);
+    void Render(game::state *State, rf::context *Context);
+    void ReloadShaders(rf::context *Context);
 
     /// Converts a function of wavelength to linear sRGB.
     /// Wavelengths and Spectrum arrays have the same size N

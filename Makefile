@@ -25,10 +25,10 @@ SRCS= \
 	sound.cpp \
 	sampling.cpp \
 	tests.cpp \
-	radar.cpp \
-	Game/sun.cpp
-	#water.cpp 
-	#atmosphere.cpp 
+	Game/sun.cpp \
+	Systems/atmosphere.cpp \
+	Systems/water.cpp \
+	radar.cpp 
 OBJ_DIR=obj/
 INCLUDES=radar.h
 
@@ -67,6 +67,9 @@ $(OBJ_DIR)%.obj: $(SRC_DIR)%.cpp
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
 
 $(OBJ_DIR)Game/%.obj: $(SRC_DIR)Game/%.cpp
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
+
+$(OBJ_DIR)Systems/%.obj: $(SRC_DIR)Systems/%.cpp
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -Fo$@
 
 radar: $(SFMT_TARGET) $(OBJS)
@@ -109,6 +112,10 @@ $(OBJ_DIR)Game/%.o: $(SRC_DIR)Game/%.cpp
 	@echo "CC $@"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
 
+$(OBJ_DIR)Systems/%.o: $(SRC_DIR)Systems/%.cpp
+	@echo "CC $@"
+	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
+
 radar: $(SFMT_TARGET) $(OBJS)
 	@echo "CC $(TARGET)"
 	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(OBJS) $(INCLUDE_FLAGS) $(LIB_FLAGS) -o $(TARGET)
@@ -122,6 +129,7 @@ endif
 pre_build:
 	@mkdir -p bin
 	@mkdir -p obj/Game
+	@mkdir -p obj/Systems
 
 post_build:
 	@rm -f *.lib *.exp
