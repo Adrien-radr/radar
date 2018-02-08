@@ -75,16 +75,10 @@ radar: $(SFMT_TARGET) $(OBJS)
 # NOTE - LINUX BUILD
 ##################################################
 else # GCC
-GLEW_OBJECT=ext/glew/glew.o
-GLEW_TARGET=ext/glew/libglew.a
-CJSON_OBJECT=ext/cjson/cJSON.o
-CJSON_TARGET=ext/cjson/libcJSON.a
 OPENAL_LIB=ext/openal-soft/build
 GLFW_LIB=ext/glfw/build/src
 SFMT_OBJECT=ext/sfmt/SFMT.o
 SFMT_TARGET=ext/sfmt/libSFMT.a
-STB_TARGET=ext/libstb.a
-STB_OBJECT=ext/stb.o
 
 OBJS=$(patsubst %.cpp,$(OBJ_DIR)%.o,$(SRCS))
 
@@ -94,22 +88,10 @@ DEBUG_FLAGS=-g -DDEBUG -Wall -Wextra
 RELEASE_FLAGS=-O2
 VERSION_FLAGS=$(DEBUG_FLAGS)
 
-LIB_FLAGS=-Lext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -L$(RF_LIB) -lrf -lSFMT -lstb -lcJSON -lglfw3 -lglew -lopenal \
+LIB_FLAGS=-Lext/ -L$(RF_DIR)ext/ -L$(OPENAL_LIB) -L$(GLEW_LIB) -L$(GLFW_LIB) -L$(CJSON_LIB) -L$(SFMT_LIB) -L$(RF_LIB) -lrf -lSFMT -lstb -lcJSON -lglfw -lglew -lopenal \
 		  -lGL -lX11 -lXinerama -lXrandr -lXcursor -lm -ldl -lpthread
 
 TARGET=bin/radar
-
-$(GLEW_TARGET): 
-	@echo "AR $(GLEW_TARGET)"
-	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -DGLEW_STATIC -I$(GLEW_INCLUDE) -c ext/glew/src/glew.c -o $(GLEW_OBJECT)
-	@ar rcs $(GLEW_TARGET) $(GLEW_OBJECT)
-	@rm $(GLEW_OBJECT)
-
-$(CJSON_TARGET):
-	@echo "AR $(CJSON_TARGET)"
-	@$(CC) $(CFLAGS) $(RELEASE_FLAGS) -I$(CJSON_INCLUDE) -c ext/cjson/cJSON.c -o $(CJSON_OBJECT)
-	@ar rcs $(CJSON_TARGET) $(CJSON_OBJECT) 
-	@rm $(CJSON_OBJECT)
 
 # Compile with specific flags for this one
 $(SFMT_TARGET):
@@ -117,12 +99,6 @@ $(SFMT_TARGET):
 	@$(CC) -O3 -msse2 -fno-strict-aliasing -DHAVE_SSE2=1 -DSFMT_MEXP=19937 -c ext/sfmt/SFMT.c -o $(SFMT_OBJECT)
 	@ar rcs $(SFMT_TARGET) $(SFMT_OBJECT)
 	@rm $(SFMT_OBJECT)
-
-$(STB_TARGET):
-	@echo "AR $(STB_TARGET)"
-	@$(CC) -O3 -fno-strict-aliasing -c ext/stb.cpp -o $(STB_OBJECT)
-	@ar rcs $(STB_TARGET) $(STB_OBJECT)
-	@rm $(STB_OBJECT)
 
 $(OBJ_DIR)%.o: $(SRC_DIR)%.cpp
 	@echo "CC $@"
@@ -132,7 +108,7 @@ $(OBJ_DIR)Game/%.o: $(SRC_DIR)Game/%.cpp
 	@echo "CC $@"
 	@$(CC) $(CFLAGS) $(VERSION_FLAGS) $(INCLUDE_FLAGS) -DGLEW_STATIC -c $< -o $@
 
-radar: $(SFMT_TARGET) $(CJSON_TARGET) $(OBJS)
+radar: $(SFMT_TARGET) $(OBJS)
 	@echo "CC $(TARGET)"
 	$(CC) $(CFLAGS) $(VERSION_FLAGS) -DGLEW_STATIC $(OBJS) $(INCLUDE_FLAGS) $(LIB_FLAGS) -o $(TARGET)
 
