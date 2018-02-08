@@ -196,6 +196,35 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
     }
 }
 
+void UpdateSky(game::state *State, rf::input *Input)
+{
+	State->DayPhase = fmod(State->DayPhase + State->SunSpeed * M_PI * Input->dTime, 2.f * M_PI);
+
+
+	real32 CosET = cosf(State->EarthTilt);
+	
+	vec3f SunPos(SunDistance * CosET * cosf(State->DayPhase) - EarthRadius * cosf(State->Latitude),
+				 SunDistance * sinf(State->EarthTilt) - EarthRadius * sinf(State->Latitude),
+				 SunDistance * CosET * sinf(State->DayPhase));
+	mat4f Rot;
+	Rot = Rot.RotateZ(M_PI_OVER_TWO - State->Latitude);
+	SunPos = Rot * SunPos;
+	
+	//snprintf(Msg, CONSOLE_STRINGLEN, "%e %e %e", Rot[1][1], SunPos.y, SunPos.z); 
+	//LogString(System->ConsoleLog, Msg);
+
+    if(State->IsNight && SunPos.y > 0.f) {
+        State->IsNight = false;
+    }
+    if(!State->IsNight && SunPos.y < 0.f) {
+        State->IsNight = true;
+    }
+
+	State->SunDirection = Normalize(SunPos);
+    //State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
+    State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
+}
+
 void Update(state *State, rf::input *Input, rf::context *Context)
 {
     State->Counter += Input->dTime; 
@@ -259,6 +288,8 @@ void Update(state *State, rf::input *Input, rf::context *Context)
 
     if(KEY_HIT(Input->Keys[KEY_P]))
         State->SunSpeed = 0.f;
+
+    UpdateSky(State, Input);
 }
 
 void Destroy(state *State)
@@ -294,34 +325,6 @@ void GameInitialization(game_memory *Memory)
 }
 
 
-void UpdateSky(sun_storage *Local, game_state *State, game_system *System, game_input *Input)
-{
-	Local->DayPhase = fmod(Local->DayPhase + State->SunSpeed * M_PI * Input->dTime, 2.f * M_PI);
-
-
-	real32 CosET = cosf(Local->EarthTilt);
-	
-	vec3f SunPos(SunDistance * CosET * cosf(Local->DayPhase) - EarthRadius * cosf(Local->Latitude),
-				 SunDistance * sinf(Local->EarthTilt) - EarthRadius * sinf(Local->Latitude),
-				 SunDistance * CosET * sinf(Local->DayPhase));
-	mat4f Rot;
-	Rot = Rot.RotateZ(M_PI_OVER_TWO - Local->Latitude);
-	SunPos = Rot * SunPos;
-	
-	//snprintf(Msg, CONSOLE_STRINGLEN, "%e %e %e", Rot[1][1], SunPos.y, SunPos.z); 
-	//LogString(System->ConsoleLog, Msg);
-
-    if(Local->IsNight && SunPos.y > 0.f) {
-        Local->IsNight = false;
-    }
-    if(!Local->IsNight && SunPos.y < 0.f) {
-        Local->IsNight = true;
-    }
-
-	State->SunDirection = Normalize(SunPos);
-    //State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
-    State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
-}
 
 DLLEXPORT GAMEUPDATE(GameUpdate)
 {

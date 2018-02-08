@@ -84,8 +84,6 @@ float DisneyFrostbite(float NdotV, float NdotL, float LdotH, float linearRoughne
 
 void main()
 {
-    frag_color = vec4(texture(Albedo, v_texcoord).xyz, 1.0);
-    #if 0
     vec3 localNormal = texture(NormalMap, v_texcoord).xyz;
     vec3 tN = normalize(2.0 * localNormal - vec3(1.0));
     vec3 N = normalize(v_normal);
@@ -150,6 +148,4 @@ void main()
     vec3 color = emissive + Ambient + LightColor.xyz * NdotL * (Diffuse + Specular);
 
     frag_color = vec4(color, 1.0);
-    frag_color = vec4(MR,0, 1.0);
-    #endif
 }

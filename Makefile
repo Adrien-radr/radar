@@ -24,6 +24,7 @@ INCLUDE_FLAGS=-I$(SRC_DIR) -Iext/ -I$(SFMT_INCLUDE) -I$(OPENAL_INCLUDE) -I$(CJSO
 SRCS= \
 	sound.cpp \
 	sampling.cpp \
+	tests.cpp \
 	radar.cpp \
 	Game/sun.cpp
 	#water.cpp 

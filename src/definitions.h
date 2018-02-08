@@ -1,7 +1,7 @@
 #ifndef RADAR_DEFINITIONS_H
 #define RADAR_DEFINITIONS_H
 
-#include "rf/rf_common.h"
+#include "rf/rf_defs.h"
 
 #define RADAR_MAJOR 0
 #define RADAR_MINOR 0

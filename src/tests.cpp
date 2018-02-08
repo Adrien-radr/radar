@@ -1,9 +1,7 @@
-#define TEST_MODELS 0
-#define TEST_SPHEREARRAY 0
-#define TEST_PBRMATERIALS 1
-#define TEST_SKYBOX 0
-#define TEST_PLANE 0
-#define TEST_SOUND 0
+#include "tests.h"
+
+#include "rf/utils.h"
+#include "rf/context.h"
 
 namespace Tests
 {
@@ -102,46 +100,46 @@ bool Init(rf::context *Context, config const *Config)
             false, false, Config->AnisotropicFiltering);
 
     PBR_Albedo[0] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/StreakedMetal/albedo.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_MetalRoughness[0] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/StreakedMetal/metalroughness.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_Normal[0] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/StreakedMetal/normal.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 
     PBR_Albedo[1] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedGold/albedo.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_MetalRoughness[1] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedGold/metalroughness.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_Normal[1] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedGold/normal.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 
     PBR_Albedo[2] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/RustedIron/albedo.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_MetalRoughness[2] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/RustedIron/metalroughness.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_Normal[2] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/RustedIron/normal.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 
     PBR_Albedo[3] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedPlastic/albedo_blue.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_MetalRoughness[3] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedPlastic/metalroughness.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_Normal[3] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/ScuffedPlastic/normal.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 
     PBR_Albedo[4] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/SynthRubber/albedo.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_MetalRoughness[4] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/SynthRubber/metalroughness.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_Normal[4] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/SynthRubber/normal.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 
     PBR_Albedo[5] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/PlasticPattern/albedo.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_MetalRoughness[5] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/PlasticPattern/metalroughness.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
     PBR_Normal[5] = rf::ResourceLoad2DTexture(Context, "data/PBRTextures/PlasticPattern/normal.png",
-            false, false, Config->AnisotropicFiltering);
+            false, false, Config->AnisotropicFiltering, GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_REPEAT);
 #endif
 
 #if TEST_SOUND
@@ -306,6 +304,7 @@ void Render(game::state *State, rf::input *Input, rf::context *Context)
             DrawSpheres(i, *PBR_Albedo[i], *PBR_MetalRoughness[i], *PBR_Normal[i]);
         }
 
+        glBindVertexArray(0);
         rf::CheckGLError("PBR draw");
 
         glActiveTexture(GL_TEXTURE0);

@@ -11,6 +11,7 @@
 //#include "water.h"
 //#include "atmosphere.h"
 #include "Game/sun.h"
+#include "tests.h"
 
 // PLATFORM
 int RadarMain(int argc, char **argv);
@@ -19,9 +20,6 @@ int RadarMain(int argc, char **argv);
 #elif RF_UNIX
 #include "radar_unix.cpp"
 #endif
-
-// Temporary rendering tests, to declutter this file
-#include "tests.cpp"
 
 memory *InitMemory()
 {
@@ -248,16 +246,24 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
             // Session Pool occupancy
             int CurrHeight = 0;
             real32 ToMiB = 1.f / (1024*1024);
-            char OccupancyStr[32];
+            char OccupancyStr[64];
+
+            static real32 PermanentOccupancy = Memory->PermanentArena.Size/(real64)Memory->PermanentArena.Capacity;
+            snprintf(OccupancyStr, 64, "permanent stack %.2f / %.2f MiB", Memory->PermanentArena.Size*ToMiB, Memory->PermanentArena.Capacity*ToMiB);
+            rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
+            CurrHeight += 16;
+            rf::ui::MakeProgressbar(&PermanentOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
+            CurrHeight += 16;
+
             static real32 SessionOccupancy = Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity;
-            snprintf(OccupancyStr, 32, "session stack %.1f / %.1f MiB", Memory->SessionArena.Size*ToMiB, Memory->SessionArena.Capacity*ToMiB);
+            snprintf(OccupancyStr, 64, "session stack %.2f / %.2f MiB", Memory->SessionArena.Size*ToMiB, Memory->SessionArena.Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
             rf::ui::MakeProgressbar(&SessionOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
             CurrHeight += 16;
 
             static real32 ScratchOccupancy = Memory->ScratchArena.Size/(real64)Memory->ScratchArena.Capacity;
-            snprintf(OccupancyStr, 32, "scratch stack %.1f / %.1f MiB", Memory->ScratchArena.Size*ToMiB, Memory->ScratchArena.Capacity*ToMiB);
+            snprintf(OccupancyStr, 64, "scratch stack %.2f / %.2f MiB", Memory->ScratchArena.Size*ToMiB, Memory->ScratchArena.Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
             rf::ui::MakeProgressbar(&ScratchOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
