@@ -213,7 +213,7 @@ rf::mesh ScreenQuad = {};
 
 void Init(game::state *State, rf::context *Context, uint32 BeaufortState)
 {
-    ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 1);
+    ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 32);
     WaterSystem = (water::system*)PushArenaStruct(Context->SessionArena, water::system);
 #if 0
     int N = water::system::WaterN;
@@ -448,14 +448,34 @@ void Update(game::state *State, rf::input *Input)
 
 void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
 {
+    glDisable(GL_CULL_FACE);
     glUseProgram(WaterSystem->ProgramWater);
     {
         uint32 Loc = glGetUniformLocation(WaterSystem->ProgramWater, "ViewMatrix");
         rf::SendMat4(Loc, State->Camera.ViewMatrix);
         rf::CheckGLError("ViewMatrix");
     }
+
+    camera WPC = State->Camera;
+    WPC.Theta = Min(WPC.Theta, (real32(M_PI) * 0.5) - 1e-5f);
+    WPC.Theta = WPC.Theta - sin(WPC.Theta);
+    WPC.Forward = SphericalToCartesian(WPC.Theta, WPC.Phi);
+    WPC.Right = Normalize(Cross(WPC.Forward, vec3f(0, 1, 0)));
+    WPC.Up = Normalize(Cross(WPC.Right, WPC.Forward));
+    WPC.Target = WPC.Position + WPC.Forward;
+    WPC.ViewMatrix = mat4f::LookAt(WPC.Position, WPC.Target, WPC.Up);
+#if 0
+    vec3f Pos = State->Camera.Position;
+    vec3f Target = Pos + vec3f(0,-1,0);
+    vec3f Fwd = Normalize(Target - Fwd);
+    vec3f Right = Normalize(Cross(Fwd, vec3f(0, 1, 0)));
+    vec3f Up = Normalize(Cross(Right, Fwd));
+#endif
+
+    rf::SendMat4(glGetUniformLocation(WaterSystem->ProgramWater, "WaterProjMatrix"), WPC.ViewMatrix);
     glBindVertexArray(ScreenQuad.VAO);
     RenderMesh(&ScreenQuad);
+    glEnable(GL_CULL_FACE);
 #if 0
     glUseProgram(WaterSystem->ProgramWater);
     glDisable(GL_CULL_FACE);

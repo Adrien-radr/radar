@@ -201,7 +201,7 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
     static uint32 SystemButtonPanel = 0;
     static char SystemButtonStr[16];
     static vec2i SystemButtonSize(25);
-    static vec3i SystemButtonPos(Context->WindowWidth-SystemButtonSize.x, 0, 0);
+    vec3i SystemButtonPos(Context->WindowWidth-SystemButtonSize.x, 0, 0);
     static uint32 SystemButtonID = 0;
     snprintf(SystemButtonStr, 16, "%s", ICON_FA_COG);
     rf::ui::BeginPanel(&SystemButtonPanel, "", &SystemButtonPos, &SystemButtonSize, rf::ui::COLOR_PANELBG, rf::ui::DECORATION_INVISIBLE);
