@@ -1,3 +1,4 @@
+*.make
 *.exe
 *.dll 
 *.ilk
@@ -13,3 +14,4 @@ bin/radar.exe
 bin/radar
 radar/
 tags
+obj/

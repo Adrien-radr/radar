@@ -6,10 +6,10 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 
+#if 0
+
 static path DllName = "sun.so";
 static path DllDynamicCopyName = "sun_temp.so";
-
-#if 0
 struct game_code
 {
     void *GameDLL;

@@ -1,7 +1,6 @@
+#if 0
 static path DllName = "sun.dll";
 static path DllDynamicCopyName = "sun_temp.dll";
-
-#if 0
 struct game_code
 {
     HMODULE GameDLL;
