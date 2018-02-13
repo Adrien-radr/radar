@@ -213,7 +213,7 @@ rf::mesh ScreenQuad = {};
 
 void Init(game::state *State, rf::context *Context, uint32 BeaufortState)
 {
-    ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 32);
+    ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 3);
     WaterSystem = (water::system*)PushArenaStruct(Context->SessionArena, water::system);
 #if 0
     int N = water::system::WaterN;
@@ -446,6 +446,52 @@ void Update(game::state *State, rf::input *Input)
 #endif
 }
 
+real32 IntersectPlane(vec3f const &N, vec3f const &P0, vec3f const &RayOrg, vec3f const &RayDir)
+{
+    real32 Denom = Dot(N, RayDir);
+    if(std::fabs(Denom) > 1e-5)
+    {
+        vec3f P0Org = P0 - RayOrg;
+        real32 T = Dot(P0Org, N) / Denom;
+        if(T >= 0.f)
+            return T;
+        return -1.f;
+    }
+    return -1.f;
+}
+
+static const float S_Upper = 5.f; // TODO - this is the upper level of displacement, should be parameterized
+static const float M2_FixedLength = 10.f; // Fixed length along the Fwd vector for method 2 projector direction
+
+void GetProjectorPositionAndDirection(vec3f const &CameraPosition, vec3f const &CameraDirection, 
+                                      vec3f &ProjectorPosition, vec3f &ProjectorTarget)
+{
+    ProjectorPosition.y = Max(ProjectorPosition.y, S_Upper); // limit Projector height above upper displacement 
+
+    // Get projector orientation 
+    vec3f D = CameraDirection;
+    vec3f N = vec3f(0,1,0); // plane normal
+    real32 NdotD = Dot(D, N);
+    if(NdotD > 0.f)
+    { // Mirror direction if not towards plane
+        D.y = -D.y;
+        NdotD = -NdotD;
+    }
+
+    // method 1 : to the intersection of the camera direction and the sea plane
+    real32 T = IntersectPlane(N, vec3f(0,0,0), CameraPosition, D);
+    Assert(T >= 0.f);
+    vec3f M1 = CameraPosition + D * T;
+
+    // method 2 : to the 2d plane projection of a fixed length direction along the fwd vector
+    vec3f M2 = CameraPosition + CameraDirection * M2_FixedLength;
+    M2.y = 0.f;
+
+    // The result is a linear mix between the two methods depending on the angle of the cam
+    // view direction and the sea normal
+    ProjectorTarget = Lerp(M2, M1, NdotD);
+}
+
 void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
 {
     glDisable(GL_CULL_FACE);
@@ -456,6 +502,7 @@ void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
         rf::CheckGLError("ViewMatrix");
     }
 
+#if 0
     camera WPC = State->Camera;
     WPC.Theta = Min(WPC.Theta, (real32(M_PI) * 0.5) - 1e-5f);
     WPC.Theta = WPC.Theta - sin(WPC.Theta);
@@ -464,7 +511,6 @@ void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
     WPC.Up = Normalize(Cross(WPC.Right, WPC.Forward));
     WPC.Target = WPC.Position + WPC.Forward;
     WPC.ViewMatrix = mat4f::LookAt(WPC.Position, WPC.Target, WPC.Up);
-#if 0
     vec3f Pos = State->Camera.Position;
     vec3f Target = Pos + vec3f(0,-1,0);
     vec3f Fwd = Normalize(Target - Fwd);
@@ -472,7 +518,15 @@ void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
     vec3f Up = Normalize(Cross(Right, Fwd));
 #endif
 
-    rf::SendMat4(glGetUniformLocation(WaterSystem->ProgramWater, "WaterProjMatrix"), WPC.ViewMatrix);
+    vec3f ProjPos, ProjTarget;
+    GetProjectorPositionAndDirection(State->Camera.Position, State->Camera.Forward, ProjPos, ProjTarget);
+    vec3f ProjFwd = Normalize(ProjTarget - ProjPos);
+    vec3f ProjRight = Normalize(Cross(ProjFwd, vec3f(0,1,0)));
+    vec3f ProjUp = Normalize(Cross(ProjRight, ProjFwd));
+    mat4f ProjectorMatrix = mat4f::LookAt(ProjPos, ProjTarget, ProjUp);
+
+    rf::SendVec3(glGetUniformLocation(WaterSystem->ProgramWater, "ProjectorPosition"), ProjPos);
+    rf::SendMat4(glGetUniformLocation(WaterSystem->ProgramWater, "WaterProjMatrix"), ProjectorMatrix);
     glBindVertexArray(ScreenQuad.VAO);
     RenderMesh(&ScreenQuad);
     glEnable(GL_CULL_FACE);
