@@ -213,7 +213,7 @@ rf::mesh ScreenQuad = {};
 
 void Init(game::state *State, rf::context *Context, uint32 BeaufortState)
 {
-    ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 3);
+    ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 5);
     WaterSystem = (water::system*)PushArenaStruct(Context->SessionArena, water::system);
 #if 0
     int N = water::system::WaterN;
@@ -466,7 +466,8 @@ static const float M2_FixedLength = 10.f; // Fixed length along the Fwd vector f
 void GetProjectorPositionAndDirection(vec3f const &CameraPosition, vec3f const &CameraDirection, 
                                       vec3f &ProjectorPosition, vec3f &ProjectorTarget)
 {
-    ProjectorPosition.y = Max(ProjectorPosition.y, S_Upper); // limit Projector height above upper displacement 
+    ProjectorPosition = CameraPosition;
+    //ProjectorPosition.y = Max(ProjectorPosition.y, S_Upper); // limit Projector height above upper displacement 
 
     // Get projector orientation 
     vec3f D = CameraDirection;
@@ -525,6 +526,7 @@ void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
     vec3f ProjUp = Normalize(Cross(ProjRight, ProjFwd));
     mat4f ProjectorMatrix = mat4f::LookAt(ProjPos, ProjTarget, ProjUp);
 
+    rf::SendFloat(glGetUniformLocation(WaterSystem->ProgramWater, "Time"), State->EngineTime);
     rf::SendVec3(glGetUniformLocation(WaterSystem->ProgramWater, "ProjectorPosition"), ProjPos);
     rf::SendMat4(glGetUniformLocation(WaterSystem->ProgramWater, "WaterProjMatrix"), ProjectorMatrix);
     glBindVertexArray(ScreenQuad.VAO);

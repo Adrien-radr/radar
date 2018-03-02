@@ -545,7 +545,7 @@ vec3 WaterShading(in vec3 P, in float depth, in vec3 N, in vec3 E, in vec3 L, in
 void main()
 {
     vec3 contrib = vec3(0);
-#if 0
+
     vec3 E = normalize(v_eyeRay);
     vec3 EarthCenter = vec3(0,-Atmosphere.BottomRadius, 0);
     vec3 P = v_CameraPosition;
@@ -564,6 +564,14 @@ void main()
     float r = length(P);
     float mu = PdotV / r;
 
+    if(Depth > 0)
+    {
+    }
+    else
+    {
+        contrib = vec3(1,0,0);
+    }
+#if 0
     if(Depth > 0)
     { // earth
         vec3 Point = P + E * Depth;
@@ -622,5 +630,5 @@ void main()
     #endif
 
     frag_color = vec4(contrib, 1); 
-    frag_color.a = 0.0;
+    frag_color.a = 1.0;
 }

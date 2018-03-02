@@ -8,6 +8,8 @@ uniform mat4 ViewMatrix;
 uniform mat4 ProjMatrix;
 uniform vec3 ProjectorPosition;
 
+uniform float Time;
+
 out vec2 v_texcoord;
 out float v_depth;
 
@@ -39,17 +41,31 @@ void main()
     #endif
     vec3 CamPos = ProjectorPosition;//vec3(WPM[3][0], WPM[3][1], WPM[3][2]);
     vec4 eyeRay = inverse(WPM) * vec4((inverse(ProjMatrix) * vec4(in_position.xy, 0, 1)).xyz, 0.0);
-    vec3 E = eyeRay.xyz;
+    vec3 E = normalize(eyeRay.xyz);
 
-    float depth = in_texcoord.y*10;//0.01*intersectPlane(vec3(0,1,0), vec3(0,0,0), CamPos, E);
-    if(depth < 0.0) depth = 0.0;
+    float depth = intersectPlane(vec3(0,1,0), vec3(0,3,0), CamPos, E);
+    if(depth < 0.0) 
+    {
+        depth = 0.0;
+        v_depth = -1000;
+    }
+    else
+    {
+        v_depth = depth;
+    }
 
-    vec3 T = vec3(depth,0,depth);
-    mat4 MM  = mat4(1,0,0,0,
-                    0,1,0,0,
-                    0,0,1,0,
-                    in_position.x,0,T.z,1);
-    vec4 v_3d = inverse(MM*WPM) * inverse(ProjMatrix) * vec4(in_position.xy, 0, 1);
+    E *= depth;
+
+    //vec4 v_3d = inverse(MM*WPM) * inverse(ProjMatrix) * vec4(in_position.xy, 0, 1);
+    float sf = 5.0;
+    mat4 ScaleMat = mat4(
+        sf,0,0,0,
+        0,1.0,0,0,
+        0,0,sf,0,
+        0,0,0,1.0
+    );
+
+    vec4  v_3d = ScaleMat * vec4(CamPos + E, 1);
+    //v_3d.y += 0.1*sin(Time);
     gl_Position = ProjMatrix * WPM * v_3d;
-    v_depth = depth;
 }
