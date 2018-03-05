@@ -9,7 +9,7 @@ workspace "Radar"
     architecture "x86_64"
 
     platforms { "Windows", "Unix" }
-    configurations { "Debug", "Release" }
+    configurations { "Debug", "Release", "ReleaseDbg" }
 
     filter "configurations:Debug"
         defines { "DEBUG" }
@@ -17,6 +17,14 @@ workspace "Radar"
 
     filter "configurations:Release"
         optimize "On"
+
+    filter "configurations:ReleaseDbg"
+        optimize "Debug"
+        buildoptions { "-fno-omit-frame-pointer" }
+
+    filter {}
+
+    buildoptions { "-Wall" }
 
 project "sfmt"
     optimize "On"
@@ -43,7 +51,10 @@ project "radar"
     filter "configurations:Debug"
         links { "rf_d", "glfw3_d" }
 
-    filter "configurations:Release"
+    filter "configurations:ReleaseDbg"
+        links { "rf_p", "glfw3_p" }
+
+    filter { "configurations:Release" }
         links { "rf", "glfw3" }
 
     filter {}
