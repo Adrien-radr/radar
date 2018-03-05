@@ -294,6 +294,7 @@ int RadarMain(int argc, char **argv)
     snprintf(ExecutableName, MAX_PATH, "Radar Engine %d.%d.%d", RADAR_MAJOR, RADAR_MINOR, RADAR_PATCH);
     rf::context_descriptor CtxDesc = MakeContextDescriptor(Memory, &Config, ExecutableName);
     rf::context *Context = rf::ctx::Init(&CtxDesc);
+    LogInfo("");
     LogInfo("%s", ExecutableName);
 
     if(!Context->IsValid || !Memory->IsValid)

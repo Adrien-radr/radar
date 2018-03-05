@@ -8,7 +8,9 @@ workspace "Radar"
     cppdialect "C++11"
     architecture "x86_64"
 
+    platforms { "Windows", "Unix" }
     configurations { "Debug", "Release" }
+
     filter "configurations:Debug"
         defines { "DEBUG" }
         symbols "On"
@@ -17,7 +19,6 @@ workspace "Radar"
         optimize "On"
 
 project "sfmt"
-    configurations { "Release" }
     optimize "On"
     symbols "Off"
 
@@ -39,4 +40,12 @@ project "radar"
 
     libdirs { "ext/rf/lib", "ext/openal-soft/build" }
 
-    links { "rf", "openal", "glfw3", "GL", "X11", "dl", "pthread"  }
+    filter "configurations:Debug"
+        links { "rf_d", "glfw3_d" }
+
+    filter "configurations:Release"
+        links { "rf", "glfw3" }
+
+    filter {}
+
+    links { "openal", "GL", "X11", "dl", "pthread"  }
