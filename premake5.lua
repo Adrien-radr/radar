@@ -24,7 +24,16 @@ workspace "Radar"
 
     filter {}
 
-    buildoptions { "-Wall" }
+    buildoptions { "-W4" }
+
+externalproject "rf"
+    kind "StaticLib"    
+    location "ext/rf"
+    includedirs { "ext/rf/ext/glfw/include" }
+
+externalproject "glfw3"
+    kind "StaticLib"
+    location "ext/rf"
 
 project "sfmt"
     optimize "On"
@@ -39,12 +48,14 @@ project "sfmt"
 project "radar"
     kind "ConsoleApp"
     targetdir "bin/"
+    debugdir "bin/"
     defines { "GLEW_STATIC" }
     defines { "HAVE_SSE2=1", "SFMT_MEXP=19937" }
 
     files { "src/**.cpp", "src/**.h" }
     removefiles { "src/radar_unix.cpp", "src/radar_win32.cpp" }
-    includedirs { "src", "ext/rf/include", "ext/sfmt", "ext/rf/ext/cjson", "ext/openal-soft/include" }
+    includedirs { "src", "ext/rf/include", "ext/sfmt", "ext/rf/ext/cjson", 
+                  "ext/openal-soft/include", "ext/rf/ext/glew/include", "ext/rf/ext/glfw/include" }
 
     libdirs { "ext/rf/lib", "ext/openal-soft/build" }
 
@@ -57,6 +68,12 @@ project "radar"
     filter { "configurations:Release" }
         links { "rf", "glfw3" }
 
+    filter "platforms:Windows"
+        links { "openal32", "opengl32" }
+
+    filter "platforms:Unix"
+        links { "openal", "GL", "X11", "dl", "pthread" }
+
     filter {}
 
-    links { "openal", "GL", "X11", "dl", "pthread"  }
+    links { "sfmt"  }

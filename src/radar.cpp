@@ -114,7 +114,7 @@ bool ParseConfig(config *ConfigOut, char const *Filename)
         rf::ConcatStrings(PersonalConfigPath, ExePath, "config.json");
         rf::DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
 
-        return ParseConfig(ConfigOut, DefaultConfigPath);
+        return ParseConfig(ConfigOut, "default_config.json");
     }
     return true;
 }
