@@ -69,7 +69,7 @@ project "radar"
         links { "rf", "glfw3" }
 
     filter "platforms:Windows"
-        links { "openal32", "opengl32" }
+        links { "openal32", "opengl32", "PowrProf" }
 
     filter "platforms:Unix"
         links { "openal", "GL", "X11", "dl", "pthread" }
