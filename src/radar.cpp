@@ -25,9 +25,9 @@ memory *InitMemory()
 {
     memory *Memory = (memory*)calloc(1, sizeof(memory));
 
-    Memory->PermanentMemPoolSize = Megabytes(32);
-    Memory->SessionMemPoolSize = Megabytes(512);
-    Memory->ScratchMemPoolSize = Megabytes(64);
+	Memory->PermanentMemPoolSize = 32 * MB;
+	Memory->SessionMemPoolSize = 512 * MB;
+	Memory->ScratchMemPoolSize = 64 * MB;
 
     Memory->PermanentMemPool = calloc(1, Memory->PermanentMemPoolSize);
     Memory->SessionMemPool = calloc(1, Memory->SessionMemPoolSize);
@@ -114,7 +114,7 @@ bool ParseConfig(config *ConfigOut, char const *Filename)
         rf::ConcatStrings(PersonalConfigPath, ExePath, "config.json");
         rf::DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
 
-        return ParseConfig(ConfigOut, DefaultConfigPath);
+        return ParseConfig(ConfigOut, "default_config.json");
     }
     return true;
 }

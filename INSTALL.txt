@@ -1,0 +1,10 @@
+In order :
+
+git submodule update --init --recursive
+cd ext/openal-soft/build
+cmake ..
+[compile openal depending on platform]
+copy Release/OpenAL32.lib and x64/Release/OpenAL32.dll to ./ (ext/openal-soft/build)
+cd radar/
+premake5 [platform]
+[compile radar]
