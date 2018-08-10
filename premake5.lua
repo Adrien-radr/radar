@@ -44,7 +44,7 @@ project "radar"
 
     files { "src/**.cpp", "src/**.h" }
     removefiles { "src/radar_unix.cpp", "src/radar_win32.cpp" }
-    includedirs { "src", "ext/rf/include", "ext/sfmt", "ext/rf/ext/cjson", "ext/openal-soft/include" }
+    includedirs { "src", "ext/rf/include", "ext/rf/ext/glew/include", "ext/sfmt", "ext/rf/ext/cjson", "ext/openal-soft/include" }
 
     libdirs { "ext/rf/lib", "ext/openal-soft/build" }
 
