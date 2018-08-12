@@ -16,15 +16,15 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
 + Specular IBL
 
 ### UI
-- ~~2D Panel creation with custom shader~~
-    - ~~1 VS / 1 FS : pos, tex, color~~
-    - ~~1 VBO per panel~~
-    - ~~Z depth layering~~
-    - ~~Transparence~~
++ ~~2D Panel creation with custom shader~~
+    + ~~1 VS / 1 FS : pos, tex, color~~
+    + ~~1 VBO per panel~~
+    + ~~Z depth layering~~
+    + ~~Transparency~~
 - When word wrapping with a maxWidth for display texts : wrap at spaces, not inside words
-- Display textures in panel (e.g. gbuffers display)
-- Color theme for panels, borders, text color, ...
-- JSON UI descriptor ?
++ Display textures in panel (e.g. gbuffers display)
++ Color theme for panels, borders, text color, ...
+- JSON UI descriptor
 
 ### Water
 - Underwater render

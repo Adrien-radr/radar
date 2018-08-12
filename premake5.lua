@@ -22,18 +22,24 @@ workspace "Radar"
         optimize "Debug"
         buildoptions { "-fno-omit-frame-pointer" }
 
+    filter "platforms:Windows"
+        buildoptions { "-W4" }
+
+    filter "platforms:Unix"
+        buildoptions { "-Wall" }
+
     filter {}
-
-    buildoptions { "-W4" }
-
-externalproject "rf"
-    kind "StaticLib"    
-    location "ext/rf"
-    includedirs { "ext/rf/ext/glfw/include" }
 
 externalproject "glfw3"
     kind "StaticLib"
     location "ext/rf"
+    targetdir "ext/rf/lib"
+
+externalproject "rf"
+    kind "StaticLib"    
+    location "ext/rf"
+    targetdir "ext/rf/lib"
+    includedirs { "ext/rf/ext/glfw/include" }
 
 project "sfmt"
     optimize "On"
