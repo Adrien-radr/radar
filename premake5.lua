@@ -75,6 +75,7 @@ project "radar"
         links { "rf", "glfw3" }
 
     filter "platforms:Windows"
+        libdirs{ "ext/openal-soft/build/Release" }
         links { "openal32", "opengl32", "PowrProf" }
 
     filter "platforms:Unix"
