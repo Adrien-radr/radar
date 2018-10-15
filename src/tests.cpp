@@ -239,15 +239,15 @@ void Render(game::state *State, rf::input *Input, rf::context *Context)
         uint32 EmissiveLoc = glGetUniformLocation(Program3D, "EmissiveMult");
         uint32 MetallicLoc = glGetUniformLocation(Program3D, "MetallicMult");
         uint32 RoughnessLoc = glGetUniformLocation(Program3D, "RoughnessMult");
-        rf::SendVec3(AlbedoLoc, vec3f(0.7, 0.7, 0.7));
+        rf::SendVec3(AlbedoLoc, vec3f(0.7f, 0.7f, 0.7f));
         rf::SendVec3(EmissiveLoc, vec3f(1));
         for(int j = 0; j < PBRCount; ++j)
         {
             rf::SendFloat(MetallicLoc, (j)/(real32)PBRCount);
             for(int i = 0; i < 9; ++i)
             {
-                rf::SendFloat(RoughnessLoc, Clamp((i)/9.0, 0.05f, 1.f));
-                ModelMatrix.FromTRS(vec3f(-3*(j), 3.0, 3*(i+1)), vec3f(0.f), vec3f(1.f));
+                rf::SendFloat(RoughnessLoc, Clamp((i)/9.0f, 0.05f, 1.f));
+                ModelMatrix.FromTRS(vec3f(-3.0f*(j), 3.0f, 3.0f*(i+1)), vec3f(0.f), vec3f(1.f));
                 rf::SendMat4(Loc, ModelMatrix);
                 rf::RenderMesh(&Sphere);
             }
@@ -293,8 +293,8 @@ void Render(game::state *State, rf::input *Input, rf::context *Context)
             rf::BindTexture2D(*Context->RenderResources.DefaultEmissiveTexture, 3);
             for(int i = 0; i < 9; ++ i)
             {
-                rf::SendFloat(RoughnessLoc, 1.0 + 0.5 * i);
-                ModelMatrix.FromTRS(vec3f(-(PBRCount+idx) * 3.0, 3.0, 3.0*(i+1)), vec3f(0.f), vec3f(1.f));
+                rf::SendFloat(RoughnessLoc, 1.0f + 0.5f * i);
+                ModelMatrix.FromTRS(vec3f(-(PBRCount+idx) * 3.0f, 3.0f, 3.0f*(i+1)), vec3f(0.f), vec3f(1.f));
                 rf::SendMat4(Loc, ModelMatrix);
                 rf::RenderMesh(&Sphere);
             }

@@ -88,7 +88,7 @@ bool ParseConfig(config *ConfigOut, char const *Filename)
             ConfigOut->CameraPosition = rf::JSON_Get(root, "vCameraPosition", vec3f(1,1,1));
             ConfigOut->CameraTarget = rf::JSON_Get(root, "vCameraTarget", vec3f(0,0,0));
 
-            ConfigOut->TimeScale = rf::JSON_Get(root, "fTimescale", 30.0);
+            ConfigOut->TimeScale = (real32)rf::JSON_Get(root, "fTimescale", 30.0);
         }
         else
         {
@@ -223,21 +223,21 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
             real32 ToMiB = 1.f / (1024*1024);
             char OccupancyStr[64];
 
-            static real32 PermanentOccupancy = Memory->PermanentArena.Size/(real64)Memory->PermanentArena.Capacity;
+            static real32 PermanentOccupancy = (real32)(Memory->PermanentArena.Size/(real64)Memory->PermanentArena.Capacity);
             snprintf(OccupancyStr, 64, "permanent stack %.2f / %.2f MiB", Memory->PermanentArena.Size*ToMiB, Memory->PermanentArena.Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
             rf::ui::MakeProgressbar(&PermanentOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
             CurrHeight += 16;
 
-            static real32 SessionOccupancy = Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity;
+            static real32 SessionOccupancy = (real32)(Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity);
             snprintf(OccupancyStr, 64, "session stack %.2f / %.2f MiB", Memory->SessionArena.Size*ToMiB, Memory->SessionArena.Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
             rf::ui::MakeProgressbar(&SessionOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
             CurrHeight += 16;
 
-            static real32 ScratchOccupancy = Memory->ScratchArena.Size/(real64)Memory->ScratchArena.Capacity;
+            static real32 ScratchOccupancy = (real32)(Memory->ScratchArena.Size/(real64)Memory->ScratchArena.Capacity);
             snprintf(OccupancyStr, 64, "scratch stack %.2f / %.2f MiB", Memory->ScratchArena.Size*ToMiB, Memory->ScratchArena.Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
@@ -266,8 +266,8 @@ rf::context_descriptor MakeContextDescriptor(memory *Memory, config *Config, pat
     CtxDesc.SessionArena = &Memory->SessionArena;
     CtxDesc.ScratchArena = &Memory->ScratchArena;
     // cpy WinX, WinY, WinW, WinH, VSync, FOV, NearPlane, FarPlane from Config to the Descriptor
-    CtxDesc.WindowX = Config->WindowX;
-    CtxDesc.WindowY = Config->WindowY;
+    CtxDesc.WindowX = (real32)Config->WindowX;
+    CtxDesc.WindowY = (real32)Config->WindowY;
     CtxDesc.WindowWidth = Config->WindowWidth;
     CtxDesc.WindowHeight = Config->WindowHeight;
     CtxDesc.VSync = Config->VSync;
@@ -416,7 +416,7 @@ int RadarMain(int argc, char **argv)
         uint32 MipmapLogLoc = glGetUniformLocation(Context->ProgramPostProcess, "MipmapQueryLevel");
         uint32 ResolutionLoc = glGetUniformLocation(Context->ProgramPostProcess, "Resolution");
         rf::SendFloat(MipmapLogLoc, Context->WindowSizeLogLevel);
-        rf::SendVec2(ResolutionLoc, vec2f(Context->WindowWidth, Context->WindowHeight));
+        rf::SendVec2(ResolutionLoc, vec2f((real32)Context->WindowWidth, (real32)Context->WindowHeight));
         rf::SendVec3(glGetUniformLocation(Context->ProgramPostProcess, "CameraPosition"), vec3f(State->Camera.Position.y));
         rf::BindTexture2D(FPBackbuffer.BufferIDs[0], 0);
         glGenerateMipmap(GL_TEXTURE_2D); // generate mipmap for the color buffer

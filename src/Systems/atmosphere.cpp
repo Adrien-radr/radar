@@ -160,7 +160,7 @@ namespace atmosphere
         int Row = (int)(std::floor(u));
         Assert(Row >= 0 && Row+1 < 95);
         u -= Row;
-        return CIE_2_DEG_COLOR_MATCHING_FUNCTIONS[4 * Row + Col] * (1.0 - u) +
+        return CIE_2_DEG_COLOR_MATCHING_FUNCTIONS[4 * Row + Col] * (1.0f - u) +
                CIE_2_DEG_COLOR_MATCHING_FUNCTIONS[4 * (Row + 1) + Col] * u;
     }
 
@@ -242,11 +242,11 @@ namespace atmosphere
     static const real32 kMieSingleScatteringAlbedo = 0.9f;
     static const real32 kDobsonUnit = 5.687e20f; // From wiki, in molecules.m^-2 // orig 5.687e20
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
-    static const real32 kGroundAlbedo = 0.05; // orig 0.1
+    static const real32 kGroundAlbedo = 0.05f; // orig 0.1
     static const real32 kSunAngularRadius = 0.004675f;
-    static const real32 kMoonAngularRadius = 0.018;//0.004509f;
+    static const real32 kMoonAngularRadius = 0.018f;//0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = USE_MOON ? 0.93 : 0.80;
+    static const real32 kMiePhaseG = USE_MOON ? 0.93f : 0.80f;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 120.f;
 
     static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
@@ -307,6 +307,7 @@ namespace atmosphere
 
     void Init(game::state *State, rf::context *Context)
     {
+		(void) State;
         ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1));
 
         AtmosphereParameters.TopRadius = 6420000.f;
@@ -332,7 +333,7 @@ namespace atmosphere
             int Idx = (l-LAMBDA_MIN)/10;
             real32 Lambda = (real32)l * 1e-3f; // micrometers
             real32 Mie = kMieAngstromBeta / kMieScaleHeight * std::pow(Lambda, -kMieAngstromAlpha);
-            Wavelengths[Idx] = l;
+            Wavelengths[Idx] = (real32)l;
             RayleighScatteringWavelengths[Idx] = kRayleigh * std::pow(Lambda, -4);
             MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
             MieExtinctionWavelengths[Idx] = Mie;
@@ -582,8 +583,8 @@ namespace atmosphere
         rf::SendMat4(glGetUniformLocation(AtmosphereProgram, "ProjMatrix"), ProjMatrix);
         rf::SendFloat(glGetUniformLocation(AtmosphereProgram, "CameraScale"), CameraScale);
         rf::SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
-        rf::SendFloat(glGetUniformLocation(AtmosphereProgram, "Time"), State->EngineTime);
-        rf::SendVec2(glGetUniformLocation(AtmosphereProgram, "Resolution"), vec2f(Context->WindowWidth, Context->WindowHeight));
+        rf::SendFloat(glGetUniformLocation(AtmosphereProgram, "Time"), (real32)State->EngineTime);
+        rf::SendVec2(glGetUniformLocation(AtmosphereProgram, "Resolution"), vec2f((real32)Context->WindowWidth, (real32)Context->WindowHeight));
         rf::CheckGLError("Atmo0");
 #ifdef PRECOMPUTE_STUFF
         rf::BindTexture2D(TransmittanceTexture, 0);
@@ -633,10 +634,10 @@ namespace atmosphere
         int const dLambda = 1;
         for(int lambda = LAMBDA_MIN; lambda < LAMBDA_MAX; lambda += dLambda)
         {
-            real32 Val = Interpolate(Wavelengths, Spectrum, N, lambda);
-            xyz.x += CieColorMatchingFunctionTableValue(lambda, 1) * Val;
-            xyz.y += CieColorMatchingFunctionTableValue(lambda, 2) * Val;
-            xyz.z += CieColorMatchingFunctionTableValue(lambda, 3) * Val;
+            real32 Val = Interpolate(Wavelengths, Spectrum, N, (real32)lambda);
+            xyz.x += CieColorMatchingFunctionTableValue((real32)lambda, 1) * Val;
+            xyz.y += CieColorMatchingFunctionTableValue((real32)lambda, 2) * Val;
+            xyz.z += CieColorMatchingFunctionTableValue((real32)lambda, 3) * Val;
         }
 
         SRGB.x = MAX_LUMINOUS_EFFICACY * (XYZ_TO_SRGB[0] * xyz.x + XYZ_TO_SRGB[1] * xyz.y + XYZ_TO_SRGB[2] * xyz.z) * dLambda;

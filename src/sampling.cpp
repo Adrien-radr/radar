@@ -16,12 +16,12 @@ real32 Halton2(uint32 Index) {
 }
 
 real32 Halton3(const uint32 Index) {
-    real32 Result = 0.0;
-    real32 f = 1.0 / 3.0;
+    real32 Result = 0.0f;
+    real32 f = 1.0f / 3.0f;
     uint32 i = Index;
     while (i > 0) {
         Result = Result + f*(i % 3);
-        f = f / 3.0;
+        f = f / 3.0f;
         i = i / 3;
     }
 
@@ -29,12 +29,12 @@ real32 Halton3(const uint32 Index) {
 }
 
 real32 Halton5(const uint32 Index) {
-    real32 Result = 0.0;
-    real32 f = 1.0f / 5.0;
+    real32 Result = 0.0f;
+    real32 f = 1.0f / 5.0f;
     uint32 i = Index;
     while (i > 0) {
         Result = Result + f*(i % 5);
-        f = f / 5.0;
+        f = f / 5.0f;
         i = i / 5;
     }
 
@@ -48,7 +48,7 @@ real32 VanDerCorput(uint32 bits)
     bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
     bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
     bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-    return float(bits) * 2.3283064365386963e-10; // / 0x100000000
+    return float(bits) * 2.3283064365386963e-10f; // / 0x100000000
 }
 
 vec2f SampleHammersley(uint32 i, real32 InverseN)

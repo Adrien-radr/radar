@@ -5,8 +5,8 @@
 
 namespace game {
 // In meters
-const real32 EarthRadius = 6.3710088e6;
-const real32 SunDistance = 1.496e11;
+const real32 EarthRadius = 6.3710088e6f;
+const real32 SunDistance = 1.496e11f;
 
 void InitCamera(camera *Camera, config *Config)
 {
@@ -45,8 +45,8 @@ bool Init(state *State, config *Config)
 	State->Latitude = 5.345317f * DEG2RAD;
 	State->EarthTilt = 23.43f * DEG2RAD;
     State->SunSpeed = Config->TimeScale * (M_PI / 86400.f);
-    State->SunDirection = SphericalToCartesian(0.46 * M_PI, M_TWO_PI * 0.37);
-    State->LightColor = vec4f(1.0f, 0.6, 0.5, 1.0f);
+    State->SunDirection = SphericalToCartesian(0.46f * M_PI, M_TWO_PI * 0.37f);
+    State->LightColor = vec4f(1.0f, 0.6f, 0.5f, 1.0f);
     State->WaterCounter = 0.0;
     State->WaterStateInterp = 0.f;
     State->WaterState = 1;
@@ -57,7 +57,7 @@ bool Init(state *State, config *Config)
 
 static void UpdateUI(state *State, rf::input *Input, rf::context *Context)
 {
-    int32 TextlineCount = 4;
+    //int32 TextlineCount = 4;
     if(State->CounterTenth >= 0.1)
     {
         const camera &Camera = State->Camera;
@@ -131,7 +131,7 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
     CameraMove *= (real32)(Input->dTime * Camera.LinearSpeed * SpeedMult);
     Camera.Position += CameraMove;
 
-    Camera.Position.y = Max(0.5, Camera.Position.y); // Min at .5 meters
+    Camera.Position.y = Max(0.5f, Camera.Position.y); // Min at .5 meters
 
     if(MOUSE_HIT(Input->MouseRight))
     {
@@ -152,8 +152,8 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 
         if(MouseOffset.x != 0 || MouseOffset.y != 0)
         {
-            Camera.Phi += MouseOffset.x * Input->dTime * Camera.AngularSpeed;
-            Camera.Theta += MouseOffset.y * Input->dTime * Camera.AngularSpeed;
+            Camera.Phi += real32(MouseOffset.x * Input->dTime * Camera.AngularSpeed);
+            Camera.Theta += real32(MouseOffset.y * Input->dTime * Camera.AngularSpeed);
 
             if(Camera.Phi > M_TWO_PI) Camera.Phi -= M_TWO_PI;
             if(Camera.Phi < 0.0f) Camera.Phi += M_TWO_PI;
@@ -198,7 +198,7 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 
 void UpdateSky(game::state *State, rf::input *Input)
 {
-	State->DayPhase = fmod(State->DayPhase + State->SunSpeed * M_PI * Input->dTime, 2.f * M_PI);
+	State->DayPhase = fmod(State->DayPhase + State->SunSpeed * M_PI * (real32)Input->dTime, 2.f * M_PI);
 
 
 	real32 CosET = cosf(State->EarthTilt);
@@ -222,7 +222,7 @@ void UpdateSky(game::state *State, rf::input *Input)
 
 	State->SunDirection = Normalize(SunPos);
     //State->LightColor = vec4f(0.9f, 0.7, 0.8, 1.0f);
-    State->LightColor = vec4f(2.7f, 2.1, 2.4, 1.0f);
+    State->LightColor = vec4f(2.7f, 2.1f, 2.4f, 1.0f);
 }
 
 void Update(state *State, rf::input *Input, rf::context *Context)
@@ -277,13 +277,13 @@ void Update(state *State, rf::input *Input, rf::context *Context)
     if(KEY_DOWN(Input->Keys[KEY_KP_MULTIPLY]))
     {
        // State->WaterDirection += Input->dTime * 0.05;
-        State->SunSpeed += 0.0005;
+        State->SunSpeed += 0.0005f;
     }
 
     if(KEY_DOWN(Input->Keys[KEY_KP_DIVIDE]))
     {
         //State->WaterDirection -= Input->dTime * 0.05;
-        State->SunSpeed -= 0.0005;
+        State->SunSpeed -= 0.0005f;
     }
 
     if(KEY_HIT(Input->Keys[KEY_P]))
@@ -294,6 +294,7 @@ void Update(state *State, rf::input *Input, rf::context *Context)
 
 void Destroy(state *State)
 {
+	(void) State;
 }
 
 }

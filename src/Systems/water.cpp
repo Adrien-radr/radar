@@ -174,8 +174,8 @@ void WaterBeaufortStateInitialize(water::system *WaterSystem, uint32 State)
     int N = water::system::WaterN;
     int NPlus1 = N+1;
 
-    WaterState->Width = BeaufortParams[State][0] * water::system::WaterN;
-    WaterState->Direction = vec2f(BeaufortParams[State][1] * water::system::WaterN, 0.0);
+    WaterState->Width = (int)BeaufortParams[State][0] * water::system::WaterN;
+    WaterState->Direction = vec2f(BeaufortParams[State][1] * water::system::WaterN, 0.0f);
     WaterState->Amplitude = 0.00000025f * BeaufortParams[State][2] * water::system::WaterN;
 
     size_t BaseOffset = 2 * WaterSystem->VertexCount;
@@ -526,7 +526,7 @@ void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
     vec3f ProjUp = Normalize(Cross(ProjRight, ProjFwd));
     mat4f ProjectorMatrix = mat4f::LookAt(ProjPos, ProjTarget, ProjUp);
 
-    rf::SendFloat(glGetUniformLocation(WaterSystem->ProgramWater, "Time"), State->EngineTime);
+    rf::SendFloat(glGetUniformLocation(WaterSystem->ProgramWater, "Time"), (real32)State->EngineTime);
     rf::SendVec3(glGetUniformLocation(WaterSystem->ProgramWater, "ProjectorPosition"), ProjPos);
     rf::SendMat4(glGetUniformLocation(WaterSystem->ProgramWater, "WaterProjMatrix"), ProjectorMatrix);
     glBindVertexArray(ScreenQuad.VAO);
