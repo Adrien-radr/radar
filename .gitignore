@@ -21,3 +21,5 @@ obj/
 *.filters
 *.log
 .vs/
+/bin/config.json
+/bin/ui_config.json

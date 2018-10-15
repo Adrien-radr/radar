@@ -41,26 +41,16 @@ externalproject "rf"
     targetdir "ext/rf/lib"
     includedirs { "ext/rf/ext/glfw/include" }
 
-project "sfmt"
-    optimize "On"
-    symbols "Off"
-
-    kind "StaticLib"
-    targetdir "ext/sfmt"
-    includedirs { "ext/sfmt" }
-    files { "ext/sfmt/*" }
-    defines { "HAVE_SSE2=1", "SFMT_MEXP=19937" }
-
 project "radar"
     kind "ConsoleApp"
     targetdir "bin/"
     debugdir "bin/"
     defines { "GLEW_STATIC" }
-    defines { "HAVE_SSE2=1", "SFMT_MEXP=19937" }
+    defines { "HAVE_SSE2=1" }
 
     files { "src/**.cpp", "src/**.h" }
     removefiles { "src/radar_unix.cpp", "src/radar_win32.cpp" }
-    includedirs { "src", "ext/rf/include", "ext/sfmt", "ext/rf/ext/cjson", "ext/openal-soft/include",
+    includedirs { "src", "ext/rf/include", "ext/rf/ext/cjson", "ext/openal-soft/include",
                   "ext/rf/ext/glew/include", "ext/rf/ext/glfw/include" }
 
     libdirs { "ext/rf/lib", "ext/openal-soft/build" }
@@ -82,5 +72,3 @@ project "radar"
         links { "openal", "GL", "X11", "dl", "pthread" }
 
     filter {}
-
-    links { "sfmt"  }

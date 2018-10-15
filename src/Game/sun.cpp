@@ -1,6 +1,5 @@
 #include <algorithm>
 #include "sun.h"
-#include "SFMT.h"
 #include "rf/context.h"
 
 namespace game {
