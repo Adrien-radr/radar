@@ -7,9 +7,13 @@ namespace planet
 {
 	rf::mesh TessTest = {};
 	uint32 TessTestShader = 0;
+	mat4f TriModelMatrix;
 
 	void Init(game::state * State, rf::context * Context)
 	{
+		float sc = 10.0;
+		TriModelMatrix.FromTRS(vec3f(0, 0, 0), vec3f(0, 0, 0), vec3f(sc));
+
 		std::vector<vec3f> Positions;
 		std::vector<uint32> Indices;
 
@@ -42,7 +46,8 @@ namespace planet
 	{
 		mat4f const &ViewMatrix = State->Camera.ViewMatrix;
 
-		rf::ctx::SetCullMode(Context);
+		//rf::ctx::SetCullMode(Context);
+		rf::ctx::SetWireframeMode(Context);
 
 		glUseProgram(TessTestShader);
 		glPatchParameteri(GL_PATCH_VERTICES, 3);
@@ -53,10 +58,15 @@ namespace planet
 			rf::CheckGLError("ViewMatrix");
 		}
 
+
+		rf::SendMat4(glGetUniformLocation(TessTestShader, "ModelMatrix"), TriModelMatrix);
+		rf::SendVec3(glGetUniformLocation(TessTestShader, "CameraPosition"), State->Camera.Position);
+
 		glBindVertexArray(TessTest.VAO);
 		rf::RenderMesh(&TessTest, GL_PATCHES);
 
-		rf::ctx::SetCullMode(Context);
+		rf::ctx::SetWireframeMode(Context);
+		//rf::ctx::SetCullMode(Context);
 	}
 
 	void ReloadShaders(rf::context * Context)
