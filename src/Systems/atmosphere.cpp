@@ -2,120 +2,179 @@
 #include "rf/context.h"
 #include "rf/utils.h"
 #include "Game/sun.h"
+#include "rf/color.h"
 
-//#define PRECOMPUTE_STUFF
+#define USE_MOON 0
+#define PRECOMPUTE_STUFF
 
 namespace atmosphere
 {
-    // Values from "CIE (1931) 2-deg color matching functions", see
-    // "http://web.archive.org/web/20081228084047/
-    //    http://www.cvrl.org/database/data/cmfs/ciexyz31.txt".
-    static const real32 CIE_2_DEG_COLOR_MATCHING_FUNCTIONS[380] = {
-        360, 0.000129900000f, 0.000003917000f, 0.000606100000f,
-        365, 0.000232100000f, 0.000006965000f, 0.001086000000f,
-        370, 0.000414900000f, 0.000012390000f, 0.001946000000f,
-        375, 0.000741600000f, 0.000022020000f, 0.003486000000f,
-        380, 0.001368000000f, 0.000039000000f, 0.006450001000f,
-        385, 0.002236000000f, 0.000064000000f, 0.010549990000f,
-        390, 0.004243000000f, 0.000120000000f, 0.020050010000f,
-        395, 0.007650000000f, 0.000217000000f, 0.036210000000f,
-        400, 0.014310000000f, 0.000396000000f, 0.067850010000f,
-        405, 0.023190000000f, 0.000640000000f, 0.110200000000f,
-        410, 0.043510000000f, 0.001210000000f, 0.207400000000f,
-        415, 0.077630000000f, 0.002180000000f, 0.371300000000f,
-        420, 0.134380000000f, 0.004000000000f, 0.645600000000f,
-        425, 0.214770000000f, 0.007300000000f, 1.039050100000f,
-        430, 0.283900000000f, 0.011600000000f, 1.385600000000f,
-        435, 0.328500000000f, 0.016840000000f, 1.622960000000f,
-        440, 0.348280000000f, 0.023000000000f, 1.747060000000f,
-        445, 0.348060000000f, 0.029800000000f, 1.782600000000f,
-        450, 0.336200000000f, 0.038000000000f, 1.772110000000f,
-        455, 0.318700000000f, 0.048000000000f, 1.744100000000f,
-        460, 0.290800000000f, 0.060000000000f, 1.669200000000f,
-        465, 0.251100000000f, 0.073900000000f, 1.528100000000f,
-        470, 0.195360000000f, 0.090980000000f, 1.287640000000f,
-        475, 0.142100000000f, 0.112600000000f, 1.041900000000f,
-        480, 0.095640000000f, 0.139020000000f, 0.812950100000f,
-        485, 0.057950010000f, 0.169300000000f, 0.616200000000f,
-        490, 0.032010000000f, 0.208020000000f, 0.465180000000f,
-        495, 0.014700000000f, 0.258600000000f, 0.353300000000f,
-        500, 0.004900000000f, 0.323000000000f, 0.272000000000f,
-        505, 0.002400000000f, 0.407300000000f, 0.212300000000f,
-        510, 0.009300000000f, 0.503000000000f, 0.158200000000f,
-        515, 0.029100000000f, 0.608200000000f, 0.111700000000f,
-        520, 0.063270000000f, 0.710000000000f, 0.078249990000f,
-        525, 0.109600000000f, 0.793200000000f, 0.057250010000f,
-        530, 0.165500000000f, 0.862000000000f, 0.042160000000f,
-        535, 0.225749900000f, 0.914850100000f, 0.029840000000f,
-        540, 0.290400000000f, 0.954000000000f, 0.020300000000f,
-        545, 0.359700000000f, 0.980300000000f, 0.013400000000f,
-        550, 0.433449900000f, 0.994950100000f, 0.008749999000f,
-        555, 0.512050100000f, 1.000000000000f, 0.005749999000f,
-        560, 0.594500000000f, 0.995000000000f, 0.003900000000f,
-        565, 0.678400000000f, 0.978600000000f, 0.002749999000f,
-        570, 0.762100000000f, 0.952000000000f, 0.002100000000f,
-        575, 0.842500000000f, 0.915400000000f, 0.001800000000f,
-        580, 0.916300000000f, 0.870000000000f, 0.001650001000f,
-        585, 0.978600000000f, 0.816300000000f, 0.001400000000f,
-        590, 1.026300000000f, 0.757000000000f, 0.001100000000f,
-        595, 1.056700000000f, 0.694900000000f, 0.001000000000f,
-        600, 1.062200000000f, 0.631000000000f, 0.000800000000f,
-        605, 1.045600000000f, 0.566800000000f, 0.000600000000f,
-        610, 1.002600000000f, 0.503000000000f, 0.000340000000f,
-        615, 0.938400000000f, 0.441200000000f, 0.000240000000f,
-        620, 0.854449900000f, 0.381000000000f, 0.000190000000f,
-        625, 0.751400000000f, 0.321000000000f, 0.000100000000f,
-        630, 0.642400000000f, 0.265000000000f, 0.000049999990f,
-        635, 0.541900000000f, 0.217000000000f, 0.000030000000f,
-        640, 0.447900000000f, 0.175000000000f, 0.000020000000f,
-        645, 0.360800000000f, 0.138200000000f, 0.000010000000f,
-        650, 0.283500000000f, 0.107000000000f, 0.000000000000f,
-        655, 0.218700000000f, 0.081600000000f, 0.000000000000f,
-        660, 0.164900000000f, 0.061000000000f, 0.000000000000f,
-        665, 0.121200000000f, 0.044580000000f, 0.000000000000f,
-        670, 0.087400000000f, 0.032000000000f, 0.000000000000f,
-        675, 0.063600000000f, 0.023200000000f, 0.000000000000f,
-        680, 0.046770000000f, 0.017000000000f, 0.000000000000f,
-        685, 0.032900000000f, 0.011920000000f, 0.000000000000f,
-        690, 0.022700000000f, 0.008210000000f, 0.000000000000f,
-        695, 0.015840000000f, 0.005723000000f, 0.000000000000f,
-        700, 0.011359160000f, 0.004102000000f, 0.000000000000f,
-        705, 0.008110916000f, 0.002929000000f, 0.000000000000f,
-        710, 0.005790346000f, 0.002091000000f, 0.000000000000f,
-        715, 0.004109457000f, 0.001484000000f, 0.000000000000f,
-        720, 0.002899327000f, 0.001047000000f, 0.000000000000f,
-        725, 0.002049190000f, 0.000740000000f, 0.000000000000f,
-        730, 0.001439971000f, 0.000520000000f, 0.000000000000f,
-        735, 0.000999949300f, 0.000361100000f, 0.000000000000f,
-        740, 0.000690078600f, 0.000249200000f, 0.000000000000f,
-        745, 0.000476021300f, 0.000171900000f, 0.000000000000f,
-        750, 0.000332301100f, 0.000120000000f, 0.000000000000f,
-        755, 0.000234826100f, 0.000084800000f, 0.000000000000f,
-        760, 0.000166150500f, 0.000060000000f, 0.000000000000f,
-        765, 0.000117413000f, 0.000042400000f, 0.000000000000f,
-        770, 0.000083075270f, 0.000030000000f, 0.000000000000f,
-        775, 0.000058706520f, 0.000021200000f, 0.000000000000f,
-        780, 0.000041509940f, 0.000014990000f, 0.000000000000f,
-        785, 0.000029353260f, 0.000010600000f, 0.000000000000f,
-        790, 0.000020673830f, 0.000007465700f, 0.000000000000f,
-        795, 0.000014559770f, 0.000005257800f, 0.000000000000f,
-        800, 0.000010253980f, 0.000003702900f, 0.000000000000f,
-        805, 0.000007221456f, 0.000002607800f, 0.000000000000f,
-        810, 0.000005085868f, 0.000001836600f, 0.000000000000f,
-        815, 0.000003581652f, 0.000001293400f, 0.000000000000f,
-        820, 0.000002522525f, 0.000000910930f, 0.000000000000f,
-        825, 0.000001776509f, 0.000000641530f, 0.000000000000f,
-        830, 0.000001251141f, 0.000000451810f, 0.000000000000f,
-    };
+	// NOTES
+	// - the star(sun) is so far away its considered as directional (L direction)
+	// - the planet is perfectly spherical (no terrain morphology)
+	// - atmosphere density changes in respect with altitude but not longitude nor latitude (height based heterogeneity)
+	// - Po is observer point
+	// - 4 scalar parameters : 
+	//		- h     in [0,Hmax] : height
+	//		- theta in [0,pi]	: view-zenith angle
+	//		- delta in [0,pi]	: sun-zenith angle
+	////		- phi   in [0,pi]	: sun-view angle
 
-    // The conversion matrix from XYZ to linear sRGB color spaces.
-    // Values from https://en.wikipedia.org/wiki/SRGB.
-    static const real32 XYZ_TO_SRGB[9] = {
-        +3.2406f, -1.5372f, -0.4986f,
-        -0.9689f, +1.8758f, +0.0415f,
-        +0.0557f, -0.2040f, +1.0570f
-    };
+	// All Lengths are in meters
+	static const real32 Hmin = 6360000.f;
+	static const real32 Hmax = 6420000.f;
+	static const real32 Hr = 8000.0f; // atmospheric Rayleigh scale height (altitude where the density scales down by a 1/e term)
+	static const real32 Hm = 1200.0f; // atmospheric Mie scale height
 
+	static const vec3i  ScatteringTextureSize = vec3i(32, 256, 32);		// height, theta, delta
+	static const vec2i  TextureTransmittanceSize = vec2i(512, 512);		// height, theta
+	static const vec2i	PhaseTextureSize = vec2i(4096, 32);
+	static const vec3i  WaterScatteringTextureSize = vec3i(32, 64, 64);
+	static const int    AmbientTextureSize = 256;
+
+	struct atmosphere_parameters
+	{
+		real32 Rp;	// planet radius
+		real32 Ra;	// atmosphere radius
+	};
+
+	atmosphere_parameters Atmosphere;
+
+	rf::mesh ScreenQuad = {};
+
+	uint32 FmTexture = 0;
+	uint32 TransmittanceTexture = 0;
+
+
+	real32 RayleighDensityScale(real32 Height)
+	{
+		static const real32 invHr = 1.0f / Hr;
+		return expf(-Height * invHr);
+	}
+
+	real32 MieDensityScale(real32 Height)
+	{
+		static const real32 invHm = 1.0f / Hm;
+		return expf(-Height * invHm);
+	}
+
+	// Phase evaluation for a scattering angle theta
+	real32 RayleighPhase(real32 Theta)
+	{
+		return 0.75f * (1.0f + pow(cos(Theta), 2));
+	}
+
+	// Henyey-Greenstein approximation to Mie Phase Function. g \In ]-1,1[
+	real32 MiePhase(real32 Theta, real32 G)
+	{
+		real32 Gsq = G * G;
+		real32 CosTheta = cos(Theta);
+		real32 threehalf = 3.0f / 2.0f;
+		return threehalf * ((1.0f - Gsq) / ((2.0f + Gsq))) * (1.0f + pow(CosTheta, 2)) / pow(1.0f + Gsq - 2.0f * G * CosTheta, threehalf);
+	}
+
+	void SetupAtmosphereShader(uint32 program)
+	{
+		rf::SendFloat(glGetUniformLocation(program, "Atmosphere.Rp"), Atmosphere.Rp);
+		rf::SendFloat(glGetUniformLocation(program, "Atmosphere.Ra"), Atmosphere.Ra);
+	}
+
+	void Init(game::state *State, rf::context *Context)
+	{
+		// Atmosphere setup
+		Atmosphere.Rp = Hmin;
+		Atmosphere.Ra = Hmax;
+
+		// - sampled at 15 evenly spaced wavelengths
+		int const nWavelengths = (LAMBDA_MAX - LAMBDA_MIN) / 15;
+		real32 Wavelengths[nWavelengths];
+		real32 SolarIrradianceWavelengths[nWavelengths];
+		real32 GroundAlbedoWavelengths[nWavelengths];
+		real32 RayleighScatteringWavelengths[nWavelengths];
+		real32 MieScatteringWavelengths[nWavelengths];
+		real32 MieExtinctionWavelengths[nWavelengths];
+		real32 AbsorptionExtinctionWavelengths[nWavelengths];
+#if 0
+		for (int l = LAMBDA_MIN; l <= LAMBDA_MAX; l += 10)
+		{
+			int Idx = (l - LAMBDA_MIN) / 15;
+			real32 Lambda = (real32)l * 1e-3f; // micrometers
+			real32 Mie = kMieAngstromBeta / kMieScaleHeight * std::pow(Lambda, -kMieAngstromAlpha);
+			Wavelengths[Idx] = (real32)l;
+			RayleighScatteringWavelengths[Idx] = kRayleigh * std::pow(Lambda, -4);
+			MieScatteringWavelengths[Idx] = Mie * kMieSingleScatteringAlbedo;
+			MieExtinctionWavelengths[Idx] = Mie;
+			AbsorptionExtinctionWavelengths[Idx] = kMaxOzoneNumberDensity * kOzoneCrossSection[Idx];
+			SolarIrradianceWavelengths[Idx] = USE_MOON ? kLunarIrradiance[Idx] * 1e-3f : kSolarIrradiance[Idx];
+			GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
+		}
+#endif
+
+		path VSPath, FSPath, GSPath;
+
+		rf::frame_buffer RenderBuffer = {};
+		uint32 AtmospherePrecomputeProgram = 0;
+		ScreenQuad = rf::Make2DQuad(Context, vec2i(-1, 1), vec2i(1, -1));
+
+		rf::ConcatStrings(VSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_vert.glsl");
+		rf::ConcatStrings(FSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_frag.glsl");
+		AtmospherePrecomputeProgram = rf::BuildShader(Context, VSPath, FSPath);
+		glUseProgram(AtmospherePrecomputeProgram);
+		rf::CheckGLError("Atmosphere Precompute Shader");
+
+		// Setup shader atmosphere uniforms
+		SetupAtmosphereShader(AtmospherePrecomputeProgram);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex0"), 0);
+		//rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex1"), 1);
+		//rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex2"), 2);
+		//rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex3"), 3);
+		//rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex4"), 4);
+
+		// Transmittance texture
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ProgramUnit"), 0);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "TextureTransmittanceWidth"), TextureTransmittanceSize.x);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "TextureTransmittanceHeight"), TextureTransmittanceSize.y);
+		rf::DestroyFramebuffer(&RenderBuffer);
+		RenderBuffer = rf::MakeFramebuffer(1, TextureTransmittanceSize);
+		glDeleteTextures(1, &TransmittanceTexture);
+		TransmittanceTexture = rf::Make2DTexture(NULL, TextureTransmittanceSize.x, TextureTransmittanceSize.y, 4, true, false, 1,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+		//FramebufferAttachBuffer(&RenderBuffer, 0, 4, true, false, false); // RGBA32F
+		glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TransmittanceTexture, 0);
+		glViewport(0, 0, TextureTransmittanceSize.x, TextureTransmittanceSize.y);
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glBindVertexArray(ScreenQuad.VAO);
+		rf::RenderMesh(&ScreenQuad);
+
+
+
+
+		glBindVertexArray(0);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glUseProgram(0);
+		glViewport(0, 0, Context->WindowWidth, Context->WindowHeight);
+		glDeleteProgram(AtmospherePrecomputeProgram);
+		rf::DestroyFramebuffer(&RenderBuffer);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnablei(GL_BLEND, 0);
+		glEnablei(GL_BLEND, 1);
+	}
+
+	void Render(game::state *State, rf::context *Context)
+	{
+	}
+
+	void ReloadShaders(rf::context *Context)
+	{
+
+	}
+}
+
+
+namespace atmosphere2
+{
     // Values from "Reference Solar Spectral Irradiance: ASTM G-173", ETR column
     // (see http://rredc.nrel.gov/solar/spectra/am1.5/ASTMG173/ASTMG173.html),
     // Values are in W.m-2.nm-1
@@ -150,35 +209,7 @@ namespace atmosphere
         2.534e-26f, 1.624e-26f, 1.465e-26f, 2.078e-26f, 1.383e-26f, 7.105e-27f
     };
 
-    // Match a wavelength to a CIE color tabulated value
-    static real32 CieColorMatchingFunctionTableValue(real32 Wavelength, int Col)
-    {
-        if(Wavelength <= LAMBDA_MIN || Wavelength >= LAMBDA_MAX)
-            return 0.f;
 
-        real32 u = (Wavelength - LAMBDA_MIN) / 5.f;
-        int Row = (int)(std::floor(u));
-        Assert(Row >= 0 && Row+1 < 95);
-        u -= Row;
-        return CIE_2_DEG_COLOR_MATCHING_FUNCTIONS[4 * Row + Col] * (1.0f - u) +
-               CIE_2_DEG_COLOR_MATCHING_FUNCTIONS[4 * (Row + 1) + Col] * u;
-    }
-
-    static real32 Interpolate(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Wavelength)
-    {
-        if(Wavelength < Wavelengths[0])
-            return Wavelengths[0];
-
-        for(int i = 0; i < N; ++i)
-        {
-            if(Wavelength < Wavelengths[i+1])
-            {
-                real32 u = (Wavelength - Wavelengths[i]) / (Wavelengths[i+1] - Wavelengths[i]);
-                return WavelengthFunctions[i] * (1.f - u) + WavelengthFunctions[i+1] * u;
-            }
-        }
-        return WavelengthFunctions[N-1];
-    }
 
     /// Defined as "ExpTerm * exp(ExpScale * H) + LinearTerm * H + ConstantTerm"
     /// Clamped in [0,1]
@@ -218,7 +249,6 @@ namespace atmosphere
 
     };
 
-#define USE_MOON 0
 
     atmosphere_parameters AtmosphereParameters;
     rf::mesh ScreenQuad = {};
@@ -235,28 +265,20 @@ namespace atmosphere
 
     static const real32 kLengthUnitInMeters = 1000.f;
     static const real32 kRayleighScaleHeight = 8000.f;
-    static const real32 kRayleigh = 1.24062e-6f; // orig 1.24062e-6
-    static const real32 kMieScaleHeight = 7200.f;
+	static const real32 kRayleigh = 1.24062e-6f;
+    static const real32 kMieScaleHeight = 1200.f;
     static const real32 kMieAngstromAlpha = 0.f;
-    static const real32 kMieAngstromBeta = 2.028e-2f; // orig 5.328e-3
+	static const real32 kMieAngstromBeta = 5.328e-3f;
     static const real32 kMieSingleScatteringAlbedo = 0.9f;
-    static const real32 kDobsonUnit = 5.687e20f; // From wiki, in molecules.m^-2 // orig 5.687e20
+    static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
-    static const real32 kGroundAlbedo = 0.05f; // orig 0.1
+    static const real32 kGroundAlbedo = 0.1f; // orig 0.1
     static const real32 kSunAngularRadius = 0.004675f;
     static const real32 kMoonAngularRadius = 0.018f;//0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
     static const real32 kMiePhaseG = USE_MOON ? 0.93f : 0.80f;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 120.f;
-
-    static vec3f ScatteringSpectrumToSRGB(real32 const *Wavelengths, real32 const *WavelengthFunctions, int N, real32 Scale)
-    {
-        real32 R = Interpolate(Wavelengths, WavelengthFunctions, N, LAMBDA_R) * Scale;
-        real32 G = Interpolate(Wavelengths, WavelengthFunctions, N, LAMBDA_G) * Scale;
-        real32 B = Interpolate(Wavelengths, WavelengthFunctions, N, LAMBDA_B) * Scale;
-        return vec3f(R, G, B);
-    }
-
+	
     static void SendShaderUniforms(uint32 Program)
     {
         glUseProgram(Program);
@@ -342,7 +364,7 @@ namespace atmosphere
             GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
         }
 
-        AtmosphereParameters.RayleighScattering = ScatteringSpectrumToSRGB(Wavelengths, RayleighScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
+		AtmosphereParameters.RayleighScattering = ScatteringSpectrumToSRGB(Wavelengths, RayleighScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.Rayleigh.Layers[0] = DefaultLayer;
         AtmosphereParameters.Rayleigh.Layers[1] = RayleighLayer;
         AtmosphereParameters.MieExtinction = ScatteringSpectrumToSRGB(Wavelengths, MieExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
@@ -545,8 +567,8 @@ namespace atmosphere
         glEnablei(GL_BLEND, 0);
         glEnablei(GL_BLEND, 1);
 
-        MoonAlbedoTexture = *rf::ResourceLoad2DTexture(&Context->RenderResources, "data/moon/albedo.png", false, false, 4, 
-                GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_CLAMP_TO_EDGE);
+        //MoonAlbedoTexture = *rf::ResourceLoad2DTexture(Context, "data/moon/albedo.png", false, false, 4, 
+                //GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_CLAMP_TO_EDGE);
 #endif
     }
 
@@ -625,26 +647,6 @@ namespace atmosphere
         rf::SendInt(glGetUniformLocation(AtmosphereProgram, "MoonAlbedo"), 3);
 
         glUseProgram(0);
-    }
-
-    vec3f ConvertSpectrumToSRGB(real32 *Wavelengths, real32 *Spectrum, int N)
-    {
-        vec3f xyz(0), SRGB(0);
-
-        int const dLambda = 1;
-        for(int lambda = LAMBDA_MIN; lambda < LAMBDA_MAX; lambda += dLambda)
-        {
-            real32 Val = Interpolate(Wavelengths, Spectrum, N, (real32)lambda);
-            xyz.x += CieColorMatchingFunctionTableValue((real32)lambda, 1) * Val;
-            xyz.y += CieColorMatchingFunctionTableValue((real32)lambda, 2) * Val;
-            xyz.z += CieColorMatchingFunctionTableValue((real32)lambda, 3) * Val;
-        }
-
-        SRGB.x = MAX_LUMINOUS_EFFICACY * (XYZ_TO_SRGB[0] * xyz.x + XYZ_TO_SRGB[1] * xyz.y + XYZ_TO_SRGB[2] * xyz.z) * dLambda;
-        SRGB.y = MAX_LUMINOUS_EFFICACY * (XYZ_TO_SRGB[3] * xyz.x + XYZ_TO_SRGB[4] * xyz.y + XYZ_TO_SRGB[5] * xyz.z) * dLambda;
-        SRGB.z = MAX_LUMINOUS_EFFICACY * (XYZ_TO_SRGB[6] * xyz.x + XYZ_TO_SRGB[7] * xyz.y + XYZ_TO_SRGB[8] * xyz.z) * dLambda;
-
-        return SRGB;
     }
 }
 

@@ -10,6 +10,7 @@
 
 #include "Systems/water.h"
 #include "Systems/atmosphere.h"
+#include "Systems/planet.h"
 #include "Game/sun.h"
 #include "tests.h"
 
@@ -20,6 +21,10 @@ int RadarMain(int argc, char **argv);
 #elif RF_UNIX
 #include "radar_unix.cpp"
 #endif
+
+#define DO_ATMOSPHERE 1
+#define DO_WATER 0
+#define DO_PLANET 0
 
 memory *InitMemory()
 {
@@ -136,8 +141,16 @@ void ReloadShaders(rf::context *Context)
 
     Tests::ReloadShaders(Context);
     rf::ui::ReloadShaders(Context);
+
+#if DO_WATER
     water::ReloadShaders(Context);
-    atmosphere::ReloadShaders(Context);
+#endif
+#if DO_ATMOSPHERE
+	atmosphere2::ReloadShaders(Context);
+#endif
+#if DO_PLANET
+	planet::ReloadShaders(Context);
+#endif
 
     rf::ctx::UpdateShaderProjection(Context);
 
@@ -257,7 +270,6 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
             rf::ui::MakeText(NULL, Str, rf::ui::FONT_AWESOME, vec2i(0, 180), rf::ui::COLOR_BORDERBG);
         rf::ui::EndPanel();
     }
-
 }
 
 rf::context_descriptor MakeContextDescriptor(memory *Memory, config *Config, path const ExecutableName)
@@ -332,9 +344,15 @@ int RadarMain(int argc, char **argv)
     }
 
     // Subsystems initialization
-    atmosphere::Init(State, Context);
+#if DO_WATER
     water::Init(State, Context, State->WaterState);
-
+#endif
+#if DO_ATMOSPHERE
+	atmosphere2::Init(State, Context);
+#endif
+#if DO_PLANET
+	planet::Init(State, Context);
+#endif
 
     // First time shader loading at the end of the initialization phase
     ReloadShaders(Context);
@@ -401,10 +419,15 @@ int RadarMain(int argc, char **argv)
 
         Tests::Render(State, &Input, Context);
 
-        atmosphere::Render(State, Context);
-#if 1
+#if DO_WATER
         water::Update(State, &Input);
         water::Render(State, 0, 0);
+#endif
+#if DO_ATMOSPHERE
+		atmosphere2::Render(State, Context);
+#endif
+#if DO_PLANET
+		planet::Render(State, Context);
 #endif
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -426,6 +449,14 @@ int RadarMain(int argc, char **argv)
         rf::RenderMesh(&ScreenQuad);
 
         MakeUI(Memory, Context, &Input);
+
+#if 0
+		rf::font *FontInfo = rf::ui::GetFont(rf::ui::FONT_AWESOME);
+		rf::ui::BeginPanel(&TW_ID, "Texture Viewer", &TW_Position, &TW_Size, rf::ui::COLOR_PANELBG, rf::ui::DECORATION_TITLEBAR | rf::ui::DECORATION_BORDER);
+		rf::ui::MakeImage(&TW_ImgScale, atmosphere::TransmittanceTexture/*FPBackbuffer.BufferIDs[0]*/, &TW_ImgOffset, vec2i(300, 300), false);
+		rf::ui::EndPanel();
+#endif
+
         rf::ui::Draw();
 
         rf::ctx::SetWireframeMode(Context, CurrWireframemode);
@@ -441,11 +472,3 @@ int RadarMain(int argc, char **argv)
     DestroyMemory(Memory);
     return 0;
 }
-#if 0
-#if 1
-            font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
-            ui::BeginPanel(&TW_ID, "Texture Viewer", &TW_Position, &TW_Size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
-            ui::MakeImage(&TW_ImgScale, Atmosphere::IrradianceTexture/*FPBackbuffer.BufferIDs[0]*/, &TW_ImgOffset, vec2i(300, 300), false);
-            ui::EndPanel();
-#endif
-#endif
