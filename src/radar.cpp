@@ -141,6 +141,7 @@ void ReloadShaders(rf::context *Context)
 
     Tests::ReloadShaders(Context);
     rf::ui::ReloadShaders(Context);
+
 #if DO_WATER
     water::ReloadShaders(Context);
 #endif
@@ -268,7 +269,6 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
             rf::ui::MakeText(NULL, Str, rf::ui::FONT_AWESOME, vec2i(0, 180), rf::ui::COLOR_BORDERBG);
         rf::ui::EndPanel();
     }
-
 }
 
 rf::context_descriptor MakeContextDescriptor(memory *Memory, config *Config, path const ExecutableName)
@@ -448,6 +448,14 @@ int RadarMain(int argc, char **argv)
         rf::RenderMesh(&ScreenQuad);
 
         MakeUI(Memory, Context, &Input);
+
+#if 0
+		rf::font *FontInfo = rf::ui::GetFont(rf::ui::FONT_AWESOME);
+		rf::ui::BeginPanel(&TW_ID, "Texture Viewer", &TW_Position, &TW_Size, rf::ui::COLOR_PANELBG, rf::ui::DECORATION_TITLEBAR | rf::ui::DECORATION_BORDER);
+		rf::ui::MakeImage(&TW_ImgScale, atmosphere::TransmittanceTexture/*FPBackbuffer.BufferIDs[0]*/, &TW_ImgOffset, vec2i(300, 300), false);
+		rf::ui::EndPanel();
+#endif
+
         rf::ui::Draw();
 
         rf::ctx::SetWireframeMode(Context, CurrWireframemode);
@@ -463,11 +471,3 @@ int RadarMain(int argc, char **argv)
     DestroyMemory(Memory);
     return 0;
 }
-#if 0
-#if 1
-            font *FontInfo = ui::GetFont(ui::FONT_AWESOME);
-            ui::BeginPanel(&TW_ID, "Texture Viewer", &TW_Position, &TW_Size, ui::COLOR_PANELBG, ui::DECORATION_TITLEBAR | ui::DECORATION_BORDER);
-            ui::MakeImage(&TW_ImgScale, Atmosphere::IrradianceTexture/*FPBackbuffer.BufferIDs[0]*/, &TW_ImgOffset, vec2i(300, 300), false);
-            ui::EndPanel();
-#endif
-#endif
