@@ -5,8 +5,8 @@
 #include "Game/sun.h"
 
 #define TEST_MODELS 0
-#define TEST_SPHEREARRAY 1
-#define TEST_PBRMATERIALS 1
+#define TEST_SPHEREARRAY 0
+#define TEST_PBRMATERIALS 0
 #define TEST_SKYBOX 0
 #define TEST_PLANE 0
 #define TEST_SOUND 0

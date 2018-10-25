@@ -10,6 +10,7 @@
 
 #include "Systems/water.h"
 #include "Systems/atmosphere.h"
+#include "Systems/planet.h"
 #include "Game/sun.h"
 #include "tests.h"
 
@@ -20,6 +21,10 @@ int RadarMain(int argc, char **argv);
 #elif RF_UNIX
 #include "radar_unix.cpp"
 #endif
+
+#define DO_ATMOSPHERE 0
+#define DO_WATER 0
+#define DO_PLANET 1
 
 memory *InitMemory()
 {
@@ -136,9 +141,15 @@ void ReloadShaders(rf::context *Context)
 
     Tests::ReloadShaders(Context);
     rf::ui::ReloadShaders(Context);
+#if DO_WATER
     water::ReloadShaders(Context);
+#endif
+#if DO_ATMOSPHERE
     atmosphere::ReloadShaders(Context);
-
+#endif
+#if DO_PLANET
+	planet::ReloadShaders(Context);
+#endif
     rf::ctx::UpdateShaderProjection(Context);
 
     glUseProgram(0);
@@ -332,9 +343,15 @@ int RadarMain(int argc, char **argv)
     }
 
     // Subsystems initialization
+#if DO_ATMOSPHERE
     atmosphere::Init(State, Context);
+#endif
+#if DO_WATER
     water::Init(State, Context, State->WaterState);
-
+#endif
+#if DO_PLANET
+	planet::Init(State, Context);
+#endif
 
     // First time shader loading at the end of the initialization phase
     ReloadShaders(Context);
@@ -401,10 +418,15 @@ int RadarMain(int argc, char **argv)
 
         Tests::Render(State, &Input, Context);
 
+#if DO_ATMOSPHERE
         atmosphere::Render(State, Context);
-#if 1
+#endif
+#if DO_WATER
         water::Update(State, &Input);
         water::Render(State, 0, 0);
+#endif
+#if DO_PLANET
+		planet::Render(State, Context);
 #endif
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
