@@ -1,6 +1,7 @@
 #include "planet.h"
 #include "rf/context.h"
 #include "rf/utils.h"
+#include "Game/sun.h"
 
 namespace planet
 {
@@ -15,9 +16,9 @@ namespace planet
 		uint32 vCount = 3;
 
 		vec3f Tr(-0.5f, 0.f, -0.5f);
-		Positions.push_back(Tr + vec3f(-1.0f, 0.0f, 0.0f));
-		Positions.push_back(Tr + vec3f(0.0f, 0.0f, 1.0f));
-		Positions.push_back(Tr + vec3f(1.0f, 0.0f, 0.0f));
+		Positions.push_back(vec3f(-1.0f, 0.0f, 0.0f));
+		Positions.push_back(vec3f(0.0f, 0.0f, 1.0f));
+		Positions.push_back(vec3f(1.0f, 0.0f, 0.0f));
 
 		Indices.push_back(0);
 		Indices.push_back(1);
@@ -39,10 +40,23 @@ namespace planet
 
 	void Render(game::state * State, rf::context * Context)
 	{
-		//rf::ctx::
+		mat4f const &ViewMatrix = State->Camera.ViewMatrix;
+
+		rf::ctx::SetCullMode(Context);
+
 		glUseProgram(TessTestShader);
+		glPatchParameteri(GL_PATCH_VERTICES, 3);
+
+		{
+			uint32 Loc = glGetUniformLocation(TessTestShader, "ViewMatrix");
+			rf::SendMat4(Loc, ViewMatrix);
+			rf::CheckGLError("ViewMatrix");
+		}
+
 		glBindVertexArray(TessTest.VAO);
-		rf::RenderMesh(&TessTest);
+		rf::RenderMesh(&TessTest, GL_PATCHES);
+
+		rf::ctx::SetCullMode(Context);
 	}
 
 	void ReloadShaders(rf::context * Context)
