@@ -83,6 +83,7 @@ bool Init(rf::context *Context, config const *Config)
     GGXLUT = rf::PrecomputeGGXLUT(Context, 512);
     rf::ComputeIrradianceCubemap(Context, "data/envmap_monument.hdr", 
                                 &HDRCubemapEnvmap, &HDRGlossyEnvmap, &HDRIrradianceEnvmap);
+
     Sphere = rf::MakeUnitSphere(true, 3);
     Cube = rf::MakeUnitCube();
     SkyboxCube = rf::MakeUnitCube(false);

@@ -365,6 +365,7 @@ int RadarMain(int argc, char **argv)
 
         LastTime = CurrentTime;
         State->EngineTime += Input.dTime;
+		State->dTime = Input.dTime;
         TimeCounter += Input.dTime;
 
         // NOTE - Each frame, clear the Scratch Arena Data

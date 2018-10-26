@@ -24,6 +24,7 @@ namespace game {
     struct state
     {
         real64 EngineTime;
+		real64 dTime;
         camera Camera;
         binary_switch DisableMouse;
         vec3f PlayerPosition;
