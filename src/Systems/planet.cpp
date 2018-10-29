@@ -17,6 +17,7 @@ namespace planet
 		float Time;
 		int GridW;
 		int GridH;
+		int GridD;
 	};
 
 	planet_params PlanetParams;
@@ -57,9 +58,11 @@ namespace planet
 		PlanetParams.ViewMatrix = State->Camera.ViewMatrix;
 		PlanetParams.CameraPosition = State->Camera.Position;
 
-		PlanetParams.GridW = PlanetParams.GridH = 32;
-		PlanetParams.TileSize = vec3f(0.5f, 0.0f, 0.5f);
-		PlanetParams.Origin = vec3f(-PlanetParams.TileSize.x*PlanetParams.GridW*0.5f, 0.0f, 
+		PlanetParams.GridW = PlanetParams.GridH = 8;
+		PlanetParams.GridD = 6;
+		PlanetParams.TileSize = vec3f(0.5f, 1.0f, 0.5f);
+		PlanetParams.Origin = vec3f(-PlanetParams.TileSize.x*PlanetParams.GridW*0.5f,
+									-PlanetParams.TileSize.x*PlanetParams.GridW*0.5f, 
 									-PlanetParams.TileSize.z*PlanetParams.GridH*0.5f);
 
 		PlanetParams.OuterTessFactor = 32.0f;
@@ -73,7 +76,7 @@ namespace planet
 
 	void Render(game::state * State, rf::context * Context)
 	{
-		//rf::ctx::SetCullMode(Context);
+		rf::ctx::SetCullMode(Context);
 		//rf::ctx::SetWireframeMode(Context);
 
 		glUseProgram(TessTestShader);
@@ -87,13 +90,13 @@ namespace planet
 		rf::CheckGLError("PlanetUBO");
 		glPatchParameteri(GL_PATCH_VERTICES, 1);
 		glBindVertexArray(PlanetMesh.VAO);
-		int instances = PlanetParams.GridW * PlanetParams.GridH;
+		int instances = PlanetParams.GridW * PlanetParams.GridH * PlanetParams.GridD;
 		glDrawElementsInstanced(GL_PATCHES, PlanetMesh.IndexCount, PlanetMesh.IndexType, 0, instances);
 		
 
 		rf::CheckGLError("PlanetDraw");
 		//rf::ctx::SetWireframeMode(Context);
-		//rf::ctx::SetCullMode(Context);
+		rf::ctx::SetCullMode(Context);
 	}
 
 	void ReloadShaders(rf::context * Context)
@@ -104,7 +107,7 @@ namespace planet
 		rf::ConcatStrings(FSPath, ExePath, "data/shaders/planet_frag.glsl");
 		rf::ConcatStrings(TESCPath, ExePath, "data/shaders/planet_tesc.glsl");
 		rf::ConcatStrings(TESEPath, ExePath, "data/shaders/planet_tese.glsl");
-		TessTestShader = rf::BuildShader(Context, VSPath, FSPath, NULL, NULL, TESEPath);
+		TessTestShader = rf::BuildShader(Context, VSPath, FSPath, NULL, TESCPath, TESEPath);
 		glUseProgram(TessTestShader);
 		rf::ctx::RegisterShader3D(Context, TessTestShader);
 		rf::CheckGLError("PlanetShader");

@@ -130,7 +130,7 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
     CameraMove *= (real32)(Input->dTime * Camera.LinearSpeed * SpeedMult);
     Camera.Position += CameraMove;
 
-    Camera.Position.y = Max(0.5f, Camera.Position.y); // Min at .5 meters
+    //Camera.Position.y = Max(0.5f, Camera.Position.y); // Min at .5 meters
 
     if(MOUSE_HIT(Input->MouseRight))
     {
