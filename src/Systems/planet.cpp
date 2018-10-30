@@ -78,7 +78,9 @@ namespace planet
 	{
 		rf::ctx::SetCullMode(Context);
 		//rf::ctx::SetWireframeMode(Context);
-
+		glEnable(GL_BLEND);
+		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ZERO);
 		glUseProgram(TessTestShader);
 
 		rf::CheckGLError("PlanetUBOStart");
@@ -95,6 +97,8 @@ namespace planet
 		
 
 		rf::CheckGLError("PlanetDraw");
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		//rf::ctx::SetWireframeMode(Context);
 		rf::ctx::SetCullMode(Context);
 	}
@@ -102,12 +106,13 @@ namespace planet
 	void ReloadShaders(rf::context * Context)
 	{
 		path const &ExePath = rf::ctx::GetExePath(Context);
-		path VSPath, FSPath, TESCPath, TESEPath;
+		path VSPath, FSPath, GSPath, TESCPath, TESEPath;
 		rf::ConcatStrings(VSPath, ExePath, "data/shaders/planet_vert.glsl");
 		rf::ConcatStrings(FSPath, ExePath, "data/shaders/planet_frag.glsl");
 		rf::ConcatStrings(TESCPath, ExePath, "data/shaders/planet_tesc.glsl");
 		rf::ConcatStrings(TESEPath, ExePath, "data/shaders/planet_tese.glsl");
-		TessTestShader = rf::BuildShader(Context, VSPath, FSPath, NULL, TESCPath, TESEPath);
+		rf::ConcatStrings(GSPath, ExePath, "data/shaders/planet_geom.glsl");
+		TessTestShader = rf::BuildShader(Context, VSPath, FSPath, GSPath, TESCPath, TESEPath);
 		glUseProgram(TessTestShader);
 		rf::ctx::RegisterShader3D(Context, TessTestShader);
 		rf::CheckGLError("PlanetShader");
