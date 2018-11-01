@@ -58,7 +58,7 @@ namespace planet
 		PlanetParams.ViewMatrix = State->Camera.ViewMatrix;
 		PlanetParams.CameraPosition = State->Camera.Position;
 
-		PlanetParams.GridW = PlanetParams.GridH = 8;
+		PlanetParams.GridW = PlanetParams.GridH = 32;
 		PlanetParams.GridD = 6;
 		PlanetParams.TileSize = vec3f(0.5f, 1.0f, 0.5f);
 		PlanetParams.Origin = vec3f(-PlanetParams.TileSize.x*PlanetParams.GridW*0.5f,
@@ -112,7 +112,7 @@ namespace planet
 		rf::ConcatStrings(TESCPath, ExePath, "data/shaders/planet_tesc.glsl");
 		rf::ConcatStrings(TESEPath, ExePath, "data/shaders/planet_tese.glsl");
 		rf::ConcatStrings(GSPath, ExePath, "data/shaders/planet_geom.glsl");
-		TessTestShader = rf::BuildShader(Context, VSPath, FSPath, GSPath, TESCPath, TESEPath);
+		TessTestShader = rf::BuildShader(Context, VSPath, FSPath, NULL, TESCPath, TESEPath);
 		glUseProgram(TessTestShader);
 		rf::ctx::RegisterShader3D(Context, TessTestShader);
 		rf::CheckGLError("PlanetShader");
