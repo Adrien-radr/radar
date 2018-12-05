@@ -62,66 +62,48 @@ void DestroyMemory(memory *Memory)
 
 bool ParseConfig(config *ConfigOut, char const *Filename)
 {
-    path ExePath;
-    rf::GetExecutablePath(ExePath);
+	path ExePath;
+	rf::GetExecutablePath(ExePath);
 
-    path ConfigPath;
-    rf::ConcatStrings(ConfigPath, ExePath, Filename);
+	path ConfigPath;
+	rf::ConcatStrings(ConfigPath, ExePath, Filename);
 
-    void *Content = rf::ReadFileContentsNoContext(ConfigPath, 0);
-    if(Content)
-    {
-        cJSON *root = cJSON_Parse((char*)Content);
-        if(root)
-        {
-            ConfigOut->WindowX = rf::JSON_Get(root, "iWindowX", 200);
-            ConfigOut->WindowY = rf::JSON_Get(root, "iWindowY", 200);
-            ConfigOut->WindowWidth = rf::JSON_Get(root, "iWindowWidth", 960);
-            ConfigOut->WindowHeight = rf::JSON_Get(root, "iWindowHeight", 540);
-            ConfigOut->MSAA = rf::JSON_Get(root, "iMSAA", 0);
-            ConfigOut->FullScreen = rf::JSON_Get(root, "bFullScreen", 0) != 0;
-            ConfigOut->VSync = rf::JSON_Get(root, "bVSync", 0) != 0;
-            ConfigOut->FOV = (real32)rf::JSON_Get(root, "fFOV", 75.0);
-            ConfigOut->NearPlane = (real32)rf::JSON_Get(root, "fNearPlane", 0.1);
-            ConfigOut->FarPlane = (real32)rf::JSON_Get(root, "fFarPlane", 10000.0);
-            ConfigOut->AnisotropicFiltering = rf::JSON_Get(root, "iAnisotropicFiltering", 1);
+	void *Content = rf::ReadFileContentsNoContext(ConfigPath, 0);
 
-            ConfigOut->CameraSpeedBase = (real32)rf::JSON_Get(root, "fCameraSpeedBase", 20.0);
-            ConfigOut->CameraSpeedMult = (real32)rf::JSON_Get(root, "fCameraSpeedMult", 2.0);
-            ConfigOut->CameraSpeedAngular = (real32)rf::JSON_Get(root, "fCameraSpeedAngular", 0.3);
+	cJSON *root = nullptr;
+	if (Content)
+	{
+		root = cJSON_Parse((char*)Content);
+	}
+	else
+	{
+		printf("Error parsing config file.\n");
+	}
 
-            ConfigOut->CameraPosition = rf::JSON_Get(root, "vCameraPosition", vec3f(1,1,1));
-            ConfigOut->CameraTarget = rf::JSON_Get(root, "vCameraTarget", vec3f(0,0,0));
+	ConfigOut->WindowX = rf::JSON_Get(root, "iWindowX", 200);
+	ConfigOut->WindowY = rf::JSON_Get(root, "iWindowY", 200);
+	ConfigOut->WindowWidth = rf::JSON_Get(root, "iWindowWidth", 960);
+	ConfigOut->WindowHeight = rf::JSON_Get(root, "iWindowHeight", 540);
+	ConfigOut->MSAA = rf::JSON_Get(root, "iMSAA", 0);
+	ConfigOut->FullScreen = rf::JSON_Get(root, "bFullScreen", 0) != 0;
+	ConfigOut->VSync = rf::JSON_Get(root, "bVSync", 0) != 0;
+	ConfigOut->FOV = (real32)rf::JSON_Get(root, "fFOV", 75.0);
+	ConfigOut->NearPlane = (real32)rf::JSON_Get(root, "fNearPlane", 0.1);
+	ConfigOut->FarPlane = (real32)rf::JSON_Get(root, "fFarPlane", 10000.0);
+	ConfigOut->AnisotropicFiltering = rf::JSON_Get(root, "iAnisotropicFiltering", 1);
 
-            ConfigOut->TimeScale = (real32)rf::JSON_Get(root, "fTimescale", 30.0);
-        }
-        else
-        {
-            printf("Error parsing Config File as JSON.\n");
-            return false;
-        }
-        free(Content);
-    }
-    else
-    {
-        printf("Generating default config...\n");
-        path DefaultConfigPath;
-        rf::ConcatStrings(DefaultConfigPath, ExePath, "default_config.json");
+	ConfigOut->CameraSpeedBase = (real32)rf::JSON_Get(root, "fCameraSpeedBase", 20.0);
+	ConfigOut->CameraSpeedMult = (real32)rf::JSON_Get(root, "fCameraSpeedMult", 2.0);
+	ConfigOut->CameraSpeedAngular = (real32)rf::JSON_Get(root, "fCameraSpeedAngular", 0.3);
 
-        // If the default config doesnt exist, just crash, someone has been stupid
-        if(!rf::DiskFileExists(DefaultConfigPath))
-        {
-            printf("Fatal Error : Default Config file bin/default_config.json doesn't exist.\n");
-            exit(1);
-        }
+	ConfigOut->CameraPosition = rf::JSON_Get(root, "vCameraPosition", vec3f(1, 1, 1));
+	ConfigOut->CameraTarget = rf::JSON_Get(root, "vCameraTarget", vec3f(0, 0, 0));
 
-        path PersonalConfigPath;
-        rf::ConcatStrings(PersonalConfigPath, ExePath, "config.json");
-        rf::DiskFileCopy(PersonalConfigPath, DefaultConfigPath);
+	ConfigOut->TimeScale = (real32)rf::JSON_Get(root, "fTimescale", 30.0);
 
-        return ParseConfig(ConfigOut, "default_config.json");
-    }
-    return true;
+	if (Content) free(Content);
+
+	return true;
 }
 
 void ReloadShaders(rf::context *Context)
@@ -374,7 +356,7 @@ int RadarMain(int argc, char **argv)
 
         rf::ctx::GetFrameInput(Context, &Input);
 
-        if(rf::ctx::WindowResized(Context))
+        if(Context->HasResized)
         {
             // Resize FBO
             DestroyFramebuffer(&FPBackbuffer);
@@ -400,6 +382,12 @@ int RadarMain(int argc, char **argv)
         {
             TimeCounter = 0.0;
         }
+
+		// Additional termination test with escape key
+		if (KEY_DOWN(Input.Keys[KEY_ESCAPE]))
+		{
+			Context->IsRunning = false;
+		}
 
         // Shader hot reload key (Shift-F11)
         if(KEY_DOWN(Input.Keys[KEY_LEFT_SHIFT]) && KEY_UP(Input.Keys[KEY_F11]))
