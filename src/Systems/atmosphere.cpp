@@ -7,7 +7,7 @@
 #define USE_MOON 0
 #define PRECOMPUTE_STUFF
 
-namespace atmosphere
+namespace atmosphere2
 {
 	// NOTES
 	// - the star(sun) is so far away its considered as directional (L direction)
@@ -173,7 +173,7 @@ namespace atmosphere
 }
 
 
-namespace atmosphere2
+namespace atmosphere
 {
     // Values from "Reference Solar Spectral Irradiance: ASTM G-173", ETR column
     // (see http://rredc.nrel.gov/solar/spectra/am1.5/ASTMG173/ASTMG173.html),
@@ -249,6 +249,9 @@ namespace atmosphere2
 
     };
 
+	radiance_mode RadianceMode = RGB;
+	int NumPrecomputedWavelengths = RadianceMode == FULL ? 15 : 3;
+	real32 DefaultWavelengths[] = { LAMBDA_R, LAMBDA_G, LAMBDA_B };
 
     atmosphere_parameters AtmosphereParameters;
     rf::mesh ScreenQuad = {};
@@ -257,6 +260,8 @@ namespace atmosphere2
     uint32 IrradianceTexture = 0;
     uint32 ScatteringTexture = 0;
     uint32 MoonAlbedoTexture = 0;
+
+	vec3f WhitePoint(1.0f);
 
     static const vec2i  kTransmittanceTextureSize = vec2i(256, 64);
     static const vec2i  kIrradianceTextureSize = vec2i(64, 16);
@@ -327,6 +332,201 @@ namespace atmosphere2
         rf::CheckGLError("Atmosphere Uniform Shader");
     }
 
+	void InitializeModel(rf::context *Context)
+	{
+		path VSPath, FSPath, GSPath;
+
+		rf::ConcatStrings(VSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_vert.glsl");
+		rf::ConcatStrings(FSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_frag.glsl");
+		uint32 AtmospherePrecomputeProgram = rf::BuildShader(Context, VSPath, FSPath);
+		rf::ConcatStrings(GSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_geom.glsl");
+		uint32 ScatteringProgram = rf::BuildShader(Context, VSPath, FSPath, GSPath);
+
+
+		// Precompute atmosphere textures
+		rf::frame_buffer RenderBuffer = {};
+
+		glUseProgram(AtmospherePrecomputeProgram);
+		rf::CheckGLError("Atmosphere Precompute Shader");
+
+		SendShaderUniforms(AtmospherePrecomputeProgram);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex0"), 0);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex1"), 1);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex2"), 2);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex3"), 3);
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex4"), 4);
+
+		// Transmittance texture
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ProgramUnit"), 0);
+		rf::DestroyFramebuffer(&RenderBuffer);
+		RenderBuffer = rf::MakeFramebuffer(1, kTransmittanceTextureSize);
+		glDeleteTextures(1, &TransmittanceTexture);
+		TransmittanceTexture = rf::Make2DTexture(NULL, kTransmittanceTextureSize.x, kTransmittanceTextureSize.y, 4, true, false, 1,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+		//FramebufferAttachBuffer(&RenderBuffer, 0, 4, true, false, false); // RGBA32F
+		glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TransmittanceTexture, 0);
+		glViewport(0, 0, kTransmittanceTextureSize.x, kTransmittanceTextureSize.y);
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glBindVertexArray(ScreenQuad.VAO);
+		rf::RenderMesh(&ScreenQuad);
+
+		// Ground Irradiance texture
+		rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ProgramUnit"), 1);
+		rf::DestroyFramebuffer(&RenderBuffer);
+		RenderBuffer = rf::MakeFramebuffer(2, kIrradianceTextureSize);
+		glDeleteTextures(1, &IrradianceTexture);
+		IrradianceTexture = rf::Make2DTexture(NULL, kIrradianceTextureSize.x, kIrradianceTextureSize.y, 4, true, false, 1,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+		uint32 DeltaIrradianceTexture = rf::Make2DTexture(NULL, kIrradianceTextureSize.x, kIrradianceTextureSize.y, 4, true, false, 1,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+		glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, DeltaIrradianceTexture, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, IrradianceTexture, 0);
+		glViewport(0, 0, kIrradianceTextureSize.x, kIrradianceTextureSize.y);
+		glClearColor(0, 0, 0, 0);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
+		glBindVertexArray(ScreenQuad.VAO);
+		rf::RenderMesh(&ScreenQuad);
+
+		// Single Scattering
+		glUseProgram(ScatteringProgram);
+		SendShaderUniforms(ScatteringProgram);
+		rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 2);
+		rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex0"), 0);
+		rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex1"), 1);
+		rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex2"), 2);
+		rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex3"), 3);
+		rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex4"), 4);
+		rf::CheckGLError("Scattering Precompute Shader");
+
+		rf::DestroyFramebuffer(&RenderBuffer);
+		RenderBuffer = rf::MakeFramebuffer(3, vec2i(kScatteringTextureSize.x, kScatteringTextureSize.y), false);
+		glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
+		glDeleteTextures(1, &ScatteringTexture);
+		ScatteringTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+		uint32 DeltaRayleighTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+		uint32 DeltaMieTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+		rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaRayleighTexture);
+		rf::FramebufferAttachBuffer(&RenderBuffer, 1, DeltaMieTexture);
+		rf::FramebufferAttachBuffer(&RenderBuffer, 2, ScatteringTexture);
+		D(if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		{
+			LogError("Incomplete Scattering Framebuffer");
+		})
+			glViewport(0, 0, kScatteringTextureSize.x, kScatteringTextureSize.y);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
+		glBindVertexArray(ScreenQuad.VAO);
+		uint32 LayerLoc = glGetUniformLocation(ScatteringProgram, "ScatteringLayer");
+		for (int layer = 0; layer < kScatteringTextureSize.z; ++layer)
+		{
+			rf::SendInt(LayerLoc, layer);
+			rf::RenderMesh(&ScreenQuad);
+		}
+
+		rf::CheckGLError("Scattering Precomputation");
+
+		// Multiple Scattering
+		uint32 DeltaScatteringDensityTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false,
+			GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+
+		glDisablei(GL_BLEND, 0);
+		glDisablei(GL_BLEND, 1);
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_ONE, GL_ONE);
+
+		uint32 NumScatteringBounces = 4;
+		for (uint32 bounce = 2; bounce <= NumScatteringBounces; ++bounce)
+		{
+			// 1. Compute Scattering density into DeltaScatteringDensityTexture
+			glUseProgram(ScatteringProgram);
+			rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 3);
+			rf::FramebufferSetAttachmentCount(&RenderBuffer, 1);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaScatteringDensityTexture);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 1, 0);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 2, 0);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 3, 0);
+			rf::CheckFramebufferError("Scattering Density Framebuffer");
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_3D, DeltaRayleighTexture);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_3D, DeltaMieTexture);
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_3D, DeltaRayleighTexture);
+			glActiveTexture(GL_TEXTURE4);
+			glBindTexture(GL_TEXTURE_2D, DeltaIrradianceTexture);
+			rf::SendInt(glGetUniformLocation(ScatteringProgram, "ScatteringBounce"), bounce);
+			for (int32 layer = 0; layer < kScatteringTextureSize.z; ++layer)
+			{
+				rf::SendInt(LayerLoc, layer);
+				rf::RenderMesh(&ScreenQuad);
+			}
+
+			// 2. Compute Indirect irradiance into DeltaIrradianceTexture, accumulate it into IrradianceTexture
+			glUseProgram(AtmospherePrecomputeProgram);
+			rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 4);
+			rf::FramebufferSetAttachmentCount(&RenderBuffer, 2);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaIrradianceTexture);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 1, IrradianceTexture);
+			rf::CheckFramebufferError("Indirect Irradiance Framebuffer");
+			rf::BindTexture3D(DeltaRayleighTexture, 1);
+			rf::BindTexture3D(DeltaMieTexture, 2);
+			rf::BindTexture3D(DeltaRayleighTexture, 3);
+			rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ScatteringBounce"), bounce - 1);
+			// Accumulate Irradiance in Attachment 1
+			glEnablei(GL_BLEND, 1);
+			rf::RenderMesh(&ScreenQuad);
+			glDisablei(GL_BLEND, 1);
+
+			// 3. Compute Multiple scattering into RayleighTexture
+			glUseProgram(ScatteringProgram);
+			rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 5);
+			rf::FramebufferSetAttachmentCount(&RenderBuffer, 2);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaRayleighTexture);
+			rf::FramebufferAttachBuffer(&RenderBuffer, 1, ScatteringTexture);
+			rf::CheckFramebufferError("MS Framebuffer");
+			rf::BindTexture2D(TransmittanceTexture, 0);
+			rf::BindTexture3D(DeltaScatteringDensityTexture, 1);
+			glEnablei(GL_BLEND, 1);
+			for (int32 layer = 0; layer < kScatteringTextureSize.z; ++layer)
+			{
+				rf::SendInt(LayerLoc, layer);
+				rf::RenderMesh(&ScreenQuad);
+			}
+			glDisablei(GL_BLEND, 1);
+		}
+
+
+		glBindVertexArray(0);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glUseProgram(0);
+		glViewport(0, 0, Context->WindowWidth, Context->WindowHeight);
+
+		glDeleteTextures(1, &DeltaIrradianceTexture);
+		glDeleteTextures(1, &DeltaRayleighTexture);
+		glDeleteTextures(1, &DeltaMieTexture);
+		glDeleteTextures(1, &DeltaScatteringDensityTexture);
+		glDeleteProgram(ScatteringProgram);
+		glDeleteProgram(AtmospherePrecomputeProgram);
+		rf::DestroyFramebuffer(&RenderBuffer);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnablei(GL_BLEND, 0);
+		glEnablei(GL_BLEND, 1);
+
+		//MoonAlbedoTexture = *rf::ResourceLoad2DTexture(Context, "data/moon/albedo.png", false, false, 4, 
+				//GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_CLAMP_TO_EDGE);
+	}
+
     void Init(game::state *State, rf::context *Context)
     {
 		(void) State;
@@ -343,13 +543,14 @@ namespace atmosphere2
 
         // Compute absorption and scattering SRGB colors from wavelength
         int const nWavelengths = (LAMBDA_MAX-LAMBDA_MIN) / 10;
-        real32 Wavelengths[nWavelengths];
-        real32 SolarIrradianceWavelengths[nWavelengths];
-        real32 GroundAlbedoWavelengths[nWavelengths];
-        real32 RayleighScatteringWavelengths[nWavelengths];
-        real32 MieScatteringWavelengths[nWavelengths];
-        real32 MieExtinctionWavelengths[nWavelengths];
-        real32 AbsorptionExtinctionWavelengths[nWavelengths];
+		real32 *Wavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+		real32 *SolarIrradianceWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+		real32 *GroundAlbedoWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+		real32 *RayleighScatteringWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+		real32 *MieScatteringWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+		real32 *MieExtinctionWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+		real32 *AbsorptionExtinctionWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+
         for(int l = LAMBDA_MIN; l <= LAMBDA_MAX; l += 10)
         {
             int Idx = (l-LAMBDA_MIN)/10;
@@ -364,211 +565,27 @@ namespace atmosphere2
             GroundAlbedoWavelengths[Idx] = kGroundAlbedo;
         }
 
-		AtmosphereParameters.RayleighScattering = ScatteringSpectrumToSRGB(Wavelengths, RayleighScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
+		// Extract from above data depending on radiance rendering mode
+		int nW = 3;
+
+		AtmosphereParameters.RayleighScattering = ConvertSpectrumToSRGB(Wavelengths, RayleighScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.Rayleigh.Layers[0] = DefaultLayer;
         AtmosphereParameters.Rayleigh.Layers[1] = RayleighLayer;
-        AtmosphereParameters.MieExtinction = ScatteringSpectrumToSRGB(Wavelengths, MieExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
-        AtmosphereParameters.MieScattering = ScatteringSpectrumToSRGB(Wavelengths, MieScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.MieExtinction = ConvertSpectrumToSRGB(Wavelengths, MieExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.MieScattering = ConvertSpectrumToSRGB(Wavelengths, MieScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.Mie.Layers[0] = DefaultLayer;
         AtmosphereParameters.Mie.Layers[1] = MieLayer;
-        AtmosphereParameters.AbsorptionExtinction = ScatteringSpectrumToSRGB(Wavelengths, AbsorptionExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.AbsorptionExtinction = ConvertSpectrumToSRGB(Wavelengths, AbsorptionExtinctionWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.Absorption.Layers[0] = Ozone0Layer;
         AtmosphereParameters.Absorption.Layers[1] = Ozone1Layer;
-        AtmosphereParameters.GroundAlbedo = ScatteringSpectrumToSRGB(Wavelengths, GroundAlbedoWavelengths, nWavelengths, kLengthUnitInMeters);
-        AtmosphereParameters.SolarIrradiance = ScatteringSpectrumToSRGB(Wavelengths, SolarIrradianceWavelengths, nWavelengths, kLengthUnitInMeters);
+        AtmosphereParameters.GroundAlbedo = ConvertSpectrumToSRGB(Wavelengths, GroundAlbedoWavelengths, nWavelengths, 1.0);
+        AtmosphereParameters.SolarIrradiance = ConvertSpectrumToSRGB(Wavelengths, SolarIrradianceWavelengths, nWavelengths, 1.0);
         AtmosphereParameters.SunAngularRadius = USE_MOON ? kMoonAngularRadius : kSunAngularRadius;
         AtmosphereParameters.MiePhaseG = kMiePhaseG;
         AtmosphereParameters.MinMuS = cosf(kMaxSunZenithAngle);
 
 #ifdef PRECOMPUTE_STUFF
-        path VSPath, FSPath, GSPath;
-
-        // Precompute atmosphere textures
-        rf::frame_buffer RenderBuffer = {};
-        rf::ConcatStrings(VSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_vert.glsl");
-        rf::ConcatStrings(FSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_frag.glsl");
-        uint32 AtmospherePrecomputeProgram = rf::BuildShader(Context, VSPath, FSPath);
-        glUseProgram(AtmospherePrecomputeProgram);
-        rf::CheckGLError("Atmosphere Precompute Shader");
-
-        SendShaderUniforms(AtmospherePrecomputeProgram);
-        rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex0"), 0);
-        rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex1"), 1);
-        rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex2"), 2);
-        rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex3"), 3);
-        rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "Tex4"), 4);
-
-        // Transmittance texture
-        rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ProgramUnit"), 0);
-        rf::DestroyFramebuffer(&RenderBuffer);
-        RenderBuffer = rf::MakeFramebuffer(1, kTransmittanceTextureSize);
-        glDeleteTextures(1, &TransmittanceTexture);
-        TransmittanceTexture = rf::Make2DTexture(NULL, kTransmittanceTextureSize.x, kTransmittanceTextureSize.y, 4, true, false, 1, 
-                                             GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        //FramebufferAttachBuffer(&RenderBuffer, 0, 4, true, false, false); // RGBA32F
-        glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, TransmittanceTexture, 0);
-        glViewport(0, 0, kTransmittanceTextureSize.x, kTransmittanceTextureSize.y);
-        glClearColor(0,0,0,0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glBindVertexArray(ScreenQuad.VAO);
-        rf::RenderMesh(&ScreenQuad);
-
-        // Ground Irradiance texture
-        rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ProgramUnit"), 1);
-        rf::DestroyFramebuffer(&RenderBuffer);
-        RenderBuffer = rf::MakeFramebuffer(2, kIrradianceTextureSize);
-        glDeleteTextures(1, &IrradianceTexture);
-        IrradianceTexture = rf::Make2DTexture(NULL, kIrradianceTextureSize.x, kIrradianceTextureSize.y, 4, true, false, 1, 
-                                             GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        uint32 DeltaIrradianceTexture = rf::Make2DTexture(NULL, kIrradianceTextureSize.x, kIrradianceTextureSize.y, 4, true, false, 1, 
-                                             GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, DeltaIrradianceTexture, 0);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, IrradianceTexture, 0);
-        glViewport(0, 0, kIrradianceTextureSize.x, kIrradianceTextureSize.y);
-        glClearColor(0,0,0,0);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
-        glBindVertexArray(ScreenQuad.VAO);
-        rf::RenderMesh(&ScreenQuad);
-
-        // Single Scattering
-        rf::ConcatStrings(GSPath, rf::ctx::GetExePath(Context), "data/shaders/atmosphere_precompute_geom.glsl");
-        uint32 ScatteringProgram = rf::BuildShader(Context, VSPath, FSPath, GSPath);
-        glUseProgram(ScatteringProgram);
-        SendShaderUniforms(ScatteringProgram);
-        rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 2);
-        rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex0"), 0);
-        rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex1"), 1);
-        rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex2"), 2);
-        rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex3"), 3);
-        rf::SendInt(glGetUniformLocation(ScatteringProgram, "Tex4"), 4);
-        rf::CheckGLError("Scattering Precompute Shader");
-
-        rf::DestroyFramebuffer(&RenderBuffer);
-        RenderBuffer = rf::MakeFramebuffer(3, vec2i(kScatteringTextureSize.x, kScatteringTextureSize.y), false);
-        glBindFramebuffer(GL_FRAMEBUFFER, RenderBuffer.FBO);
-        glDeleteTextures(1, &ScatteringTexture);
-        ScatteringTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false, 
-                                          GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        uint32 DeltaRayleighTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false, 
-                                          GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        uint32 DeltaMieTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false, 
-                                          GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-        rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaRayleighTexture);
-        rf::FramebufferAttachBuffer(&RenderBuffer, 1, DeltaMieTexture);
-        rf::FramebufferAttachBuffer(&RenderBuffer, 2, ScatteringTexture);
-        D(if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            LogError("Incomplete Scattering Framebuffer");
-        })
-        glViewport(0, 0, kScatteringTextureSize.x, kScatteringTextureSize.y);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
-        glBindVertexArray(ScreenQuad.VAO);
-        uint32 LayerLoc = glGetUniformLocation(ScatteringProgram, "ScatteringLayer");
-        for(int layer = 0; layer < kScatteringTextureSize.z; ++layer)
-        {
-            rf::SendInt(LayerLoc, layer);
-            rf::RenderMesh(&ScreenQuad);
-        }
-
-        rf::CheckGLError("Scattering Precomputation");
-
-        // Multiple Scattering
-        uint32 DeltaScatteringDensityTexture = rf::Make3DTexture(kScatteringTextureSize.x, kScatteringTextureSize.y, kScatteringTextureSize.z, 4, true, false,
-                                                             GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-
-        glDisablei(GL_BLEND, 0);
-        glDisablei(GL_BLEND, 1);
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFunc(GL_ONE, GL_ONE);
-
-        uint32 NumScatteringBounces = 4;
-        for(uint32 bounce = 2; bounce <= NumScatteringBounces; ++bounce)
-        {
-            // 1. Compute Scattering density into DeltaScatteringDensityTexture
-            glUseProgram(ScatteringProgram);
-            rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 3);
-            rf::FramebufferSetAttachmentCount(&RenderBuffer, 1);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaScatteringDensityTexture);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 1, 0);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 2, 0);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 3, 0);
-            rf::CheckFramebufferError("Scattering Density Framebuffer");
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, TransmittanceTexture);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_3D, DeltaRayleighTexture);
-            glActiveTexture(GL_TEXTURE2);
-            glBindTexture(GL_TEXTURE_3D, DeltaMieTexture);
-            glActiveTexture(GL_TEXTURE3);
-            glBindTexture(GL_TEXTURE_3D, DeltaRayleighTexture);
-            glActiveTexture(GL_TEXTURE4);
-            glBindTexture(GL_TEXTURE_2D, DeltaIrradianceTexture);
-            rf::SendInt(glGetUniformLocation(ScatteringProgram, "ScatteringBounce"), bounce);
-            for(int32 layer = 0; layer < kScatteringTextureSize.z; ++layer)
-            {
-                rf::SendInt(LayerLoc, layer);
-                rf::RenderMesh(&ScreenQuad);
-            }
-
-            // 2. Compute Indirect irradiance into DeltaIrradianceTexture, accumulate it into IrradianceTexture
-            glUseProgram(AtmospherePrecomputeProgram);
-            rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 4);
-            rf::FramebufferSetAttachmentCount(&RenderBuffer, 2);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaIrradianceTexture);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 1, IrradianceTexture);
-            rf::CheckFramebufferError("Indirect Irradiance Framebuffer");
-            rf::BindTexture3D(DeltaRayleighTexture, 1);
-            rf::BindTexture3D(DeltaMieTexture, 2);
-            rf::BindTexture3D(DeltaRayleighTexture, 3);
-            rf::SendInt(glGetUniformLocation(AtmospherePrecomputeProgram, "ScatteringBounce"), bounce - 1);
-            // Accumulate Irradiance in Attachment 1
-            glEnablei(GL_BLEND, 1);
-            rf::RenderMesh(&ScreenQuad);
-            glDisablei(GL_BLEND, 1);
-
-            // 3. Compute Multiple scattering into RayleighTexture
-            glUseProgram(ScatteringProgram);
-            rf::SendInt(glGetUniformLocation(ScatteringProgram, "ProgramUnit"), 5);
-            rf::FramebufferSetAttachmentCount(&RenderBuffer, 2);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaRayleighTexture);
-            rf::FramebufferAttachBuffer(&RenderBuffer, 1, ScatteringTexture);
-            rf::CheckFramebufferError("MS Framebuffer");
-            rf::BindTexture2D(TransmittanceTexture, 0);
-            rf::BindTexture3D(DeltaScatteringDensityTexture, 1);
-            glEnablei(GL_BLEND, 1);
-            for(int32 layer = 0; layer < kScatteringTextureSize.z; ++layer)
-            {
-                rf::SendInt(LayerLoc, layer);
-                rf::RenderMesh(&ScreenQuad);
-            }
-            glDisablei(GL_BLEND, 1);
-        }
-
-
-        glBindVertexArray(0);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glUseProgram(0);
-        glViewport(0, 0, Context->WindowWidth, Context->WindowHeight);
-
-        glDeleteTextures(1, &DeltaIrradianceTexture);
-        glDeleteTextures(1, &DeltaRayleighTexture);
-        glDeleteTextures(1, &DeltaMieTexture);
-        glDeleteTextures(1, &DeltaScatteringDensityTexture);
-        glDeleteProgram(ScatteringProgram);
-        glDeleteProgram(AtmospherePrecomputeProgram);
-        rf::DestroyFramebuffer(&RenderBuffer);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnablei(GL_BLEND, 0);
-        glEnablei(GL_BLEND, 1);
-
-        //MoonAlbedoTexture = *rf::ResourceLoad2DTexture(Context, "data/moon/albedo.png", false, false, 4, 
-                //GL_LINEAR, GL_LINEAR_MIPMAP_LINEAR, GL_REPEAT, GL_CLAMP_TO_EDGE);
+		InitializeModel(Context);
 #endif
     }
 

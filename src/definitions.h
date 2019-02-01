@@ -29,7 +29,7 @@ struct config
     int32   AnisotropicFiltering;
 
     real32  CameraSpeedBase;
-    real32  CameraSpeedMult;
+    vec4f   CameraSpeedMult;
     real32  CameraSpeedAngular;
     vec3f   CameraPosition;
     vec3f   CameraTarget;
@@ -84,9 +84,9 @@ struct camera
 
     real32 LinearSpeed;
     real32 AngularSpeed;
-    real32 SpeedMult;
+    real32 SpeedMult[4];
 
-    int    SpeedMode; // -1 : slower, 0 : normal, 1 : faster
+    int    SpeedMode; // -1 : slower, 0 : normal, 1 : faster, 2 : faster
     bool   FreeflyMode;
     vec2i  LastMousePos;
 

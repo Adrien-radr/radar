@@ -22,9 +22,9 @@ int RadarMain(int argc, char **argv);
 #include "radar_unix.cpp"
 #endif
 
-#define DO_ATMOSPHERE 0
+#define DO_ATMOSPHERE 1
 #define DO_WATER 0
-#define DO_PLANET 1
+#define DO_PLANET 0
 
 memory *InitMemory()
 {
@@ -93,7 +93,7 @@ bool ParseConfig(config *ConfigOut, char const *Filename)
 	ConfigOut->AnisotropicFiltering = rf::JSON_Get(root, "iAnisotropicFiltering", 1);
 
 	ConfigOut->CameraSpeedBase = (real32)rf::JSON_Get(root, "fCameraSpeedBase", 20.0);
-	ConfigOut->CameraSpeedMult = (real32)rf::JSON_Get(root, "fCameraSpeedMult", 2.0);
+	ConfigOut->CameraSpeedMult = rf::JSON_Get(root, "vCameraSpeedMult", vec4f(1));
 	ConfigOut->CameraSpeedAngular = (real32)rf::JSON_Get(root, "fCameraSpeedAngular", 0.3);
 
 	ConfigOut->CameraPosition = rf::JSON_Get(root, "vCameraPosition", vec3f(1, 1, 1));
