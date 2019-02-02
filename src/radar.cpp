@@ -317,7 +317,7 @@ int RadarMain(int argc, char **argv)
     static vec3i TW_Position(Context->WindowWidth - 10 - TW_Size.x, Context->WindowHeight - 10 - TW_Size.y, 0);
 
     // Game State initialization
-    game::state *State = PushArenaStruct(&Memory->PermanentArena, game::state);
+    game::state *State = Alloc<game::state>(&Memory->PermanentArena);
     if(!game::Init(State, &Config))
     {
         LogError("Error initializing Game State.");
@@ -384,19 +384,19 @@ int RadarMain(int argc, char **argv)
         }
 
 		// Additional termination test with escape key
-		if (KEY_DOWN(Input.Keys[KEY_ESCAPE]))
+		if (KEY_PRESSED(Input.Keys[KEY_ESCAPE]))
 		{
 			Context->IsRunning = false;
 		}
 
         // Shader hot reload key (Shift-F11)
-        if(KEY_DOWN(Input.Keys[KEY_LEFT_SHIFT]) && KEY_UP(Input.Keys[KEY_F11]))
+        if(KEY_PRESSED(Input.Keys[KEY_LEFT_SHIFT]) && KEY_RELEASED(Input.Keys[KEY_F11]))
         {
             ReloadShaders(Context);
         }
 
         // Wireframe toggle key (Shift-F10)
-        if(KEY_DOWN(Input.Keys[KEY_LEFT_SHIFT]) && KEY_UP(Input.Keys[KEY_F10]))
+        if(KEY_PRESSED(Input.Keys[KEY_LEFT_SHIFT]) && KEY_RELEASED(Input.Keys[KEY_F10]))
         {
             rf::ctx::SetWireframeMode(Context);
         }

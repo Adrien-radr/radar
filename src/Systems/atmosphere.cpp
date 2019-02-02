@@ -416,7 +416,7 @@ namespace atmosphere
 		rf::FramebufferAttachBuffer(&RenderBuffer, 0, DeltaRayleighTexture);
 		rf::FramebufferAttachBuffer(&RenderBuffer, 1, DeltaMieTexture);
 		rf::FramebufferAttachBuffer(&RenderBuffer, 2, ScatteringTexture);
-		D(if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		D_ONLY(if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		{
 			LogError("Incomplete Scattering Framebuffer");
 		})
@@ -543,13 +543,13 @@ namespace atmosphere
 
         // Compute absorption and scattering SRGB colors from wavelength
         int const nWavelengths = (LAMBDA_MAX-LAMBDA_MIN) / 10;
-		real32 *Wavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
-		real32 *SolarIrradianceWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
-		real32 *GroundAlbedoWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
-		real32 *RayleighScatteringWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
-		real32 *MieScatteringWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
-		real32 *MieExtinctionWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
-		real32 *AbsorptionExtinctionWavelengths = (real32*)PushArenaData(Context->ScratchArena, nWavelengths * sizeof(real32));
+		real32 *Wavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
+		real32 *SolarIrradianceWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
+		real32 *GroundAlbedoWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
+		real32 *RayleighScatteringWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
+		real32 *MieScatteringWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
+		real32 *MieExtinctionWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
+		real32 *AbsorptionExtinctionWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
 
         for(int l = LAMBDA_MIN; l <= LAMBDA_MAX; l += 10)
         {

@@ -117,22 +117,22 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 	vec2i MousePos = vec2i(Input->MousePosX, Input->MousePosY);
 
 	// Camera reset pos
-	if (KEY_UP(Input->Keys[KEY_Z]) && KEY_DOWN(Input->Keys[KEY_LEFT_CONTROL]))
+	if (KEY_RELEASED(Input->Keys[KEY_Z]) && KEY_PRESSED(Input->Keys[KEY_LEFT_CONTROL]))
 	{
 		Camera.Position = vec3f(0);
 	}
 
 	vec3f CameraMove(0, 0, 0);
-	if (KEY_DOWN(Input->Keys[KEY_W])) CameraMove += Camera.Forward;
-	if (KEY_DOWN(Input->Keys[KEY_S])) CameraMove -= Camera.Forward;
-	if (KEY_DOWN(Input->Keys[KEY_A])) CameraMove -= Camera.Right;
-	if (KEY_DOWN(Input->Keys[KEY_D])) CameraMove += Camera.Right;
-	if (KEY_DOWN(Input->Keys[KEY_R])) CameraMove += Camera.Up;
-	if (KEY_DOWN(Input->Keys[KEY_F])) CameraMove -= Camera.Up;
+	if (KEY_PRESSED(Input->Keys[KEY_W])) CameraMove += Camera.Forward;
+	if (KEY_PRESSED(Input->Keys[KEY_S])) CameraMove -= Camera.Forward;
+	if (KEY_PRESSED(Input->Keys[KEY_A])) CameraMove -= Camera.Right;
+	if (KEY_PRESSED(Input->Keys[KEY_D])) CameraMove += Camera.Right;
+	if (KEY_PRESSED(Input->Keys[KEY_R])) CameraMove += Camera.Up;
+	if (KEY_PRESSED(Input->Keys[KEY_F])) CameraMove -= Camera.Up;
 
-	if (KEY_DOWN(Input->Keys[KEY_LEFT_SHIFT]))
+	if (KEY_PRESSED(Input->Keys[KEY_LEFT_SHIFT]))
 	{
-		if (KEY_DOWN(Input->Keys[KEY_LEFT_CONTROL]))
+		if (KEY_PRESSED(Input->Keys[KEY_LEFT_CONTROL]))
 		{ // Super Speed
 			Camera.SpeedMode = 3;
 		}
@@ -141,7 +141,7 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 			Camera.SpeedMode = 2;
 		}
 	}
-	else if (KEY_DOWN(Input->Keys[KEY_LEFT_CONTROL]))
+	else if (KEY_PRESSED(Input->Keys[KEY_LEFT_CONTROL]))
 	{
 		Camera.SpeedMode = 0;
 	}
@@ -163,7 +163,7 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 		State->DisableMouse.Switch();
 		Camera.LastMousePos = MousePos;
 	}
-	if (MOUSE_UP(Input->MouseRight))
+	if (MOUSE_RELEASED(Input->MouseRight))
 	{
 		Camera.FreeflyMode = false;
 		State->DisableMouse.Switch();
