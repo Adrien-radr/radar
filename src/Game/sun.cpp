@@ -2,6 +2,8 @@
 #include "sun.h"
 #include "rf/context.h"
 
+static vec3f CameraDefaultPos(0, 0, 0);
+
 namespace game {
 // In meters
 const real32 EarthRadius = 6.3710088e6f;
@@ -10,11 +12,13 @@ const real32 SunDistance = 1.496e11f;
 void InitCamera(camera *Camera, config *Config)
 {
 	Camera->Position = Config->CameraPosition;
-	Camera->Target = Config->CameraTarget;
+	CameraDefaultPos = Config->CameraPosition;
+	Camera->PositionDecimal = vec3f(0, 0, 0);
+	Camera->Forward = Config->CameraForward;
 	Camera->Up = vec3f(0, 1, 0);
-	Camera->Forward = Normalize(Camera->Target - Camera->Position);
 	Camera->Right = Normalize(Cross(Camera->Forward, Camera->Up));
 	Camera->Up = Normalize(Cross(Camera->Right, Camera->Forward));
+	//Camera->Target = Camera->Position + Camera->Forward;
 	Camera->LinearSpeed = Config->CameraSpeedBase;
 	Camera->AngularSpeed = Config->CameraSpeedAngular;
 	for (int i = 0; i < 4; ++i)
@@ -36,10 +40,10 @@ void InitCamera(camera *Camera, config *Config)
 
 bool Init(state *State, config *Config)
 {
+	State->TextLineCount = 0;
 	State->EngineTime = 0.0;
 	State->Counter = 0.1;       // init those past their reset time to not have to wait the reset time at game start 
 	State->CounterTenth = 0.1;
-	State->PlayerPosition = vec3f(300, 300, 0);
 	State->DisableMouse.Switch(); // Set On
 
 	InitCamera(&State->Camera, Config);
@@ -60,37 +64,46 @@ bool Init(state *State, config *Config)
 static void UpdateUI(state *State, rf::input *Input, rf::context *Context)
 {
 	//int32 TextlineCount = 4;
+	State->TextLineCount = 5; // 0 : Camera Pos, 1, Camera movement, 2 : FPS/Mouse, 3 : Water, 4 : Atmosphere
+
 	if (State->CounterTenth >= 0.1)
 	{
 		const camera &Camera = State->Camera;
-		snprintf(State->Textline[0].String, UI_STRINGLEN, "Camera : From <%.1f, %.1f, %.1f> To <%.1f, %.1f, %.1f>",
-			Camera.Position.x, Camera.Position.y, Camera.Position.z, Camera.Target.x, Camera.Target.y, Camera.Target.z);
+		State->Textline[0].Position = vec2i(4, 4);
+		State->Textline[0].Color = rf::ui::COLOR_DEBUGFG;
 
-		snprintf(State->Textline[1].String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+		snprintf(State->Textline[0].String, UI_STRINGLEN, "Camera : <%.0f, %.0f, %.0f> <%.4f, %.4f, %.4f> <%.2f, %.2f>",
+			Camera.Position.x, Camera.Position.y, Camera.Position.z, 
+			Camera.PositionDecimal.x, Camera.PositionDecimal.y, Camera.PositionDecimal.z, 
+			Camera.Theta, Camera.Phi);
+
+		State->Textline[1].Position = vec2i(4, 18);
+		State->Textline[1].Color = rf::ui::COLOR_DEBUGFG;
+
+		State->Textline[2].Position = vec2i(4, 32);
+		State->Textline[2].Color = rf::ui::COLOR_DEBUGFG;
+
+		snprintf(State->Textline[2].String, UI_STRINGLEN, "%2.4g, Mouse: %d,%d", 1.0 / Input->dTime, Input->MousePosX, Input->MousePosY);
+		
 		State->CounterTenth = 0.0;
 	}
 
 	if (State->Counter >= 0.75)
 	{
-		State->Textline[0].Position = vec2i(4, 4);
-		State->Textline[0].Color = rf::ui::COLOR_DEBUGFG;
-
-		State->Textline[1].Position = vec2i(4, 18);
-		State->Textline[1].Color = rf::ui::COLOR_DEBUGFG;
-
-		snprintf(State->Textline[2].String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
-		State->Textline[2].Position = vec2i(4, 32);
-		State->Textline[2].Color = rf::ui::COLOR_DEBUGFG;
-
-		State->Textline[3].Color = rf::ui::COLOR_DEBUGFG;
 		State->Textline[3].Position = vec2i(4, 46);
+		State->Textline[3].Color = rf::ui::COLOR_DEBUGFG;
 
-		int CharWritten = snprintf(State->Textline[3].String, UI_STRINGLEN, "Sun Speed : %.3f", State->SunSpeed);
+		snprintf(State->Textline[3].String, UI_STRINGLEN, "Water State : %d  Water Interpolant : %g", State->WaterState, State->WaterStateInterp);
+
+		State->Textline[4].Color = rf::ui::COLOR_DEBUGFG;
+		State->Textline[4].Position = vec2i(4, 60);
+
+		int CharWritten = snprintf(State->Textline[4].String, UI_STRINGLEN, "Sun Speed : %.3f", State->SunSpeed);
 
 		if (State->IsNight)
-			snprintf(State->Textline[3].String + CharWritten, UI_STRINGLEN - CharWritten, " Day");
+			snprintf(State->Textline[4].String + CharWritten, UI_STRINGLEN - CharWritten, " Day");
 		else
-			snprintf(State->Textline[3].String + CharWritten, UI_STRINGLEN - CharWritten, " Night");
+			snprintf(State->Textline[4].String + CharWritten, UI_STRINGLEN - CharWritten, " Night");
 
 		State->Counter = 0.0;
 	}
@@ -98,12 +111,12 @@ static void UpdateUI(state *State, rf::input *Input, rf::context *Context)
 
 	int32 LineGap = rf::ui::GetFontLineGap(rf::ui::FONT_DEFAULT);
 
-	int UIStackHeight = LineGap * State->TextlineCount;
+	int UIStackHeight = LineGap * State->TextLineCount;
 	static uint32 UIStackPanel = 0;
 	static vec3i  UIStackPanelPos(0, 0, 0);
-	static vec2i  UIStackPanelSize(360, UIStackHeight + 30);
+	static vec2i  UIStackPanelSize(400, UIStackHeight + 20);
 	rf::ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, rf::ui::COLOR_PANELBG, rf::ui::DECORATION_NONE);
-	for (uint32 i = 0; i < State->TextlineCount; ++i)
+	for (uint32 i = 0; i < State->TextLineCount; ++i)
 	{
 		rf::ui::text_line *Line = &State->Textline[i];
 		rf::ui::MakeText((void*)Line, Line->String, rf::ui::FONT_DEFAULT, Line->Position, Line->Color, 1.f, Context->WindowWidth);
@@ -119,7 +132,8 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 	// Camera reset pos
 	if (KEY_RELEASED(Input->Keys[KEY_Z]) && KEY_PRESSED(Input->Keys[KEY_LEFT_CONTROL]))
 	{
-		Camera.Position = vec3f(0);
+		Camera.Position = CameraDefaultPos;
+		Camera.PositionDecimal = vec3f(0);
 	}
 
 	vec3f CameraMove(0, 0, 0);
@@ -153,7 +167,15 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 	Normalize(CameraMove);
 	real32 SpeedMult = Camera.SpeedMult[Camera.SpeedMode];
 	CameraMove *= (real32)(Input->dTime * Camera.LinearSpeed * SpeedMult);
-	Camera.Position += CameraMove;
+
+	// Move the camera decimal point, add the floored integer part to the full Camera Position
+	Camera.PositionDecimal += CameraMove;
+	vec3i IntegerPos((int)floor(Camera.PositionDecimal.x), (int)floor(Camera.PositionDecimal.y), (int)floor(Camera.PositionDecimal.z));
+	Camera.PositionDecimal -= IntegerPos;
+	Camera.Position += IntegerPos;
+
+	// UI for camera movement
+	snprintf(State->Textline[1].String, UI_STRINGLEN, "Move : <%.4f, %.4f, %.4f>", CameraMove.x, CameraMove.y, CameraMove.z);
 
 	//Camera.Position.y = Max(0.5f, Camera.Position.y); // Min at .5 meters
 
@@ -190,19 +212,9 @@ void MovePlayer(state *State, rf::input *Input, rf::context *Context)
 		}
 	}
 
-	Camera.Target = Camera.Position + Camera.Forward;
-	Camera.ViewMatrix = mat4f::LookAtPrecise(Camera.Position, Camera.Forward, Camera.Right, Camera.Up);
-
-	vec3f Move;
-	Move.x = (real32)Input->MousePosX;
-	Move.y = (real32)(540 - Input->MousePosY);
-
-	if (Move.x < 0) Move.x = 0;
-	if (Move.y < 0) Move.y = 0;
-	if (Move.x >= 960) Move.x = 959;
-	if (Move.y >= 540) Move.y = 539;
-
-	State->PlayerPosition = Move;
+	//Camera.Target = Camera.Position + Camera.Forward;
+	vec3f CameraFullPosition = Camera.Position + Camera.PositionDecimal;
+	Camera.ViewMatrix = mat4f::LookAtPrecise(CameraFullPosition, Camera.Forward, Camera.Right, Camera.Up);
 
 	// Mouse cursor disabling when in Freefly
 	if (State->DisableMouse.Switched())

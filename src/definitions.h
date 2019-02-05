@@ -32,7 +32,7 @@ struct config
     vec4f   CameraSpeedMult;
     real32  CameraSpeedAngular;
     vec3f   CameraPosition;
-    vec3f   CameraTarget;
+    vec3f   CameraForward;
 
     real32  TimeScale; // Ratio for the length of a day. 1.0 is real time. 
                        // 30.0 is 1 day = 48 minutes
@@ -75,7 +75,8 @@ struct memory
 struct camera
 {
     vec3f  Position;
-    vec3f  Target;
+	vec3f  PositionDecimal;
+    //vec3f  Target;
     vec3f  Up;
     vec3f  Forward;
     vec3f  Right;

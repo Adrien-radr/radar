@@ -8,18 +8,6 @@ namespace game {
     struct state;
 }
 
-namespace atmosphere2
-{
-	/// NOTE - Atmospheric scattering engine, inspired by Oskar Elek's Real-Time Spectral Scattering in Large-Scale Natural Participating Media
-	/// http://cgg.mff.cuni.cz/~oskar/projects/SCCG2010/Elek2010.pdf
-	extern uint32 FmTexture;
-	extern uint32 TransmittanceTexture;
-
-	void Init(game::state *State, rf::context *Context);
-	void Render(game::state *State, rf::context *Context);
-	void ReloadShaders(rf::context *Context);
-}
-
 namespace atmosphere {
 	
 	enum radiance_mode

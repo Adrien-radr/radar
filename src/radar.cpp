@@ -96,8 +96,8 @@ bool ParseConfig(config *ConfigOut, char const *Filename)
 	ConfigOut->CameraSpeedMult = rf::JSON_Get(root, "vCameraSpeedMult", vec4f(1));
 	ConfigOut->CameraSpeedAngular = (real32)rf::JSON_Get(root, "fCameraSpeedAngular", 0.3);
 
-	ConfigOut->CameraPosition = rf::JSON_Get(root, "vCameraPosition", vec3f(1, 1, 1));
-	ConfigOut->CameraTarget = rf::JSON_Get(root, "vCameraTarget", vec3f(0, 0, 0));
+	ConfigOut->CameraPosition = rf::JSON_Get(root, "vCameraPosition", vec3f(0, 6360001, 0));
+	ConfigOut->CameraForward = rf::JSON_Get(root, "vCameraForward", vec3f(1, 0, 0));
 
 	ConfigOut->TimeScale = (real32)rf::JSON_Get(root, "fTimescale", 30.0);
 
@@ -428,7 +428,7 @@ int RadarMain(int argc, char **argv)
         uint32 ResolutionLoc = glGetUniformLocation(Context->ProgramPostProcess, "Resolution");
         rf::SendFloat(MipmapLogLoc, Context->WindowSizeLogLevel);
         rf::SendVec2(ResolutionLoc, vec2f((real32)Context->WindowWidth, (real32)Context->WindowHeight));
-        rf::SendVec3(glGetUniformLocation(Context->ProgramPostProcess, "CameraPosition"), vec3f(State->Camera.Position.y));
+        rf::SendVec3(glGetUniformLocation(Context->ProgramPostProcess, "CameraPosition"), vec3f(State->Camera.Position + State->Camera.PositionDecimal));
         rf::BindTexture2D(FPBackbuffer.BufferIDs[0], 0);
         glGenerateMipmap(GL_TEXTURE_2D); // generate mipmap for the color buffer
         rf::CheckGLError("TexBind");

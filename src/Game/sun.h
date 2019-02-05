@@ -27,7 +27,6 @@ namespace game {
 		real64 dTime;
         camera Camera;
         binary_switch DisableMouse;
-        vec3f PlayerPosition;
         vec4f LightColor;
 
         real64 WaterCounter;
@@ -48,8 +47,9 @@ namespace game {
         // Latitude: -pi/2 = South pole, +pi/2 = North pole
         real32 Latitude;
 
-        static int32 const TextlineCount = 4;
-        rf::ui::text_line Textline[TextlineCount];
+        static int32 const TextlineCapacity = 16;
+		int32 TextLineCount;
+        rf::ui::text_line Textline[TextlineCapacity];
     };
 
     bool Init(state *State, config *Config);

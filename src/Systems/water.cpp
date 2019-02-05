@@ -463,14 +463,14 @@ real32 IntersectPlane(vec3f const &N, vec3f const &P0, vec3f const &RayOrg, vec3
 static const float S_Upper = 5.f; // TODO - this is the upper level of displacement, should be parameterized
 static const float M2_FixedLength = 10.f; // Fixed length along the Fwd vector for method 2 projector direction
 
-void GetProjectorPositionAndDirection(vec3f const &CameraPosition, vec3f const &CameraDirection, 
+void GetProjectorPositionAndDirection(const camera &Camera, 
                                       vec3f &ProjectorPosition, vec3f &ProjectorTarget)
 {
-    ProjectorPosition = CameraPosition;
+    ProjectorPosition = Camera.Position + Camera.PositionDecimal;
     //ProjectorPosition.y = Max(ProjectorPosition.y, S_Upper); // limit Projector height above upper displacement 
 
     // Get projector orientation 
-    vec3f D = CameraDirection;
+    vec3f D = Camera.Forward;
     vec3f N = vec3f(0,1,0); // plane normal
     real32 NdotD = Dot(D, N);
     if(NdotD > 0.f)
@@ -480,12 +480,12 @@ void GetProjectorPositionAndDirection(vec3f const &CameraPosition, vec3f const &
     }
 
     // method 1 : to the intersection of the camera direction and the sea plane
-    real32 T = IntersectPlane(N, vec3f(0,0,0), CameraPosition, D);
+    real32 T = IntersectPlane(N, vec3f(0,0,0), ProjectorPosition, D);
     Assert(T >= 0.f);
-    vec3f M1 = CameraPosition + D * T;
+    vec3f M1 = ProjectorPosition + D * T;
 
     // method 2 : to the 2d plane projection of a fixed length direction along the fwd vector
-    vec3f M2 = CameraPosition + CameraDirection * M2_FixedLength;
+    vec3f M2 = ProjectorPosition + Camera.Forward * M2_FixedLength;
     M2.y = 0.f;
 
     // The result is a linear mix between the two methods depending on the angle of the cam
@@ -520,7 +520,7 @@ void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
 #endif
 
     vec3f ProjPos, ProjTarget;
-    GetProjectorPositionAndDirection(State->Camera.Position, State->Camera.Forward, ProjPos, ProjTarget);
+    GetProjectorPositionAndDirection(State->Camera, ProjPos, ProjTarget);
     vec3f ProjFwd = Normalize(ProjTarget - ProjPos);
     vec3f ProjRight = Normalize(Cross(ProjFwd, vec3f(0,1,0)));
     vec3f ProjUp = Normalize(Cross(ProjRight, ProjFwd));
