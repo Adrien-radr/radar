@@ -5,6 +5,7 @@ A Physically based renderer in OpenGL/GLSL 4.
 ![Screenshot 3](https://github.com/Adrien-radr/radar/blob/master/screenshots/3.png "Dev Screenshot 3")
 ![Screenshot 4](https://github.com/Adrien-radr/radar/blob/master/screenshots/4.png "Dev Screenshot 4")
 ![Screenshot 5](https://github.com/Adrien-radr/radar/blob/master/screenshots/5.png "Dev Screenshot 5")
+![Screenshot 6](https://github.com/Adrien-radr/radar/blob/master/screenshots/6.png "Dev Screenshot 6")
 
 ## Features
 - OpenGL 4.x / GLSL(400) rendering engine
