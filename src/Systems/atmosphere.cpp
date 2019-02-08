@@ -4,6 +4,8 @@
 #include "Game/sun.h"
 #include "rf/color.h"
 
+#include <sstream>
+
 #define USE_MOON 0
 #define PRECOMPUTE_STUFF
 
@@ -107,7 +109,7 @@ namespace atmosphere
 	static const real32 kRayleigh = 1.24062e-6f;
     static const real32 kMieScaleHeight = 1200.f;
     static const real32 kMieAngstromAlpha = 0.f;
-	static const real32 kMieAngstromBeta = 5.328e-3f;
+	static const real32 kMieAngstromBeta = 5.328e-3f; // orig 5.328e-3
     static const real32 kMieSingleScatteringAlbedo = 0.9f;
     static const real32 kDobsonUnit = 2.687e20f; // From wiki, in molecules.m^-2
     static const real32 kMaxOzoneNumberDensity = 300.f * kDobsonUnit / 15000.f; // Max nb density of ozone molecules in m^-3, 300 DU integrated over the ozone density profile (15km)
@@ -115,7 +117,7 @@ namespace atmosphere
     static const real32 kSunAngularRadius = 0.004675f;
     static const real32 kMoonAngularRadius = 0.018f;//0.004509f;
     static const real32 kSunSolidAngle = M_PI * kSunAngularRadius * kSunAngularRadius;
-    static const real32 kMiePhaseG = USE_MOON ? 0.93f : 0.80f;
+    static const real32 kMiePhaseG = USE_MOON ? 0.93f : 0.90f;
     static const real32 kMaxSunZenithAngle = DEG2RAD * 120.f;
 	
     static void SendShaderUniforms(uint32 Program)
@@ -430,6 +432,7 @@ namespace atmosphere
     void Render(game::state *State, rf::context *Context)
     {
         mat4f ViewMatrix = State->Camera.ViewMatrix;
+		mat4f InvViewMatrix = ViewMatrix.Inverse();
 
         real32 AspectRatio = Context->WindowWidth / (real32)Context->WindowHeight;
         real32 FovRadians = HFOVtoVFOV(AspectRatio, Context->FOV) * DEG2RAD;
@@ -446,13 +449,11 @@ namespace atmosphere
 
         //vec3f Camera;
         real32 CameraScale = 1.0f / (kLengthUnitInMeters);
-        //Camera.x = ModelFromView.M[3].x * l;
-        //Camera.y = ModelFromView.M[3].y * l;
-        //Camera.z = ModelFromView.M[3].z * l;
     
 
         glUseProgram(AtmosphereProgram);
         rf::SendMat4(glGetUniformLocation(AtmosphereProgram, "ViewMatrix"), ViewMatrix);
+		rf::SendMat4(glGetUniformLocation(AtmosphereProgram, "InvViewMatrix"), InvViewMatrix);
         rf::SendMat4(glGetUniformLocation(AtmosphereProgram, "ProjMatrix"), ProjMatrix);
         rf::SendFloat(glGetUniformLocation(AtmosphereProgram, "CameraScale"), CameraScale);
         rf::SendVec3(glGetUniformLocation(AtmosphereProgram, "SunDirection"), State->SunDirection);
@@ -477,6 +478,32 @@ namespace atmosphere
 
         glDepthFunc(GL_LESS);
         rf::CheckGLError("Atmo");
+
+		// TMP - print center view ray info
+		std::stringstream ss;
+
+		vec4f CenterPoint(0.f, 0.f, 0.f, 1.f);
+		vec4f ViewCenterPoint = Context->ProjectionMatrix3D.Inverse() * CenterPoint;
+		ViewCenterPoint.w = 0.0f;
+		vec4f WorldCenterPoint = InvViewMatrix * ViewCenterPoint;
+		vec3f E = -Normalize(vec3f(WorldCenterPoint));
+		vec3f P = State->Camera.Position + State->Camera.PositionDecimal;
+		vec3f p = P;
+
+		real32 PdotV = Dot(p, E);
+		real32 PdotP = Dot(p, p);
+		real32 EarthCenterRayDistance = PdotP - PdotV * PdotV;
+		real32 insqrt = AtmosphereParameters.BottomRadius * AtmosphereParameters.BottomRadius - EarthCenterRayDistance;
+		real32 sqrtval = sqrtf(insqrt);
+		real32 n1 = PdotV / PdotV;
+		real32 n2 = sqrtval / PdotV;
+		real32 nd = -n1 - n2;
+		real32 depth = nd * PdotV;
+		real32 ViewInfoDepth = -PdotV - sqrtf(AtmosphereParameters.BottomRadius * AtmosphereParameters.BottomRadius - EarthCenterRayDistance);
+		ss << "Center Ray : n1 " << n1 << " n2 " << n2 << " nd " << nd << " d " << depth;
+
+		int TextID = 0;
+		rf::ui::MakeText(&TextID, ss.str().c_str(), rf::ui::FONT_DEFAULT, vec2i(4, Context->WindowHeight - 20), col4f(1));
     }
 
     void ReloadShaders(rf::context *Context)
