@@ -87,9 +87,9 @@ complex ComputeHTilde(water::beaufort_state *StateA, water::beaufort_state *Stat
     vec3f *HTilde0mkA = (vec3f*)StateA->HTilde0mk;
     vec3f *HTilde0mkB = (vec3f*)StateB->HTilde0mk;
 
-    vec3f dHT0 = Mix(HTilde0A[Idx], HTilde0B[Idx], WaterInterp);
-    vec3f dHT0mk = Mix(HTilde0mkA[Idx], HTilde0mkB[Idx], WaterInterp);
-    real32 dWidth = Mix((real32)StateA->Width, (real32)StateB->Width, WaterInterp);
+    vec3f dHT0 = Lerp(HTilde0A[Idx], HTilde0B[Idx], WaterInterp);
+    vec3f dHT0mk = Lerp(HTilde0mkA[Idx], HTilde0mkB[Idx], WaterInterp);
+    real32 dWidth = Lerp((real32)StateA->Width, (real32)StateB->Width, WaterInterp);
     
     complex H0(dHT0.x, dHT0.y);
     complex H0mk(dHT0mk.x, dHT0mk.y);
@@ -211,7 +211,7 @@ namespace water {
 water::system *WaterSystem = NULL;
 rf::mesh ScreenQuad = {};
 
-void Init(game::state *State, rf::context *Context, uint32 BeaufortState)
+void Init(game::state * /*State*/, rf::context *Context, uint32 /*BeaufortState*/)
 {
     ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 5);
     WaterSystem = Alloc<water::system>(Context->SessionArena);
@@ -313,7 +313,7 @@ void Init(game::state *State, rf::context *Context, uint32 BeaufortState)
 #endif
 }
 
-void Update(game::state *State, rf::input *Input)
+void Update(game::state * /*State*/, rf::input * /*Input*/)
 {
 #if 0
     beaufort_state *WStateA = &WaterSystem->States[State->WaterState];
@@ -493,7 +493,7 @@ void GetProjectorPositionAndDirection(const camera &Camera,
     ProjectorTarget = Lerp(M2, M1, NdotD);
 }
 
-void Render(game::state *State, uint32 Envmap, uint32 GGXLUT)
+void Render(game::state *State, uint32 /*Envmap*/, uint32 /*GGXLUT*/)
 {
     glDisable(GL_CULL_FACE);
     glUseProgram(WaterSystem->ProgramWater);

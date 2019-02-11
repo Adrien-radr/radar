@@ -78,7 +78,7 @@ void ReloadShaders(rf::context *Context)
     rf::ctx::RegisterShader3D(Context, ProgramSkybox);
 }
 
-bool Init(rf::context *Context, config const *Config)
+bool Init(rf::context *Context, config const * /*Config*/)
 {
     GGXLUT = rf::PrecomputeGGXLUT(Context, 512);
     rf::ComputeIrradianceCubemap(Context, "data/envmap_monument.hdr", 
@@ -152,7 +152,7 @@ bool Init(rf::context *Context, config const *Config)
     return true;
 }
 
-void Render(game::state *State, rf::input *Input, rf::context *Context)
+void Render(game::state *State, rf::input * /*Input*/, rf::context * /*Context*/)
 {
     mat4f const &ViewMatrix = State->Camera.ViewMatrix;
 

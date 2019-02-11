@@ -138,7 +138,7 @@ void ReloadShaders(rf::context *Context)
     glUseProgram(0);
 }
 
-void MakeUI(memory *Memory, rf::context *Context, rf::input *Input)
+void MakeUI(memory *Memory, rf::context *Context, rf::input * /*Input*/)
 {
     //game_system *System = (game_system*)Memory->PermanentMemPool;
 
@@ -272,7 +272,7 @@ rf::context_descriptor MakeContextDescriptor(memory *Memory, config *Config, pat
     return CtxDesc;
 }
 
-int RadarMain(int argc, char **argv)
+int RadarMain(int /*argc*/, char ** /*argv*/)
 {
     // Init Engine memory
     memory *Memory = InitMemory();

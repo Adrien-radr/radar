@@ -25,7 +25,7 @@ namespace planet
 	uint32 PlanetUBO;
 	rf::mesh PlanetMesh;
 
-	void Init(game::state * State, rf::context * Context)
+	void Init(game::state * /*State*/, rf::context * /*Context*/)
 	{
 		// 1 vertex VBO
 		float vtxData[] = { 0.0f, 0.0f, 0.0f };

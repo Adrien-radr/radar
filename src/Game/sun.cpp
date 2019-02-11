@@ -116,7 +116,7 @@ static void UpdateUI(state *State, rf::input *Input, rf::context *Context)
 	static vec3i  UIStackPanelPos(0, 0, 0);
 	static vec2i  UIStackPanelSize(400, UIStackHeight + 20);
 	rf::ui::BeginPanel(&UIStackPanel, "", &UIStackPanelPos, &UIStackPanelSize, rf::ui::COLOR_PANELBG, rf::ui::DECORATION_NONE);
-	for (uint32 i = 0; i < State->TextLineCount; ++i)
+	for (int32 i = 0; i < State->TextLineCount; ++i)
 	{
 		rf::ui::text_line *Line = &State->Textline[i];
 		rf::ui::MakeText((void*)Line, Line->String, rf::ui::FONT_DEFAULT, Line->Position, Line->Color, 1.f, Context->WindowWidth);

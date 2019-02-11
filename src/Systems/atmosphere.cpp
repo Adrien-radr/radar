@@ -402,7 +402,7 @@ namespace atmosphere
         }
 
 		// Extract from above data depending on radiance rendering mode
-		int nW = 3;
+		//int nW = 3;
 
 		AtmosphereParameters.RayleighScattering = ConvertSpectrumToSRGB(Wavelengths, RayleighScatteringWavelengths, nWavelengths, kLengthUnitInMeters);
         AtmosphereParameters.Rayleigh.Layers[0] = DefaultLayer;
@@ -447,9 +447,7 @@ namespace atmosphere
 
         glDepthFunc(GL_LEQUAL);
 
-        //vec3f Camera;
-        real32 CameraScale = 1.0f / (kLengthUnitInMeters);
-    
+        real32 CameraScale = 1.0f / (kLengthUnitInMeters);    
 
         glUseProgram(AtmosphereProgram);
         rf::SendMat4(glGetUniformLocation(AtmosphereProgram, "ViewMatrix"), ViewMatrix);
@@ -480,6 +478,7 @@ namespace atmosphere
         rf::CheckGLError("Atmo");
 
 		// TMP - print center view ray info
+#if 0
 		std::stringstream ss;
 
 		vec4f CenterPoint(0.f, 0.f, 0.f, 1.f);
@@ -504,6 +503,7 @@ namespace atmosphere
 
 		int TextID = 0;
 		rf::ui::MakeText(&TextID, ss.str().c_str(), rf::ui::FONT_DEFAULT, vec2i(4, Context->WindowHeight - 20), col4f(1));
+#endif
     }
 
     void ReloadShaders(rf::context *Context)
