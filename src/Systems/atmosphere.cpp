@@ -479,7 +479,7 @@ namespace atmosphere
 
 		// TMP - print center view ray info
 #if 0
-		std::stringstream ss;
+		str dbgStr;
 
 		vec4f CenterPoint(0.f, 0.f, 0.f, 1.f);
 		vec4f ViewCenterPoint = Context->ProjectionMatrix3D.Inverse() * CenterPoint;
@@ -498,8 +498,8 @@ namespace atmosphere
 		real32 n2 = sqrtval / PdotV;
 		real32 nd = -n1 - n2;
 		real32 depth = nd * PdotV;
-		real32 ViewInfoDepth = -PdotV - sqrtf(AtmosphereParameters.BottomRadius * AtmosphereParameters.BottomRadius - EarthCenterRayDistance);
-		ss << "Center Ray : n1 " << n1 << " n2 " << n2 << " nd " << nd << " d " << depth;
+		real32 ViewInfoDepth = -PdotV - sqrtf(AtmosphereParameters.BottomRadius * AtmosphereParmeters.BottomRadius - EarthCenterRayDistance);
+		snprintf(dbgStr, MAX_STRLEN, "Center Ray : n1 %f n2 %f nd %f d %f", n1, n2, nd, depth);
 
 		int TextID = 0;
 		rf::ui::MakeText(&TextID, ss.str().c_str(), rf::ui::FONT_DEFAULT, vec2i(4, Context->WindowHeight - 20), col4f(1));
