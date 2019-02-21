@@ -379,13 +379,13 @@ namespace atmosphere
 
         // Compute absorption and scattering SRGB colors from wavelength
         int const nWavelengths = (LAMBDA_MAX-LAMBDA_MIN) / 10;
-		real32 *Wavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
-		real32 *SolarIrradianceWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
-		real32 *GroundAlbedoWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
-		real32 *RayleighScatteringWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
-		real32 *MieScatteringWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
-		real32 *MieExtinctionWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
-		real32 *AbsorptionExtinctionWavelengths = Alloc<real32>(Context->ScratchArena, nWavelengths);
+		real32 *Wavelengths = rf::PoolAlloc<real32>(Context->ScratchPool, nWavelengths);
+		real32 *SolarIrradianceWavelengths = rf::PoolAlloc<real32>(Context->ScratchPool, nWavelengths);
+		real32 *GroundAlbedoWavelengths = rf::PoolAlloc<real32>(Context->ScratchPool, nWavelengths);
+		real32 *RayleighScatteringWavelengths = rf::PoolAlloc<real32>(Context->ScratchPool, nWavelengths);
+		real32 *MieScatteringWavelengths = rf::PoolAlloc<real32>(Context->ScratchPool, nWavelengths);
+		real32 *MieExtinctionWavelengths = rf::PoolAlloc<real32>(Context->ScratchPool, nWavelengths);
+		real32 *AbsorptionExtinctionWavelengths = rf::PoolAlloc<real32>(Context->ScratchPool, nWavelengths);
 
         for(int l = LAMBDA_MIN; l <= LAMBDA_MAX; l += 10)
         {

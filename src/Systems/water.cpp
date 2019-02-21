@@ -214,7 +214,7 @@ rf::mesh ScreenQuad = {};
 void Init(game::state * /*State*/, rf::context *Context, uint32 /*BeaufortState*/)
 {
     ScreenQuad = rf::Make2DQuad(Context, vec2i(-1,1), vec2i(1, -1), 5);
-    WaterSystem = Alloc<water::system>(Context->SessionArena);
+    WaterSystem = rf::PoolAlloc<water::system>(Context->SessionPool, 1);
 #if 0
     int N = water::system::WaterN;
     int NPlus1 = N+1;

@@ -30,18 +30,10 @@ memory *InitMemory()
 {
     memory *Memory = (memory*)calloc(1, sizeof(memory));
 
-	Memory->PermanentMemPoolSize = 32 * MB;
-	Memory->SessionMemPoolSize = 512 * MB;
-	Memory->ScratchMemPoolSize = 64 * MB;
-
-    Memory->PermanentMemPool = calloc(1, Memory->PermanentMemPoolSize);
-    Memory->SessionMemPool = calloc(1, Memory->SessionMemPoolSize);
-    Memory->ScratchMemPool = calloc(1, Memory->ScratchMemPoolSize);
-
-    rf::InitArena(&Memory->PermanentArena, Memory->PermanentMemPoolSize, Memory->PermanentMemPool);
-    rf::InitArena(&Memory->SessionArena, Memory->SessionMemPoolSize, Memory->SessionMemPool);
-    rf::InitArena(&Memory->ScratchArena, Memory->ScratchMemPoolSize, Memory->ScratchMemPool);
-
+	Memory->PermanentMemPool = rf::PoolCreate(32 * MB);
+	Memory->SessionMemPool = rf::PoolCreate(512 * MB);
+	Memory->ScratchMemPool = rf::PoolCreate(64 * MB);
+	
     Memory->IsValid = Memory->PermanentMemPool && Memory->SessionMemPool && Memory->ScratchMemPool;
 
     return Memory;
@@ -50,12 +42,9 @@ void DestroyMemory(memory *Memory)
 {
     if(Memory->IsValid)
     {
-        free(Memory->PermanentMemPool);
-        free(Memory->SessionMemPool);
-        free(Memory->ScratchMemPool);
-        Memory->PermanentMemPoolSize = 0;
-        Memory->SessionMemPoolSize = 0;
-        Memory->ScratchMemPoolSize = 0;
+		rf::PoolDestroy(&Memory->PermanentMemPool);
+		rf::PoolDestroy(&Memory->SessionMemPool);
+		rf::PoolDestroy(&Memory->ScratchMemPool);
         Memory->IsValid = false;
     }
 }
@@ -214,25 +203,31 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input * /*Input*/)
         rf::ui::BeginPanel(&SystemPanelID, "System Info", &SystemPanelPos, &SystemPanelSize, rf::ui::COLOR_PANELBG);
             // Session Pool occupancy
             int CurrHeight = 0;
-            real32 ToMiB = 1.f / (1024*1024);
+            real32 ToMiB = 1.f / (real32)MB;
             char OccupancyStr[64];
 
-            static real32 PermanentOccupancy = (real32)(Memory->PermanentArena.Size/(real64)Memory->PermanentArena.Capacity);
-            snprintf(OccupancyStr, 64, "permanent stack %.2f / %.2f MiB", Memory->PermanentArena.Size*ToMiB, Memory->PermanentArena.Capacity*ToMiB);
+			static real32 PermanentOccupancy = 0.0f;
+			PermanentOccupancy = rf::PoolOccupancy(Memory->PermanentMemPool);
+			uint64 permanentUsedSpace = (uint64)(PermanentOccupancy * Memory->PermanentMemPool->Capacity);
+            snprintf(OccupancyStr, 64, "permanent stack %.3f / %.2f MiB", permanentUsedSpace*ToMiB, Memory->PermanentMemPool->Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
             rf::ui::MakeProgressbar(&PermanentOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
             CurrHeight += 16;
 
-            static real32 SessionOccupancy = (real32)(Memory->SessionArena.Size/(real64)Memory->SessionArena.Capacity);
-            snprintf(OccupancyStr, 64, "session stack %.2f / %.2f MiB", Memory->SessionArena.Size*ToMiB, Memory->SessionArena.Capacity*ToMiB);
+			static real32 SessionOccupancy = 0.0f;
+			SessionOccupancy = rf::PoolOccupancy(Memory->SessionMemPool);
+			uint64 sessionUsedSpace = (uint64)(SessionOccupancy * Memory->SessionMemPool->Capacity);
+            snprintf(OccupancyStr, 64, "session stack %.3f / %.2f MiB", sessionUsedSpace*ToMiB, Memory->SessionMemPool->Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
             rf::ui::MakeProgressbar(&SessionOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
             CurrHeight += 16;
 
-            static real32 ScratchOccupancy = (real32)(Memory->ScratchArena.Size/(real64)Memory->ScratchArena.Capacity);
-            snprintf(OccupancyStr, 64, "scratch stack %.2f / %.2f MiB", Memory->ScratchArena.Size*ToMiB, Memory->ScratchArena.Capacity*ToMiB);
+			static real32 ScratchOccupancy = 0.0f;
+			ScratchOccupancy = rf::PoolOccupancy(Memory->ScratchMemPool);
+			uint64 scratchUsedSpace = (uint64)(ScratchOccupancy * Memory->ScratchMemPool->Capacity);
+            snprintf(OccupancyStr, 64, "scratch stack %.3f / %.2f MiB", scratchUsedSpace*ToMiB, Memory->ScratchMemPool->Capacity*ToMiB);
             rf::ui::MakeText(NULL, OccupancyStr, rf::ui::FONT_DEFAULT, vec2i(0, CurrHeight), rf::ui::COLOR_PANELFG);
             CurrHeight += 16;
             rf::ui::MakeProgressbar(&ScratchOccupancy, 1.f, vec2i(0, CurrHeight), vec2i(300, 10));
@@ -256,8 +251,8 @@ void MakeUI(memory *Memory, rf::context *Context, rf::input * /*Input*/)
 rf::context_descriptor MakeContextDescriptor(memory *Memory, config *Config, path const ExecutableName)
 {
     rf::context_descriptor CtxDesc;
-    CtxDesc.SessionArena = &Memory->SessionArena;
-    CtxDesc.ScratchArena = &Memory->ScratchArena;
+    CtxDesc.SessionPool = Memory->SessionMemPool;
+    CtxDesc.ScratchPool = Memory->ScratchMemPool;
     // cpy WinX, WinY, WinW, WinH, VSync, FOV, NearPlane, FarPlane from Config to the Descriptor
     CtxDesc.WindowX = (real32)Config->WindowX;
     CtxDesc.WindowY = (real32)Config->WindowY;
@@ -317,7 +312,7 @@ int RadarMain(int /*argc*/, char ** /*argv*/)
     static vec3i TW_Position(Context->WindowWidth - 10 - TW_Size.x, Context->WindowHeight - 10 - TW_Size.y, 0);
 
     // Game State initialization
-    game::state *State = Alloc<game::state>(&Memory->PermanentArena);
+    game::state *State = rf::PoolAlloc<game::state>(Memory->PermanentMemPool, 1);
     if(!game::Init(State, &Config))
     {
         LogError("Error initializing Game State.");
@@ -352,7 +347,7 @@ int RadarMain(int /*argc*/, char ** /*argv*/)
 
         // NOTE - Each frame, clear the Scratch Arena Data
         // TODO - Is this too often ? Maybe let it stay several frames
-        rf::ClearArena(&Memory->ScratchArena);
+        rf::PoolClear(Memory->ScratchMemPool);
 
         rf::ctx::GetFrameInput(Context, &Input);
 
