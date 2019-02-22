@@ -1,0 +1,21 @@
+{
+  "iWindowX": 200,
+  "iWindowY": 200,
+  "iWindowWidth": 1280,
+  "iWindowHeight": 720,
+  "iMSAA": 0,
+  "bFullScreen": 0,
+  "bVSync": 0,
+  "fFOV": 75.0,
+  "fNearPlane": 0.001,
+  "fFarPlane": 10000.0,
+  "iAnisotropicFiltering": 16,
+
+  "fCameraSpeedBase": 40.0,
+  "vCameraSpeedMult": [ 0.05, 1.0, 20.0, 20000.0 ],
+  "fCameraSpeedAngular": 0.3,
+
+  "vCameraPosition": [ 0, 6360100, 0 ],
+
+  "fTimeScale": 30.0
+}

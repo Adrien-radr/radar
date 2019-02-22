@@ -19,7 +19,7 @@
     "ButtonBG" : [ 1, 1, 1, 0.1 ],
     "ButtonPressedBG" : [ 1, 1, 1, 0.05 ],
 
-    "DebugFG" : [ 1, 0, 0, 1 ],
+    "DebugFG" : [ 1, 1, 1, 1 ],
 
     "ConsoleFont" : [ "data/Roboto-Regular.ttf", 13 ],
     "DefaultFont" : [ "data/Roboto-Regular.ttf", 13 ],
