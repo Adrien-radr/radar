@@ -5,15 +5,15 @@
 just trying to connect to jack before the other drivers and jack is verbose...~~
 + ~~Remove all {m,c}alloc from the code except the Pools creation~~
 + Fast, Deterministic Random Variable system --> SFMT, WIP
-+ Add an UI watch for all pools, describing how full they are each frame
-+ Resource manager (Fonts, Images, ...)
-+ Render commands from DLL to platform
++ ~~Add an UI watch for all pools, describing how full they are each frame~~
++ ~~Resource manager (Fonts, Images, ...)~~
 + 3D axis object to show the coordinate system in the scene
+- ~~RF Memory revamp (Pool, Arena, dynamic buffers, hash maps, remove STL data structures dependencies)~~
 
 ### Rendering
 + Fix the .HDR Envmap loading. There seem to be a mixup at the poles between the south and north.
 + ~~PBR using irradiance map~~
-+ Specular IBL
++ ~~Specular IBL~~
 
 ### UI
 + ~~2D Panel creation with custom shader~~
@@ -23,7 +23,7 @@ just trying to connect to jack before the other drivers and jack is verbose...~~
     + ~~Transparency~~
 - When word wrapping with a maxWidth for display texts : wrap at spaces, not inside words
 + Display textures in panel (e.g. gbuffers display)
-+ Color theme for panels, borders, text color, ...
++ ~~Color theme for panels, borders, text color, ...~~
 - JSON UI descriptor
 
 ### Water

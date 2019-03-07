@@ -19,6 +19,7 @@ rf::model PBRModels[PBRModelsCapacity];
 float rotation[PBRModelsCapacity] = { 0.f };
 vec3f translation[PBRModelsCapacity] = { vec3f(-5.f, 0.f, 0.f) , vec3f(0,-1.98f,0) };
 int translationDir[PBRModelsCapacity] = { 1 };
+vec3f renderOrigin(0.f, 6360100.f, 0.f);
 
 // PBR MATERIALS
 uint32 *Texture1;
@@ -38,6 +39,12 @@ uint32 ProgramSkybox = 0;
 
 void Destroy()
 {
+#if TEST_MODELS
+	for (uint32 model = 0; model < PBRModelsCount; ++model)
+	{
+		ModelFree(&PBRModels[model]);
+	}
+#endif
     glDeleteTextures(1, &GGXLUT);
     glDeleteTextures(1, &HDRCubemapEnvmap);
     glDeleteTextures(1, &HDRGlossyEnvmap);
@@ -78,7 +85,7 @@ void ReloadShaders(rf::context *Context)
     rf::ctx::RegisterShader3D(Context, ProgramSkybox);
 }
 
-bool Init(rf::context *Context, config const * /*Config*/)
+bool Init(rf::context *Context, config const * Config)
 {
     GGXLUT = rf::PrecomputeGGXLUT(Context, 512);
     rf::ComputeIrradianceCubemap(Context, "data/envmap_monument.hdr", 
@@ -89,9 +96,9 @@ bool Init(rf::context *Context, config const * /*Config*/)
     SkyboxCube = rf::MakeUnitCube(false);
 
 #if TEST_MODELS
-    if(!rf::ResourceLoadGLTFModel(Context, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Config->AnisotropicFiltering))
+    if(!rf::ModelLoadGLTF(Context, &PBRModels[0], "data/gltftest/suzanne/Suzanne.gltf", Config->AnisotropicFiltering))
         return false;
-    //if(!rf::ResourceLoadGLTFModel(Context, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Config->AnisotropicFiltering))
+    //if(!rf::ModelLoadGLTF(Context, &PBRModels[1], "data/gltftest/lantern/Lantern.gltf", Config->AnisotropicFiltering))
     //return 1;
 #endif
 
@@ -152,7 +159,7 @@ bool Init(rf::context *Context, config const * /*Config*/)
     return true;
 }
 
-void Render(game::state *State, rf::input * /*Input*/, rf::context * /*Context*/)
+void Render(game::state *State, rf::input * Input, rf::context * /*Context*/)
 {
     mat4f const &ViewMatrix = State->Camera.ViewMatrix;
 
@@ -179,9 +186,10 @@ void Render(game::state *State, rf::input * /*Input*/, rf::context * /*Context*/
         for(uint32  m = 0; m < PBRModelsCount; ++m)
         {
             rf::model *Model = &PBRModels[m];
-            for(uint32 i = 0; i < Model->Mesh.size(); ++i)
+            for(uint32 i = 0; i < BufSize(Model->Meshes); ++i)
             {
-                rf::material const &Mat = Model->Material[Model->MaterialIdx[i]];
+                rf::material const &Mat = Model->Materials[Model->MaterialIdx[i]];
+				rf::mesh &Mesh = Model->Meshes[i];
 
                 rf::SendVec3(AlbedoLoc, Mat.AlbedoMult);
                 rf::SendVec3(EmissiveLoc, Mat.EmissiveMult);
@@ -195,17 +203,17 @@ void Render(game::state *State, rf::input * /*Input*/, rf::context * /*Context*/
                 rf::BindCubemap(HDRGlossyEnvmap, 5);
                 mat4f ModelMatrix;
                 Loc = glGetUniformLocation(Program3D, "ModelMatrix");
-                ModelMatrix.FromTRS(translation[m]+vec3f(0,3,-3), vec3f(0,rotation[m],0), vec3f(1));
-                ModelMatrix = ModelMatrix * Model->Mesh[i].ModelMatrix;
+                ModelMatrix.FromTRS(translation[m] + renderOrigin, vec3f(0,rotation[m],0), vec3f(1));
+                ModelMatrix = ModelMatrix * Mesh.ModelMatrix;
                 rf::SendMat4(Loc, ModelMatrix);
-                glBindVertexArray(Model->Mesh[i].VAO);
-                rf::RenderMesh(&Model->Mesh[i]);
+                glBindVertexArray(Mesh.VAO);
+                rf::RenderMesh(&Mesh);
             }
         }
-        rotation[0] += M_PI * Input->dTimeFixed * 0.02f;
+        rotation[0] += M_PI * (real32)Input->dTimeFixed * 0.02f;
         if(translation[0].y > 1.f) translationDir[0] = -1;
         if(translation[0].y < -1.f) translationDir[0] = 1;
-        translation[0].y += Input->dTimeFixed * translationDir[0] * 0.05f;
+        translation[0].y += (real32)Input->dTimeFixed * translationDir[0] * 0.05f;
     }
 #endif
 
