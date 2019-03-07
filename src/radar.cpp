@@ -42,9 +42,9 @@ void DestroyMemory(memory *Memory)
 {
     if(Memory->IsValid)
     {
-		rf::PoolDestroy(&Memory->PermanentMemPool);
-		rf::PoolDestroy(&Memory->SessionMemPool);
-		rf::PoolDestroy(&Memory->ScratchMemPool);
+		rf::PoolFree(&Memory->PermanentMemPool);
+		rf::PoolFree(&Memory->SessionMemPool);
+		rf::PoolFree(&Memory->ScratchMemPool);
         Memory->IsValid = false;
     }
 }
